@@ -1,16 +1,19 @@
 import { defineConfig } from "vite";
 import { fileURLToPath, URL } from "node:url";
 
-/** Empaqueta tests/real/ai-real.ts en un único .mjs para ejecutarlo con Node en el Mac. */
+/** Empaqueta las pruebas reales (tests/real) en .mjs sueltos para ejecutarlos con Node en el Mac. */
 export default defineConfig({
   resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
   build: {
-    ssr: "tests/real/ai-real.ts",
+    ssr: true,
     outDir: "dist-real",
     emptyOutDir: true,
     target: "node22",
     minify: false,
-    rollupOptions: { output: { entryFileNames: "ai-real.mjs", inlineDynamicImports: true } },
+    rollupOptions: {
+      input: { "ai-real": "tests/real/ai-real.ts", "peers-real": "tests/real/peers-real.ts" },
+      output: { entryFileNames: "[name].mjs", chunkFileNames: "[name].mjs" },
+    },
   },
   ssr: { noExternal: true, target: "node" },
 });

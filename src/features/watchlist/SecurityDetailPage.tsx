@@ -9,9 +9,11 @@ import { AiAnalysisSection } from "@/features/ai/AiAnalysisSection";
 import { analysisFilings } from "@/features/ai/equity-analysis";
 import { DocumentsSection } from "@/features/document-requests/DocumentsSection";
 import { formatCurrency } from "@/lib/format";
+import { PeerSection } from "@/features/peers/PeerSection";
 import { ExpertDetail } from "./ficha/ExpertDetail";
 import { FinancialDetail } from "./ficha/FinancialDetail";
 import { CashIndicator, DebtIndicator, GrowthIndicator, ValuationIndicator, VerdictBadge } from "./ficha/Indicators";
+import { QualitySection } from "./ficha/Quality";
 import { SecFactsTable } from "./ficha/SecFactsTable";
 import { ValuationHistory } from "./ficha/ValuationHistory";
 import { describeError, useAddTicker, useRemoveSecurity, useSecurityDetail } from "./queries";
@@ -125,6 +127,22 @@ export function SecurityDetailPage() {
       <div className="mt-10">
         <AiAnalysisSection securityId={s.id} current={a} newest={newestReport} />
       </div>
+
+      <Section
+        id="competencia"
+        title="Frente a la competencia"
+        description="Lo que pagas por esta empresa y lo bueno que es su negocio, comparado con sus 3–4 competidores más parecidos. Con eso y su historia se decide si es una oportunidad o una posible trampa de valor."
+      >
+        <PeerSection securityId={s.id} />
+      </Section>
+
+      <Section
+        id="calidad"
+        title="¿Es un buen negocio?"
+        description="Nota de 0 a 100 calculada con sus informes: si crece, si sus márgenes aguantan, si el beneficio se convierte en caja, cuánta deuda tiene y si reparte el beneficio entre más acciones."
+      >
+        <QualitySection q={a.quality} />
+      </Section>
 
       <Section
         id="valoracion"
