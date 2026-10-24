@@ -17,6 +17,7 @@ import { loadSecurityDetail } from "@/features/watchlist/load";
 import { costUsd, estimateCostUsd, usdToEur } from "./cost";
 import { EQUITY_ANALYSIS_PROMPT, type Prompt } from "./prompts";
 import { analysisProblems, equityAnalysisSchema, type EquityAnalysis } from "./schema";
+import { snapshotOf, type AnalysisSnapshot } from "./since";
 import { numericSummary } from "./summary";
 
 /**
@@ -46,6 +47,8 @@ export interface StoredAnalysis {
   /** Modelo que respondió (puede ser el de respaldo si el principal declinó). */
   servedModel: string;
   costApprox: boolean;
+  /** Precio y valoración del día del análisis, para compararlos después sin llamar a la IA. */
+  snapshot?: AnalysisSnapshot;
 }
 
 export class BudgetExceededError extends Error {
@@ -212,7 +215,7 @@ export async function runEquityAnalysis(deps: RunDeps, securityId: number, opts:
     throw new AiAnalysisError(`El análisis de la IA está incompleto (${problems.join(" ")}). No se ha guardado.`);
   }
 
-  const stored: StoredAnalysis = { analysis: checked.data, documents: docs, servedModel: response.model, costApprox: cost.approx };
+  const stored: StoredAnalysis = { analysis: checked.data, documents: docs, servedModel: response.model, costApprox: cost.approx, snapshot: snapshotOf(detail.analysis) };
   const analysisId = await saveAnalysis(db, {
     securityId,
     filingIds: filings.map((f) => f.id),

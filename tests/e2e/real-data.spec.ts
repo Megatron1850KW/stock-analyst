@@ -48,6 +48,8 @@ test("MU y GOOG con datos reales de la SEC", async ({ page }) => {
   const ia = page.getByRole("region", { name: /Qué opina el analista/ });
   await expect(ia).toContainText("HBM");
   await expect(ia.getByRole("button", { name: "Cita sin verificar" })).toHaveCount(0);
+  // Precio y valoración frente al día del análisis, calculado sin la IA
+  await expect(ia.getByRole("note", { name: "Cambios desde el análisis" })).toContainText(/El precio no ha cambiado|Frente a su historia sigue/);
   if (SCREENSHOTS) {
     await page.setViewportSize({ width: 1440, height: 1500 });
     await ia.evaluate((el) => el.scrollIntoView({ block: "start" }));

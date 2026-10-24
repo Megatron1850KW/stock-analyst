@@ -27,3 +27,8 @@ export const DEBT_CONFIG = {
   /** Deuda alta: más de 4 años (o deuda neta sin caja libre para pagarla). */
   highAboveYears: 4,
 };
+
+export const SINCE_ANALYSIS_CONFIG = {
+  /** Un movimiento de precio mayor que este (±20 %) desde el último análisis IA se destaca y se sugiere re-analizar. Nunca se re-analiza solo. */
+  bigPriceMove: 0.2,
+};

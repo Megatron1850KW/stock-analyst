@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SourceValue } from "@/components/ui/source-value";
 import { AiAnalysisSection } from "@/features/ai/AiAnalysisSection";
+import { analysisFilings } from "@/features/ai/equity-analysis";
 import { DocumentsSection } from "@/features/document-requests/DocumentsSection";
 import { formatCurrency } from "@/lib/format";
 import { ExpertDetail } from "./ficha/ExpertDetail";
@@ -46,6 +47,8 @@ export function SecurityDetailPage() {
   const { security: s, filings, facts, analysis: a, requests } = data;
   const core = filings.filter((f) => f.role === "core");
   const pending = requests.filter((r) => r.status === "pending").length;
+  const latest = analysisFilings(filings).sort((x, y) => y.period_end.localeCompare(x.period_end))[0];
+  const newestReport = latest ? { id: latest.accession_no, form: latest.form_type, periodEnd: latest.period_end } : null;
 
   return (
     <div className="mx-auto max-w-[1120px] pb-10">
@@ -120,7 +123,7 @@ export function SecurityDetailPage() {
       </p>
 
       <div className="mt-10">
-        <AiAnalysisSection securityId={s.id} />
+        <AiAnalysisSection securityId={s.id} current={a} newest={newestReport} />
       </div>
 
       <Section
