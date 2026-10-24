@@ -137,7 +137,8 @@ export async function installTauriMock(page: Page, opts: MockOptions = {}) {
         const m = /data\/(\d+)\/(\d{18})\//.exec(args.url as string);
         const ticker = m ? REAL_CIKS[m[1]!] : undefined;
         const file = ticker && join(root, "tests/fixtures/sec-docs", `${ticker}-${m![2]}.htm.gz`);
-        return file && existsSync(file) ? gunzipSync(readFileSync(file)).toString("utf8") : fakeReportHtml("10-K");
+        const html = file && existsSync(file) ? gunzipSync(readFileSync(file)).toString("utf8") : fakeReportHtml("10-K");
+        return { html, path: `/simulado/documents/sec/${m?.[1]}/${m?.[2]}/informe.htm`, cached: false };
       }
       case "claude_request": {
         if (!secrets.has("anthropic_api_key")) throw "Falta la clave de Claude. Añádela en Ajustes.";

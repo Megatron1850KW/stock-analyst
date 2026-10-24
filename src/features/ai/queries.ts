@@ -2,6 +2,7 @@ import { useIsMutating, useMutation, useQuery, useQueryClient, type QueryClient 
 import { createClaudeClient } from "@/data/claude/client";
 import { fetchSecDocument } from "@/data/sec-edgar/client";
 import { getLatestAnalysis, latestEurUsd, monthSpend } from "@/db/ai-repo";
+import { setFilingLocalPath } from "@/db/repo";
 import { secUserAgent } from "@/features/settings/schema";
 import { appDb } from "@/platform/database";
 import { secrets } from "@/platform/secrets";
@@ -38,11 +39,16 @@ export async function analyzeSecurity(securityId: number, opts: RunOptions = {})
   if (!(await secrets.has("anthropic_api_key"))) throw new AiAnalysisError("Falta la clave de Claude. Añádela en Ajustes.");
   const ua = secUserAgent(settings);
   if (!ua) throw new AiAnalysisError("Falta tu nombre y email para la SEC. Añádelos en Ajustes.");
+  const db = await appDb();
   return runEquityAnalysis(
     {
-      db: await appDb(),
+      db,
       client: createClaudeClient(),
-      fetchDocument: (url) => fetchSecDocument(url, ua),
+      fetchDocument: async (url) => {
+        const doc = await fetchSecDocument(url, ua);
+        if (doc.path) await setFilingLocalPath(db, url, doc.path);
+        return doc.html;
+      },
       model: settings.aiModelAnalysis,
       budgetEur: settings.aiMonthlyBudgetEur,
     },

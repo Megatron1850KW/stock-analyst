@@ -456,3 +456,8 @@ export async function resolveDocumentRequest(db: Db, id: number, status: "fulfil
 export function countPendingRequests(db: Db): Promise<{ security_id: number; n: number }[]> {
   return db.select("SELECT security_id, COUNT(*) AS n FROM document_requests WHERE status = 'pending' GROUP BY security_id");
 }
+
+/** Copia local de un informe de la SEC ya descargado (CLAUDE.md §7: no volver a pedirlo). */
+export async function setFilingLocalPath(db: Db, url: string, path: string): Promise<void> {
+  await db.execute("UPDATE filings SET local_path = ? WHERE url = ? AND source = 'sec-edgar'", [path, url]);
+}

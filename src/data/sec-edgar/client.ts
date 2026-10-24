@@ -83,7 +83,15 @@ export function filingUrl(cik: string, accession: string, primaryDocument: strin
   return `https://www.sec.gov/Archives/edgar/data/${Number(cik)}/${accession.replace(/-/g, "")}/${primaryDocument}`;
 }
 
-/** HTML de un informe (10-K, 10-Q, 20-F) para extraer sus secciones de texto. */
-export function fetchSecDocument(url: string, userAgent: string): Promise<string> {
-  return invoke<string>("sec_document", { url, userAgent });
+export interface SecDocument {
+  html: string;
+  /** Copia local en la carpeta de datos de la app ("" si no se pudo guardar). */
+  path: string;
+  /** Ya estaba guardado: no se ha pedido nada a la SEC. */
+  cached: boolean;
+}
+
+/** HTML de un informe (10-K, 10-Q, 20-F). Se descarga una vez y se guarda en el Mac. */
+export function fetchSecDocument(url: string, userAgent: string): Promise<SecDocument> {
+  return invoke<SecDocument>("sec_document", { url, userAgent });
 }

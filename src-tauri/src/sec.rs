@@ -110,23 +110,67 @@ pub fn validate_archive_url(url: &str) -> Result<&str, NetError> {
     if digits(cik, 1, 10) && digits(acc, 18, 18) && name_ok { Ok(url) } else { Err(bad()) }
 }
 
-/// Descarga un 10-K/10-Q/20-F en HTML para extraer sus secciones de texto
-/// (negocio, riesgos, MD&A) que se envían a la IA.
+/// Ruta local de un documento de EDGAR: documents/sec/<cik>/<accession>/<fichero>.
+/// Se guarda por CIK para que lo compartan la watchlist y los competidores.
+pub fn archive_path(root: &std::path::Path, url: &str) -> Result<std::path::PathBuf, NetError> {
+    let url = validate_archive_url(url)?;
+    let rest = &url["https://www.sec.gov/Archives/edgar/data/".len()..];
+    let mut p = root.join("sec");
+    for part in rest.split('/') {
+        p.push(part);
+    }
+    Ok(p)
+}
+
+#[derive(serde::Serialize, Debug)]
+pub struct SecDocument {
+    html: String,
+    path: String,
+    /// true si ya estaba guardado en el Mac y no se ha pedido a la SEC.
+    cached: bool,
+}
+
+/// Un 10-K/10-Q/20-F en HTML para extraer sus secciones de texto. Se descarga
+/// una sola vez y se guarda en la carpeta de datos de la app (CLAUDE.md §7).
 #[tauri::command]
-pub async fn sec_document(url: String, user_agent: String) -> Result<String, NetError> {
+pub async fn sec_document(app: tauri::AppHandle, url: String, user_agent: String) -> Result<SecDocument, NetError> {
+    let root = crate::documents::documents_dir(&app).map_err(|e| NetError::Invalid(e.to_string()))?;
+    let path = archive_path(&root, &url)?;
+    let shown = path.to_string_lossy().into_owned();
+    if let Ok(html) = std::fs::read_to_string(&path) {
+        return Ok(SecDocument { html, path: shown, cached: true });
+    }
     let ua = validate_user_agent(&user_agent)?.to_owned();
-    let url = validate_archive_url(&url)?.to_owned();
     THROTTLE.wait().await;
     let req = client()
         .get(url)
         .header(reqwest::header::USER_AGENT, ua)
         .header(reqwest::header::ACCEPT, "text/html");
-    get_text(HOST, req).await
+    let html = get_text(HOST, req).await?;
+    // Si no se puede guardar, el análisis sigue con lo descargado
+    if let Some(dir) = path.parent() {
+        let tmp = path.with_extension("part");
+        let saved = std::fs::create_dir_all(dir).and_then(|_| std::fs::write(&tmp, &html)).and_then(|_| std::fs::rename(&tmp, &path));
+        if saved.is_err() {
+            return Ok(SecDocument { html, path: String::new(), cached: false });
+        }
+    }
+    Ok(SecDocument { html, path: shown, cached: false })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn guarda_cada_documento_por_cik_y_registro() {
+        let root = std::path::Path::new("/datos/documents");
+        assert_eq!(
+            archive_path(root, "https://www.sec.gov/Archives/edgar/data/723125/000072312525000028/mu-20250828.htm").unwrap(),
+            std::path::Path::new("/datos/documents/sec/723125/000072312525000028/mu-20250828.htm")
+        );
+        assert!(archive_path(root, "https://www.sec.gov/Archives/edgar/data/1/000072312525000028/../x.htm").is_err());
+    }
 
     #[test]
     fn solo_descarga_documentos_del_archivo_de_edgar() {

@@ -64,7 +64,7 @@ fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
-fn documents_dir(app: &AppHandle) -> Result<PathBuf, DocError> {
+pub(crate) fn documents_dir(app: &AppHandle) -> Result<PathBuf, DocError> {
     Ok(app.path().app_data_dir().map_err(|_| DocError::NoDataDir)?.join("documents"))
 }
 
