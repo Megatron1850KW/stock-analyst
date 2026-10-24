@@ -5,8 +5,9 @@ import type { FactRow, FilingRow } from "@/db/repo";
 import { CONCEPTS, type ConceptDef } from "@/domain/fundamentals/concepts";
 import { ownPeriodFact } from "@/domain/fundamentals/period-value";
 import { formatDate, formatMillions, formatMonthYear, formatNumber, SIN_DATO } from "@/lib/format";
+import { formLabel, sourceLabel } from "./format";
 
-/** Cifras tal como vienen en los informes de la SEC (sin cálculos). */
+/** Cifras tal como vienen en los informes oficiales (SEC o ESEF), sin cálculos. */
 const GROUPS: { title: string; from: string }[] = [
   { title: "Cuenta de resultados", from: "revenue" },
   { title: "Flujo de caja", from: "operating_cash_flow" },
@@ -80,8 +81,8 @@ export function SecFactsTable({ filings, facts }: { filings: FilingRow[]; facts:
                         {own ? (
                           <SourceValue
                             info={{
-                              source: "SEC EDGAR (XBRL)",
-                              document: `${filing.form_type} · ${filing.accession_no}`,
+                              source: sourceLabel(filing.source),
+                              document: `${formLabel(filing.form_type)} · ${filing.accession_no}`,
                               tag: own.fact.source_tag,
                               period: periodText(own.fact) + (own.cumulative ? " (acumulado del año)" : ""),
                               fetchedAt: own.fact.fetched_at,

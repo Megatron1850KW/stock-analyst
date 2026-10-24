@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { DocumentRequestRow, FilingRow } from "@/db/repo";
 import { formatDate, formatNumber } from "@/lib/format";
+import { formLabel } from "@/features/watchlist/ficha/format";
 import { openDocument } from "@/platform/documents";
 import { monthText } from "./missing";
 import { useDeleteUpload, useDismissRequest } from "./queries";
@@ -53,7 +54,7 @@ export function DocumentsSection({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="max-w-[70ch] text-[13px] text-muted">
-          La ficha usa {core.length} informes recientes de la SEC y {history.length} anuales anteriores para la historia. Si falta alguno o no encuentra sus cifras,
+          La ficha usa {core.length} informes oficiales recientes ({core.some((f) => f.source === "filings.xbrl.org") ? "ESEF" : "SEC"}) y {history.length} anuales anteriores para la historia. Si falta alguno o no encuentra sus cifras,
           puedes subirlo tú.
         </p>
         {!uploading && (
@@ -88,7 +89,7 @@ export function DocumentsSection({
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{f.original_name ?? f.form_type}</p>
                   <p className="text-[11.5px] text-muted">
-                    {f.form_type} · cierre {formatDate(f.period_end)}
+                    {formLabel(f.form_type)} · cierre {formatDate(f.period_end)}
                     {f.bytes ? ` · ${formatNumber(f.bytes / 1024 / 1024, 1)} MB` : ""} · pendiente de leer con IA
                   </p>
                 </div>
@@ -114,12 +115,12 @@ export function DocumentsSection({
       )}
 
       <details className="text-[12.5px]">
-        <summary className="cursor-pointer text-muted hover:text-text">Ver los informes de la SEC que se usan ({core.length + history.length})</summary>
+        <summary className="cursor-pointer text-muted hover:text-text">Ver los informes oficiales que se usan ({core.length + history.length})</summary>
         <ul className="mt-2 grid gap-x-6 gap-y-1 sm:grid-cols-2">
           {[...core, ...history].map((f) => (
             <li key={f.id} className="flex items-center gap-2">
               <a href={f.url ?? undefined} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-accent-text">
-                {f.form_type} · cierre {formatDate(f.period_end)} <ExternalLink className="size-3" aria-hidden />
+                {formLabel(f.form_type)} · cierre {formatDate(f.period_end)} <ExternalLink className="size-3" aria-hidden />
               </a>
               {f.role === "history" && <Badge>historia</Badge>}
             </li>

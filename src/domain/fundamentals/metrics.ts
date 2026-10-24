@@ -130,8 +130,12 @@ export function cashAndInvestments(get: Getter): Metric {
   };
 }
 
-/** Etiquetas de deuda total que ya incluyen los préstamos a corto y el papel comercial. */
-const TOTAL_INCLUDES_SHORT_TERM = ["us-gaap:DebtLongtermAndShorttermCombinedAmount", "ifrs-full:Borrowings"];
+/** Etiquetas de deuda (total o a corto) que ya incluyen los préstamos a corto y el papel comercial. */
+const TOTAL_INCLUDES_SHORT_TERM = [
+  "us-gaap:DebtLongtermAndShorttermCombinedAmount",
+  "ifrs-full:Borrowings",
+  "ifrs-full:CurrentBorrowingsAndCurrentPortionOfNoncurrentBorrowings",
+];
 
 /**
  * Deuda financiera bruta (ver notas de mapeo en concepts.ts): total con
@@ -152,7 +156,7 @@ export function grossDebt(get: Getter): Metric {
     if (cur) parts.push(cur);
     formula = "Deuda a largo + Deuda que vence en 12 meses";
   }
-  const includesShort = total?.sources.some((s) => s.tag && TOTAL_INCLUDES_SHORT_TERM.includes(s.tag));
+  const includesShort = parts.some((p) => p.sources.some((s) => s.tag && TOTAL_INCLUDES_SHORT_TERM.includes(s.tag)));
   if (!includesShort) {
     for (const c of ["short_term_borrowings", "commercial_paper"]) {
       const x = get(c);

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { providerFor } from "@/data/prices/provider";
+import { tauriEuClient } from "@/data/esef/client";
 import { tauriSecClient } from "@/data/sec-edgar/client";
 import { listWatchlist, removeFromWatchlist } from "@/db/repo";
 import { startInitialAnalysis } from "@/features/ai/queries";
@@ -9,7 +10,8 @@ import { refreshPrices } from "@/features/prices/refresh";
 import { secUserAgent } from "@/features/settings/schema";
 import { loadSettings } from "@/platform/settings-store";
 import { appDb } from "@/platform/database";
-import { importUsTicker, ImportError, type ImportStep } from "./import-us";
+import { importEuIsin } from "./import-eu";
+import { importUsTicker, ImportError, looksLikeIsin, type ImportStep } from "./import-us";
 import { loadSecurityDetail } from "./load";
 
 export const watchlistKey = ["watchlist"] as const;
@@ -35,12 +37,27 @@ export function describeError(e: unknown): string {
 export function useAddTicker() {
   const qc = useQueryClient();
   const [step, setStep] = useState<ImportStep | null>(null);
+  const [market, setMarket] = useState<"US" | "EU">("US");
   const mutation = useMutation({
-    mutationFn: async (ticker: string) => {
+    mutationFn: async (input: string) => {
       const settings = await loadSettings();
+      const db = await appDb();
+      const eu = tauriEuClient();
+      let ticker = input.trim().toUpperCase();
+      // ISIN: europeo → ESEF; de EE. UU. → su ticker y la SEC
+      if (looksLikeIsin(ticker)) {
+        if (!ticker.startsWith("US")) {
+          setMarket("EU");
+          return { ...(await importEuIsin(eu, db, ticker, setStep)), priceErrors: [] as string[] };
+        }
+        setStep("ticker");
+        const us = (await eu.figi(ticker)).find((r) => r.exchCode === "US" && r.ticker);
+        if (!us?.ticker) throw new ImportError(`No encuentro qué ticker de EE. UU. corresponde al ISIN ${ticker}.`);
+        ticker = us.ticker.replace(/\//g, ".");
+      }
+      setMarket("US");
       const ua = secUserAgent(settings);
       if (!ua) throw new ImportError("Antes de consultar la SEC, añade tu nombre y email en Ajustes (la SEC lo exige).");
-      const db = await appDb();
       const result = await importUsTicker(tauriSecClient(ua), db, ticker, setStep);
       // Precio e histórico del valor recién añadido (si hay proveedor); un fallo aquí no anula el alta
       const provider = providerFor(settings.priceProvider);
@@ -57,7 +74,7 @@ export function useAddTicker() {
       startInitialAnalysis(qc, r.securityId, () => startInitialPeers(qc, r.securityId));
     },
   });
-  return { ...mutation, step };
+  return { ...mutation, step, market };
 }
 
 export function useRemoveSecurity() {

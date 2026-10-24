@@ -8,7 +8,7 @@
  * "Sin dato": nunca se estima.
  *
  * Taxonomías: us-gaap (10-K/10-Q), ifrs-full (20-F de emisores que presentan
- * en NIIF; también servirá para ESEF en la fase 6) y dei (portada del informe).
+ * en NIIF e informes europeos ESEF) y dei (portada del informe).
  *
  * Notas de mapeo:
  * - Ventas: desde 2018 (ASC 606) la mayoría usa RevenueFromContractWith…;
@@ -23,6 +23,11 @@
  *   · debt_noncurrent + debt_current: alternativa cuando no hay total.
  *   · short_term_borrowings y commercial_paper: deuda a corto que no viene de
  *     la deuda a largo; se suman aparte, sin riesgo de contar dos veces.
+ *   · NIIF (ESEF): «LongtermBorrowings» es la deuda financiera no corriente y
+ *     «CurrentBorrowingsAndCurrentPortionOfNoncurrentBorrowings» ya incluye los
+ *     préstamos a corto, así que con ella no se suman aparte (ver metrics.ts).
+ *     Los pasivos por arrendamiento (NIIF 16) no se cuentan como deuda, igual
+ *     que los arrendamientos operativos en US-GAAP, para comparar igual con igual.
  * - Beneficio bruto: algunas empresas (p. ej. Alphabet) no lo publican. No se
  *   rellena aquí; si hace falta, se calcula en domain/valuation como ventas
  *   menos coste de las ventas y se etiqueta como cifra calculada.
@@ -67,6 +72,7 @@ export const CONCEPTS: ConceptDef[] = [
       g("SalesRevenueGoodsNet"),
       i("Revenue"),
       i("RevenueFromContractsWithCustomers"),
+      i("RevenueFromSaleOfGoods"),
     ],
   },
   {
@@ -129,7 +135,7 @@ export const CONCEPTS: ConceptDef[] = [
     tags: [g("PaymentsToAcquirePropertyPlantAndEquipment"), g("PaymentsToAcquireProductiveAssets"), i("PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities")],
   },
   { id: "share_based_comp", label: "Pagos en acciones", kind: "money", period: "duration", tags: [g("ShareBasedCompensation"), g("AllocatedShareBasedCompensationExpense")] },
-  { id: "dividends_paid", label: "Dividendos pagados", kind: "money", period: "duration", tags: [g("PaymentsOfDividends"), g("PaymentsOfDividendsCommonStock"), i("DividendsPaidClassifiedAsFinancingActivities")] },
+  { id: "dividends_paid", label: "Dividendos pagados", kind: "money", period: "duration", tags: [g("PaymentsOfDividends"), g("PaymentsOfDividendsCommonStock"), i("DividendsPaidClassifiedAsFinancingActivities"), i("DividendsPaidToEquityHoldersOfParentClassifiedAsFinancingActivities")] },
   { id: "buybacks", label: "Recompra de acciones", kind: "money", period: "duration", tags: [g("PaymentsForRepurchaseOfCommonStock"), i("PaymentsToAcquireOrRedeemEntitysShares")] },
 
   // Balance
@@ -165,14 +171,20 @@ export const CONCEPTS: ConceptDef[] = [
     label: "Deuda a largo plazo (no corriente)",
     kind: "money",
     period: "instant",
-    tags: [g("LongTermDebtNoncurrent"), g("LongTermDebtAndCapitalLeaseObligations"), i("NoncurrentPortionOfNoncurrentBorrowings"), i("NoncurrentBorrowings")],
+    tags: [g("LongTermDebtNoncurrent"), g("LongTermDebtAndCapitalLeaseObligations"), i("NoncurrentPortionOfNoncurrentBorrowings"), i("NoncurrentBorrowings"), i("LongtermBorrowings")],
   },
   {
     id: "debt_current",
     label: "Deuda que vence en 12 meses",
     kind: "money",
     period: "instant",
-    tags: [g("LongTermDebtCurrent"), g("DebtCurrent"), g("LongTermDebtAndCapitalLeaseObligationsCurrent"), i("CurrentPortionOfNoncurrentBorrowings")],
+    tags: [
+      g("LongTermDebtCurrent"),
+      g("DebtCurrent"),
+      g("LongTermDebtAndCapitalLeaseObligationsCurrent"),
+      i("CurrentBorrowingsAndCurrentPortionOfNoncurrentBorrowings"),
+      i("CurrentPortionOfNoncurrentBorrowings"),
+    ],
   },
   { id: "short_term_borrowings", label: "Préstamos a corto plazo", kind: "money", period: "instant", tags: [g("ShortTermBorrowings"), i("ShorttermBorrowings"), i("CurrentBorrowings")] },
   { id: "commercial_paper", label: "Papel comercial", kind: "money", period: "instant", tags: [g("CommercialPaper")] },
@@ -187,7 +199,7 @@ export const CONCEPTS: ConceptDef[] = [
   },
 
   // Acciones
-  { id: "shares_outstanding", label: "Acciones en circulación", kind: "shares", period: "instant", tags: [d("EntityCommonStockSharesOutstanding"), g("CommonStockSharesOutstanding")] },
+  { id: "shares_outstanding", label: "Acciones en circulación", kind: "shares", period: "instant", tags: [d("EntityCommonStockSharesOutstanding"), g("CommonStockSharesOutstanding"), i("NumberOfSharesOutstanding")] },
   {
     id: "shares_diluted",
     label: "Acciones diluidas (media del periodo)",

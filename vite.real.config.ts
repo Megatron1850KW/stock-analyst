@@ -11,7 +11,7 @@ export default defineConfig({
     target: "node22",
     minify: false,
     rollupOptions: {
-      input: { "ai-real": "tests/real/ai-real.ts", "peers-real": "tests/real/peers-real.ts" },
+      input: { "ai-real": "tests/real/ai-real.ts", "peers-real": "tests/real/peers-real.ts", "eu-probe": "tests/real/eu-probe.ts" },
       output: { entryFileNames: "[name].mjs", chunkFileNames: "[name].mjs" },
     },
   },

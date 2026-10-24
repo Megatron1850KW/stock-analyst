@@ -14,6 +14,8 @@ export interface FilingInfo {
   filed_at: string | null;
   accession_no: string;
   url: string | null;
+  /** sec-edgar, filings.xbrl.org o user-upload. */
+  source?: string;
 }
 
 export interface FactInfo {

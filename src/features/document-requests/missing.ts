@@ -82,3 +82,73 @@ const CONCEPT_TEXT: Record<string, string> = {
   net_income: "el beneficio neto",
   operating_cash_flow: "la caja de las operaciones",
 };
+
+const WANTED = 3;
+
+/** Dónde publica cada país la información regulada (CLAUDE.md §4.2). */
+const EU_REGULATOR: Record<string, string> = {
+  ES: "la CNMV (cnmv.es → Información financiera regulada)",
+  FR: "la AMF (info-financiere.fr)",
+  DE: "el Unternehmensregister (unternehmensregister.de)",
+  NL: "la AFM (afm.nl → registro de informes financieros)",
+  IT: "Consob / Borsa Italiana (eMarket Storage)",
+  PT: "la CMVM (cmvm.pt)",
+  BE: "la FSMA (STORI)",
+  IE: "Euronext Dublin",
+  LU: "la Bolsa de Luxemburgo (OAM)",
+  AT: "la OeKB (issuer-info.at)",
+  FI: "Nasdaq Helsinki",
+};
+
+export interface EuMissingInput {
+  country: string | null;
+  /** Cierres de ejercicio de los informes anuales encontrados (el más reciente primero). */
+  annualEnds: string[];
+  /** Cierres de los informes intermedios que ya hay (descargados o subidos por ti). */
+  interimEnds: string[];
+  today: Date;
+}
+
+const near = (a: string, b: string) => Math.abs(Date.parse(a) - Date.parse(b)) <= 20 * 86_400_000;
+
+/**
+ * Europa: los informes intermedios no tienen formato estructurado obligatorio,
+ * así que se piden los 3 últimos semestrales (H1) que ya deberían estar
+ * publicados (unos 3 meses tras el cierre). Si faltan anuales (la empresa no
+ * está en filings.xbrl.org), se piden también los 3 últimos anuales.
+ */
+export function euMissingRequests(input: EuMissingInput): DocumentRequestInput[] {
+  const todayIso = input.today.toISOString().slice(0, 10);
+  const where = `la web de inversores de la empresa${input.country && EU_REGULATOR[input.country] ? ` o ${EU_REGULATOR[input.country]}` : ""}`;
+  const out: DocumentRequestInput[] = [];
+  const published = (end: string, months: number) => addMonths(end, months) <= todayIso;
+
+  // Cierre de ejercicio: el del último anual o, si no hay ninguno, el 31-dic.
+  const fyEnd = input.annualEnds[0] ?? `${Number(todayIso.slice(0, 4)) - 1}-12-31`;
+  if (input.annualEnds.length < WANTED) {
+    for (const end of [0, -12, -24, -36].map((m) => addMonths(fyEnd, m)).filter((e) => published(e, 4))) {
+      if (out.length >= WANTED - input.annualEnds.length) break;
+      if (input.annualEnds.some((a) => near(a, end))) continue;
+      out.push({
+        documentType: `Informe financiero anual ${end.slice(0, 4)}`,
+        period: end,
+        expectedDate: addMonths(end, 3).slice(0, 7),
+        preferredFormat: "ZIP ESEF o PDF",
+        whereToFind: `${where}. Es el informe anual con las cuentas consolidadas auditadas.`,
+      });
+    }
+  }
+
+  const halves = [6, -6, -18, -30].map((m) => addMonths(fyEnd, m)).filter((e) => published(e, 3)).slice(0, WANTED);
+  for (const end of halves) {
+    if (input.interimEnds.some((e) => near(e, end))) continue;
+    out.push({
+      documentType: `Informe semestral ${halfLabel(end)}`,
+      period: end,
+      expectedDate: addMonths(end, 2).slice(0, 7),
+      preferredFormat: "PDF",
+      whereToFind: `${where}. Suele llamarse «Informe financiero semestral» o «Resultados del primer semestre». Si la empresa publica resultados trimestrales, también puedes subirlos.`,
+    });
+  }
+  return out;
+}

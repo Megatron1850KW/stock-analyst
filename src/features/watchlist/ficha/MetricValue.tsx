@@ -4,11 +4,11 @@ import type { Input, Metric } from "@/domain/fundamentals/metrics";
 import type { Sourced } from "@/domain/fundamentals/statements";
 import { formatDate, SIN_DATO } from "@/lib/format";
 import { cn } from "@/lib/cn";
-import { formatInput, formatMetric } from "./format";
+import { formatInput, formatMetric, formLabel, sourceLabel } from "./format";
 
 function sourceText(s: Sourced): string {
   const period = s.periodStart ? `${formatDate(s.periodStart)} – ${formatDate(s.periodEnd)}` : `a ${formatDate(s.periodEnd)}`;
-  return `${s.filing.form_type} ${s.filing.accession_no}${s.fromComparative ? " (comparativa)" : ""} · ${period}`;
+  return `${formLabel(s.filing.form_type)} ${s.filing.accession_no}${s.fromComparative ? " (comparativa)" : ""} · ${period}`;
 }
 
 /** Desglose de un cálculo: fórmula, piezas con su documento y aclaraciones. */
@@ -33,7 +33,9 @@ export function MetricBreakdown({ metric }: { metric: Metric }) {
         </ul>
       )}
       {metric.note && <p className="text-[11px] text-muted">{metric.note}</p>}
-      <p className="text-[10.5px] text-muted">Cálculo propio a partir de SEC EDGAR (XBRL).</p>
+      <p className="text-[10.5px] text-muted">
+        Cálculo propio a partir de {sourceLabel(metric.inputs.flatMap((i) => i.sources)[0]?.filing.source)}.
+      </p>
     </div>
   );
 }

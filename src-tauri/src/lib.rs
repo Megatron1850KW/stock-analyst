@@ -1,5 +1,6 @@
 mod claude;
 mod documents;
+mod eu;
 mod http;
 mod prices;
 mod sec;
@@ -38,6 +39,12 @@ fn migrations() -> Vec<Migration> {
             sql: include_str!("../../src/db/migrations/0004_peers.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 5,
+            description: "europa",
+            sql: include_str!("../../src/db/migrations/0005_europe.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
 
@@ -57,6 +64,8 @@ pub fn run() {
             secrets::secret_delete,
             sec::sec_fetch,
             sec::sec_document,
+            eu::eu_fetch,
+            eu::esef_document,
             claude::claude_request,
             prices::price_quote,
             prices::price_history,
