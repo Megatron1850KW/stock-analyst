@@ -51,6 +51,7 @@ export function useAddTicker() {
     void qc.invalidateQueries({ queryKey: watchlistFundsKey });
     void qc.invalidateQueries({ queryKey: ["technical-risk"] });
     void qc.invalidateQueries({ queryKey: ["comparison"] });
+    void qc.invalidateQueries({ queryKey: ["stars"] });
   };
   const mutation = useMutation({
     mutationFn: async (text: string) => {
@@ -96,6 +97,7 @@ export function useRemoveSecurity() {
       void qc.invalidateQueries({ queryKey: watchlistFundsKey });
       void qc.invalidateQueries({ queryKey: ["technical-risk"] });
       void qc.invalidateQueries({ queryKey: ["comparison"] });
+      void qc.invalidateQueries({ queryKey: ["stars"] });
     },
   });
 }

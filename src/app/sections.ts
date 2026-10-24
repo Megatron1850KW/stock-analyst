@@ -14,7 +14,7 @@ export interface Section {
 }
 
 /** Última fase del plan (CLAUDE.md §11) ya construida. */
-export const BUILT_PHASE = 8;
+export const BUILT_PHASE = 9;
 
 /** Las 4 secciones de la app (CLAUDE.md §5), en el orden de las columnas. */
 export const SECTIONS: Section[] = [

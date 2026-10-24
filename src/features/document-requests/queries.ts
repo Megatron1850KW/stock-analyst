@@ -17,6 +17,7 @@ function useInvalidate(securityId: number) {
     void qc.invalidateQueries({ queryKey: ["security", securityId] });
     void qc.invalidateQueries({ queryKey: ["watchlist"] });
     void qc.invalidateQueries({ queryKey: ["comparison"] });
+    void qc.invalidateQueries({ queryKey: ["stars"] });
     void qc.invalidateQueries({ queryKey: aiSpendKey });
   };
 }

@@ -22,6 +22,7 @@ import type { AddOutcome } from "./add";
 import { IMPORT_STEP_LABELS, type ImportStep } from "./import-us";
 import { parseWatchlistEntry, splitWatchlistInput } from "./parse-input";
 import { describeError, useAddTicker, useWatchlist } from "./queries";
+import { StarMark } from "@/features/stars/StarMark";
 
 const section = SECTIONS[0]!;
 const STEPS = Object.keys(IMPORT_STEP_LABELS) as ImportStep[];
@@ -165,6 +166,7 @@ function WatchlistTable({ rows }: { rows: WatchlistRow[] }) {
                   {r.ticker}
                 </Link>
                 {r.kind !== "stock" && <Badge className="ml-2">{r.kind.toUpperCase()}</Badge>}
+                {r.kind === "stock" && <StarMark id={r.id} which="watchlist" className="ml-1.5 align-[-2px]" />}
                 <div className="text-[12px] text-muted">{r.name}</div>
               </td>
               <td className="px-3 py-3 text-muted">{(r.market === "EU" && r.exchange && EXCHANGE_NAMES[r.exchange]) || r.exchange || SIN_DATO}</td>

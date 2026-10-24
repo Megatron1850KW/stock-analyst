@@ -34,6 +34,7 @@ function useInvalidate() {
     void qc.invalidateQueries({ queryKey: portfolioKey });
     void qc.invalidateQueries({ queryKey: ["watchlist"] });
     void qc.invalidateQueries({ queryKey: ["comparison"] });
+    void qc.invalidateQueries({ queryKey: ["stars"] });
     void qc.invalidateQueries({ queryKey: ["technical-risk"] });
     void qc.invalidateQueries({ queryKey: ["watchlist-funds"] });
   };
