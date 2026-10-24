@@ -38,20 +38,28 @@ const FAKE_PEERS = {
   nota: "",
 };
 
-const REAL_CIKS: Record<string, string> = { "723125": "MU", "1652044": "GOOG" };
-const realTickers = JSON.stringify({
-  fields: ["cik", "name", "ticker", "exchange"],
-  data: [
-    [723125, "MICRON TECHNOLOGY INC", "MU", "Nasdaq"],
-    [1652044, "Alphabet Inc.", "GOOG", "Nasdaq"],
-  ],
-});
+/** Lee un fixture REAL, en claro o comprimido (.gz), si existe. */
+function readReal(path: string): string | null {
+  if (existsSync(path)) return readFileSync(path, "utf8");
+  if (existsSync(`${path}.gz`)) return gunzipSync(readFileSync(`${path}.gz`)).toString("utf8");
+  return null;
+}
+const secDir = join(root, "tests/fixtures/sec");
+/** Empresas REALES guardadas (MU, GOOG y sus competidores): CIK → ticker. */
+const REAL_CIKS: Record<string, string> = {};
+const realNames: [number, string, string, string][] = [];
+for (const f of readdirSync(secDir).filter((x) => /-submissions\.json(\.gz)?$/.test(x))) {
+  const ticker = f.replace(/-submissions\.json(\.gz)?$/, "");
+  const subs = JSON.parse(readReal(join(secDir, `${ticker}-submissions.json`))!) as { cik: string; name: string; exchanges?: string[] };
+  REAL_CIKS[String(Number(subs.cik))] = ticker;
+  realNames.push([Number(subs.cik), subs.name, ticker, subs.exchanges?.[0] ?? "Nasdaq"]);
+}
+const realTickers = JSON.stringify({ fields: ["cik", "name", "ticker", "exchange"], data: realNames });
 /** Precios REALES guardados (tests/fixtures/prices), si existen para ese símbolo. */
 function realPrices(symbol: string, kind: "history" | "splits" | "quote" = "history"): string | null {
-  const file = join(root, "tests/fixtures/prices", `${symbol}-${kind}.json`);
-  return existsSync(file) ? readFileSync(file, "utf8") : null;
+  return readReal(join(root, "tests/fixtures/prices", `${symbol}-${kind}.json`));
 }
-const realFile = (ticker: string, kind: string) => readFileSync(join(root, "tests/fixtures/sec", `${ticker}-${kind}.json`), "utf8");
+const realFile = (ticker: string, kind: string) => readReal(join(secDir, `${ticker}-${kind}.json`))!;
 
 export async function installTauriMock(page: Page, opts: MockOptions = {}) {
   const db = new DatabaseSync(":memory:");
