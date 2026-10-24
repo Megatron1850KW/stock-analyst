@@ -72,7 +72,9 @@ pub fn run() {
             prices::price_splits,
             documents::document_store,
             documents::document_open,
-            documents::document_delete
+            documents::document_delete,
+            documents::document_read_pdf,
+            documents::document_esef_report
         ])
         .run(tauri::generate_context!())
         .expect("error al iniciar Agente Financiero");

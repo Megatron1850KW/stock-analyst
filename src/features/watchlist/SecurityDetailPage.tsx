@@ -164,7 +164,13 @@ export function SecurityDetailPage() {
       </Section>
 
       <Section id="informes" title="Informes">
-        <DocumentsSection securityId={s.id} name={`${s.name} (${s.ticker})`} filings={filings} requests={requests} />
+        <DocumentsSection
+          securityId={s.id}
+          name={`${s.name} (${s.ticker}${s.isin ? ` · ${s.isin}` : ""})`}
+          filings={filings}
+          requests={requests}
+          facts={facts}
+        />
       </Section>
 
       <div className="mt-10">
@@ -174,7 +180,7 @@ export function SecurityDetailPage() {
             <p className="mb-3 text-[12px] text-muted">
               <sup>a</sup> Acumulado desde el inicio del año fiscal: el informe trimestral no da la cifra del trimestre aislado. Importes en millones.
             </p>
-            <SecFactsTable filings={core} facts={facts} />
+            <SecFactsTable filings={[...core, ...filings.filter((f) => f.role === "upload" && facts.some((x) => x.filing_id === f.id))]} facts={facts} />
           </div>
         </ExpertDetail>
       </div>

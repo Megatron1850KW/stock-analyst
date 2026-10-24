@@ -8,7 +8,8 @@ import { formatInput, formatMetric, formLabel, sourceLabel } from "./format";
 
 function sourceText(s: Sourced): string {
   const period = s.periodStart ? `${formatDate(s.periodStart)} – ${formatDate(s.periodEnd)}` : `a ${formatDate(s.periodEnd)}`;
-  return `${formLabel(s.filing.form_type)} ${s.filing.accession_no}${s.fromComparative ? " (comparativa)" : ""} · ${period}`;
+  const where = s.page ? `PDF subido por ti, pág. ${s.page} (extraída por IA)` : `${formLabel(s.filing.form_type)} ${s.filing.accession_no}`;
+  return `${where}${s.fromComparative ? " (comparativa)" : ""} · ${period}`;
 }
 
 /** Desglose de un cálculo: fórmula, piezas con su documento y aclaraciones. */

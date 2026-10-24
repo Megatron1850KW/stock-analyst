@@ -178,5 +178,6 @@ export function titleCase(name: string): string {
   return name
     .toLowerCase()
     .replace(/(^|[\s\-(/])(\p{L})/gu, (_, sep: string, ch: string) => sep + ch.toUpperCase())
-    .replace(/\b(S\.a\.|N\.v\.|S\.e\.|Ag|Se|Spa|S\.p\.a\.|Plc|Sa|Nv|Ab|Asa|Oyj)\b/g, (m) => m.toUpperCase());
+    .replace(/\b(S\.p\.a\.|S\.a\.|N\.v\.|S\.e\.)/g, (m) => m.toUpperCase())
+    .replace(/\b(Ag|Se|Spa|Plc|Sa|Nv|Ab|Asa|Oyj)\b/g, (m) => m.toUpperCase());
 }

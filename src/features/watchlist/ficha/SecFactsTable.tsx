@@ -81,8 +81,8 @@ export function SecFactsTable({ filings, facts }: { filings: FilingRow[]; facts:
                         {own ? (
                           <SourceValue
                             info={{
-                              source: sourceLabel(filing.source),
-                              document: `${formLabel(filing.form_type)} · ${filing.accession_no}`,
+                              source: own.fact.page ? "Extraída de PDF por la IA (revísala si algo no cuadra)" : sourceLabel(filing.source),
+                              document: own.fact.page ? `PDF subido por ti · página ${own.fact.page}` : `${formLabel(filing.form_type)} · ${filing.accession_no}`,
                               tag: own.fact.source_tag,
                               period: periodText(own.fact) + (own.cumulative ? " (acumulado del año)" : ""),
                               fetchedAt: own.fact.fetched_at,

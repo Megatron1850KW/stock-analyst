@@ -114,7 +114,7 @@ const near = (a: string, b: string) => Math.abs(Date.parse(a) - Date.parse(b)) <
 /**
  * Europa: los informes intermedios no tienen formato estructurado obligatorio,
  * así que se piden los 3 últimos semestrales (H1) que ya deberían estar
- * publicados (unos 3 meses tras el cierre). Si faltan anuales (la empresa no
+ * publicados (unos 2 meses tras el cierre). Si faltan anuales (la empresa no
  * está en filings.xbrl.org), se piden también los 3 últimos anuales.
  */
 export function euMissingRequests(input: EuMissingInput): DocumentRequestInput[] {
@@ -139,7 +139,8 @@ export function euMissingRequests(input: EuMissingInput): DocumentRequestInput[]
     }
   }
 
-  const halves = [6, -6, -18, -30].map((m) => addMonths(fyEnd, m)).filter((e) => published(e, 3)).slice(0, WANTED);
+  // Plazo legal: 3 meses; la mayoría publica a los 2
+  const halves = [6, -6, -18, -30].map((m) => addMonths(fyEnd, m)).filter((e) => published(e, 2)).slice(0, WANTED);
   for (const end of halves) {
     if (input.interimEnds.some((e) => near(e, end))) continue;
     out.push({

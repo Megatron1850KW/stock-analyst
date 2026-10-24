@@ -123,6 +123,67 @@ pub fn document_open(app: AppHandle, path: String) -> Result<(), DocError> {
     Ok(())
 }
 
+/// Tamaño máximo de un PDF que se envía a Claude (la API admite 32 MB por petición).
+const MAX_PDF_FOR_AI: u64 = 30 * 1024 * 1024;
+
+/// Bytes de un PDF guardado, para enviarlo a Claude y extraer sus cifras (§4.4).
+/// Viaja en binario hacia la vista web; allí se pasa a base64.
+#[tauri::command]
+pub fn document_read_pdf(app: AppHandle, path: String) -> Result<tauri::ipc::Response, DocError> {
+    let p = inside_documents(&app, &path)?;
+    if std::fs::metadata(&p)?.len() > MAX_PDF_FOR_AI {
+        return Err(DocError::Invalid(
+            "El PDF pasa de 30 MB y Claude no puede leerlo entero. Sube solo el informe semestral o las páginas de los estados financieros.".into(),
+        ));
+    }
+    let data = std::fs::read(&p)?;
+    if detect_kind(&data)? != "pdf" {
+        return Err(DocError::Invalid("El archivo no es un PDF".into()));
+    }
+    Ok(tauri::ipc::Response::new(data))
+}
+
+/// Tope al descomprimir el informe de un ZIP ESEF (protege de ZIP malformados o «bombas»).
+const MAX_REPORT_BYTES: u64 = 150 * 1024 * 1024;
+
+/// Informe Inline XBRL (.xhtml/.html) de un paquete ESEF: el más grande dentro de
+/// una carpeta `reports/` (las otras carpetas traen la taxonomía de la empresa).
+pub fn esef_report_from_zip(data: &[u8]) -> Result<String, DocError> {
+    let mut zip = zip::ZipArchive::new(std::io::Cursor::new(data))
+        .map_err(|_| DocError::Invalid("El ZIP está dañado o no es un paquete ESEF.".into()))?;
+    let mut best: Option<(usize, u64)> = None;
+    for i in 0..zip.len() {
+        let f = zip.by_index(i).map_err(|_| DocError::Invalid("El ZIP está dañado.".into()))?;
+        let name = f.name().to_ascii_lowercase();
+        let is_report = name.split('/').any(|p| p == "reports") && (name.ends_with(".xhtml") || name.ends_with(".html"));
+        if is_report && best.map_or(true, |(_, size)| f.size() > size) {
+            best = Some((i, f.size()));
+        }
+    }
+    let (index, size) = best.ok_or_else(|| DocError::Invalid("El ZIP no contiene un informe ESEF (carpeta reports con un .xhtml).".into()))?;
+    if size > MAX_REPORT_BYTES {
+        return Err(DocError::Invalid("El informe del ZIP es demasiado grande.".into()));
+    }
+    let f = zip.by_index(index).map_err(|_| DocError::Invalid("El ZIP está dañado.".into()))?;
+    let mut out = String::new();
+    use std::io::Read;
+    f.take(MAX_REPORT_BYTES)
+        .read_to_string(&mut out)
+        .map_err(|_| DocError::Invalid("El informe del ZIP no es texto UTF-8 válido.".into()))?;
+    Ok(out)
+}
+
+/// Contenido del informe de un ZIP ESEF que subiste, para leer sus cifras sin IA.
+#[tauri::command]
+pub fn document_esef_report(app: AppHandle, path: String) -> Result<String, DocError> {
+    let p = inside_documents(&app, &path)?;
+    let data = std::fs::read(&p)?;
+    if detect_kind(&data)? != "zip" {
+        return Err(DocError::Invalid("El archivo no es un ZIP".into()));
+    }
+    esef_report_from_zip(&data)
+}
+
 #[tauri::command]
 pub fn document_delete(app: AppHandle, path: String) -> Result<(), DocError> {
     let p = inside_documents(&app, &path)?;
@@ -152,6 +213,23 @@ fn percent_decode(s: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn saca_el_informe_xhtml_de_un_zip_esef() {
+        use std::io::Write;
+        let mut buf = std::io::Cursor::new(Vec::new());
+        {
+            let mut w = zip::ZipWriter::new(&mut buf);
+            let opts = zip::write::SimpleFileOptions::default();
+            w.start_file("FICTICIO-2025/META-INF/taxonomyPackage.xml", opts).unwrap();
+            w.write_all(b"<x/>").unwrap();
+            w.start_file("FICTICIO-2025/reports/informe.xhtml", opts).unwrap();
+            w.write_all(b"<html>informe ficticio</html>").unwrap();
+            w.finish().unwrap();
+        }
+        assert_eq!(esef_report_from_zip(buf.get_ref()).unwrap(), "<html>informe ficticio</html>");
+        assert!(esef_report_from_zip(b"PK\x03\x04 roto").is_err());
+    }
 
     #[test]
     fn reconoce_pdf_y_zip_por_su_firma() {

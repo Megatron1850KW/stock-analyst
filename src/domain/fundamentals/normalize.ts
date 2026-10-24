@@ -11,6 +11,8 @@ export interface NormalizedFact {
   unit: string;
   periodStart: string | null;
   periodEnd: string;
+  /** Página del PDF de donde se extrajo (solo cifras extraídas por la IA). */
+  page?: number;
 }
 
 export interface ConceptGap {

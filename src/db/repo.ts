@@ -107,8 +107,8 @@ export async function upsertFiling(
   return rows[0]!.id;
 }
 
-const FACT_COLUMNS = 10;
-const FACTS_PER_INSERT = 90; // 900 parámetros por sentencia, por debajo del límite de SQLite
+const FACT_COLUMNS = 11;
+const FACTS_PER_INSERT = 80; // 880 parámetros por sentencia, por debajo del límite de SQLite
 
 /** Sustituye las cifras de un informe (re-importar no duplica). */
 export async function replaceFilingFacts(
@@ -117,7 +117,7 @@ export async function replaceFilingFacts(
   filingId: number,
   facts: NormalizedFact[],
   gaps: ConceptGap[],
-  origin: "xbrl" | "esef" = "xbrl",
+  origin: "xbrl" | "esef" | "pdf-extraction" = "xbrl",
 ): Promise<void> {
   await db.execute("DELETE FROM financial_facts WHERE filing_id = ?", [filingId]);
   await db.execute("DELETE FROM concept_gaps WHERE filing_id = ?", [filingId]);
@@ -126,10 +126,10 @@ export async function replaceFilingFacts(
     const chunk = facts.slice(k, k + FACTS_PER_INSERT);
     const placeholders = chunk.map(() => `(${Array(FACT_COLUMNS).fill("?").join(", ")})`).join(", ");
     const params = chunk.flatMap((f) => [
-      securityId, filingId, f.concept, f.sourceTag, f.value, f.unit, f.periodStart, f.periodEnd, fetchedAt, origin,
+      securityId, filingId, f.concept, f.sourceTag, f.value, f.unit, f.periodStart, f.periodEnd, fetchedAt, origin, f.page ?? null,
     ]);
     await db.execute(
-      `INSERT INTO financial_facts (security_id, filing_id, concept, source_tag, value, unit, period_start, period_end, fetched_at, origin)
+      `INSERT INTO financial_facts (security_id, filing_id, concept, source_tag, value, unit, period_start, period_end, fetched_at, origin, page)
        VALUES ${placeholders}`,
       params,
     );
@@ -246,12 +246,14 @@ export interface FactRow {
   period_start: string | null;
   period_end: string;
   origin: string;
+  /** Página del PDF si la cifra la extrajo la IA. */
+  page: number | null;
   fetched_at: string;
 }
 
 export function getFacts(db: Db, securityId: number): Promise<FactRow[]> {
   return db.select<FactRow>(
-    `SELECT filing_id, concept, source_tag, value, unit, period_start, period_end, origin, fetched_at
+    `SELECT filing_id, concept, source_tag, value, unit, period_start, period_end, origin, page, fetched_at
      FROM financial_facts WHERE security_id = ?`,
     [securityId],
   );

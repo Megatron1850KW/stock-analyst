@@ -27,6 +27,8 @@ export interface FactInfo {
   period_start: string | null;
   period_end: string;
   fetched_at: string;
+  /** Página del PDF si la cifra la extrajo la IA. */
+  page?: number | null;
 }
 
 /** Una cifra oficial con su documento de origen. */
@@ -41,6 +43,8 @@ export interface Sourced {
   filing: FilingInfo;
   /** Sale de las cifras comparativas de un informe posterior (el propio no la traía). */
   fromComparative: boolean;
+  /** Página del PDF (cifra extraída por la IA de un informe que subiste). */
+  page?: number | null;
 }
 
 export interface AnnualStatement {
@@ -68,6 +72,7 @@ function sourced(f: FactInfo, filing: FilingInfo, fromComparative = false): Sour
     fetchedAt: f.fetched_at,
     filing,
     fromComparative,
+    page: f.page ?? null,
   };
 }
 
