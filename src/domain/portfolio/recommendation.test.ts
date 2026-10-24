@@ -38,6 +38,9 @@ describe("recommend (§8.4)", () => {
     const r = recommend({ ...base, valuation: "Barata", outcome: "Trampa de valor", activeSignals: ["Ventas cayendo", "Deuda creciendo"] });
     expect(r.action).toBe("Mantener — vigilar");
     expect(r.reasons[0]).toBe("Posible trampa de valor: ventas cayendo y deuda creciendo.");
+    expect(recommend({ ...base, activeSignals: ["Ventas cayendo", "Dilución relevante"] }).reasons[0]).toBe(
+      "El negocio muestra señales de deterioro: ventas cayendo y dilución relevante.",
+    );
     expect(recommend({ ...base, debt: "Alta" }).action).toBe("Mantener — vigilar");
     expect(recommend({ ...base, quality: 30 }).action).toBe("Mantener — vigilar");
   });

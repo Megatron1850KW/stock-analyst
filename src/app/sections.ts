@@ -13,6 +13,9 @@ export interface Section {
   shortcut: string;
 }
 
+/** Última fase del plan (CLAUDE.md §11) ya construida. */
+export const BUILT_PHASE = 7;
+
 /** Las 4 secciones de la app (CLAUDE.md §5), en el orden de las columnas. */
 export const SECTIONS: Section[] = [
   {

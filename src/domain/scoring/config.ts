@@ -96,3 +96,19 @@ export const PORTFOLIO_CONFIG = {
   /** Tendencia de fondo de ETFs/ETCs: precio frente a su media de 10 meses (§5.3). */
   trendMonths: 10,
 };
+
+/**
+ * Escenarios de largo plazo de la cartera (§5.2): ESCENARIOS, no predicciones.
+ * Base = el crecimiento histórico de cada posición (ventas de los últimos años
+ * en acciones; precio en ETFs/ETCs). Prudente y optimista lo multiplican.
+ */
+export const SCENARIO_CONFIG = {
+  years: 10,
+  prudentFactor: 0.5,
+  optimisticFactor: 1.5,
+  /** El crecimiento histórico de cada posición se acota a este rango anual. */
+  floor: -0.1,
+  cap: 0.2,
+  /** Años de precios que se exigen como mínimo para un ETF/ETC. */
+  minPriceYears: 3,
+};

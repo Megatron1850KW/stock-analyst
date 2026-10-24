@@ -1,7 +1,7 @@
 import type { EuClient } from "@/data/esef/client";
 import type { FigiRow } from "@/data/esef/schemas";
 import type { Db } from "@/db/client";
-import { getFilings, pruneFilings, replaceFilingFacts, syncDocumentRequests, upsertEuSecurity, upsertFiling } from "@/db/repo";
+import { getFilings, isTracked, pruneFilings, replaceFilingFacts, syncDocumentRequests, upsertEuSecurity, upsertFiling } from "@/db/repo";
 import { euMissingRequests } from "@/features/document-requests/missing";
 import { addXbrlJson, emptyFacts, periodTypeOf, pickEsefFilings } from "@/domain/fundamentals/esef";
 import { HISTORY_YEARS } from "@/domain/fundamentals/history-filings";
@@ -74,6 +74,8 @@ export async function importEuIsin(
   today: Date = new Date(),
   opts: {
     watchlist?: boolean;
+    /** Está (o va a estar) en tu cartera: se te piden sus informes aunque no esté en la watchlist. */
+    held?: boolean;
     /** Competidor propuesto por la IA: el ISIN debe ser de esa empresa (nombre o ticker), si no, es un ISIN equivocado. */
     expect?: { name: string; ticker: string };
   } = {},
@@ -156,7 +158,7 @@ export async function importEuIsin(
 
   // Lo que falta se pide en la bandeja, teniendo en cuenta lo que ya subiste
   const uploaded = (await getFilings(db, securityId)).filter((f) => f.role === "upload");
-  const requests = !watchlist
+  const requests = !(watchlist || opts.held || (await isTracked(db, securityId)))
     ? []
     : euMissingRequests({
         country,

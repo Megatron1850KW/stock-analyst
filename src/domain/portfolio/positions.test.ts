@@ -60,7 +60,7 @@ describe("cartera en euros (datos FICTICIOS)", () => {
     expect(p.valueEur).toBeCloseTo(720 + 2500 + 375, 6);
     expect(p.positions.map((x) => x.security.ticker)).toEqual(["FTX", "FICT", "FLON"]);
     expect(p.byCurrency.map((e) => e.key)).toEqual(["EUR", "USD", "GBP"]);
-    expect(p.bySector.find((e) => e.key === "ETF")?.valueEur).toBeCloseTo(375, 6);
+    expect(p.bySector.find((e) => e.key === "ETF sin ficha")?.valueEur).toBeCloseTo(375, 6);
     expect(p.positions.reduce((s, x) => s + x.weight!, 0)).toBeCloseTo(1, 9);
     expect(p.annualizedPct).not.toBeNull();
   });
@@ -112,5 +112,32 @@ describe("tipos de cambio del BCE", () => {
     expect(fx.eurPer("USD", "2024-02-01")).toBeNull();
     expect(fx.eurPer("EUR", "2000-01-01")?.value).toBe(1);
     expect(fx.eurPer("GBp", "2026-10-24")?.value).toBeCloseTo(0.0125, 9);
+  });
+
+  it("mira dentro de un ETF con ficha para la exposición por sector y país", () => {
+    const withProfile = SEC.map((s) =>
+      s.id === 3
+        ? { ...s, breakdown: { sectors: [{ key: "Tecnología", weight: 0.6 }, { key: "Salud", weight: 0.3 }], countries: [{ key: "US", weight: 1 }] } }
+        : s,
+    );
+    const p = buildPortfolio({
+      securities: withProfile,
+      transactions: [
+        tx({ securityId: 1, date: "2024-01-02", type: "buy", quantity: 1, price: 100, currency: "EUR" }),
+        tx({ securityId: 3, date: "2025-06-02", type: "buy", quantity: 1, price: 100, currency: "EUR" }),
+      ],
+      quotes: new Map([
+        [1, { price: 100, date: "2026-10-23", currency: "EUR" }],
+        [3, { price: 100, date: "2026-10-23", currency: "EUR" }],
+      ]),
+      fx,
+      today: "2026-10-24",
+    });
+    expect(p.bySector).toEqual([
+      { key: "Tecnología", valueEur: 160, weight: 0.8 },
+      { key: "Salud", valueEur: 30, weight: 0.15 },
+      { key: "Otros", valueEur: expect.closeTo(10, 6), weight: expect.closeTo(0.05, 6) },
+    ]);
+    expect(p.byCountry).toEqual([{ key: "US", valueEur: 200, weight: 1 }]);
   });
 });

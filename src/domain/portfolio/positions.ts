@@ -34,6 +34,16 @@ export interface SecurityInfo {
   currency: string;
   sector: string | null;
   country: string | null;
+  /**
+   * Reparto de un ETF por sectores y países según su ficha (pesos de 0 a 1).
+   * Si existe, la exposición de la cartera «mira dentro» del fondo.
+   */
+  breakdown?: { sectors?: Share[]; countries?: Share[] };
+}
+
+export interface Share {
+  key: string;
+  weight: number;
 }
 
 export interface QuoteInfo {
@@ -201,9 +211,21 @@ export function buildPortfolio(input: {
   const valueEur = valued.reduce((s, p) => s + p.valueEur!, 0);
   for (const p of valued) p.weight = valueEur > 0 ? p.valueEur! / valueEur : null;
 
-  const group = (keyOf: (p: Position) => string): Exposure[] => {
+  const group = (keyOf: (p: Position) => string, inside?: (p: Position) => Share[] | undefined): Exposure[] => {
     const m = new Map<string, number>();
-    for (const p of valued) m.set(keyOf(p), (m.get(keyOf(p)) ?? 0) + p.valueEur!);
+    const add = (k: string, v: number) => m.set(k, (m.get(k) ?? 0) + v);
+    for (const p of valued) {
+      const parts = inside?.(p)?.filter((x) => x.weight > 0);
+      if (!parts?.length) {
+        add(keyOf(p), p.valueEur!);
+        continue;
+      }
+      // Lo que la ficha no reparte (efectivo, redondeos) queda en «Otros»
+      const total = parts.reduce((t, x) => t + x.weight, 0);
+      const scale = total > 1 ? 1 / total : 1;
+      for (const x of parts) add(x.key, p.valueEur! * x.weight * scale);
+      if (total < 0.995) add("Otros", p.valueEur! * (1 - total));
+    }
     return [...m.entries()]
       .map(([key, v]) => ({ key, valueEur: v, weight: valueEur > 0 ? v / valueEur : 0 }))
       .sort((a, b) => b.valueEur - a.valueEur);
@@ -221,8 +243,11 @@ export function buildPortfolio(input: {
     totalReturnEur: sum((p) => p.totalReturnEur),
     annualizedPct: xirr(portfolioFlows),
     unvalued: positions.length - valued.length,
-    bySector: group((p) => p.security.sector ?? (p.security.kind === "stock" ? "Sin dato" : p.security.kind === "etf" ? "ETF" : "ETC")),
-    byCountry: group((p) => p.security.country ?? "Sin dato"),
+    bySector: group(
+      (p) => p.security.sector ?? (p.security.kind === "stock" ? "Sin dato" : p.security.kind === "etf" ? "ETF sin ficha" : "Materias primas (ETC)"),
+      (p) => p.security.breakdown?.sectors,
+    ),
+    byCountry: group((p) => p.security.country ?? "Sin dato", (p) => p.security.breakdown?.countries),
     byCurrency: group((p) => majorUnit(p.security.currency).currency),
     byKind: group((p) => p.security.kind),
   };

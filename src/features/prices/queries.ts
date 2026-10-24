@@ -1,5 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
+import { tauriFxClient } from "@/data/fx/frankfurter";
+import { refreshFx } from "@/features/fx/refresh";
 import { appDb } from "@/platform/database";
 import { inDesktopApp } from "@/platform/runtime";
 import { loadSettings } from "@/platform/settings-store";
@@ -9,6 +11,8 @@ export const lastRefreshKey = ["price-refresh"] as const;
 export interface LastRefresh extends RefreshResult {
   at: string;
   provider: string;
+  /** Tipos de cambio del BCE: error en llano si no se pudieron traer. */
+  fxError?: string;
 }
 
 export function useRefreshPrices() {
@@ -17,14 +21,21 @@ export function useRefreshPrices() {
     mutationKey: ["refresh-prices"],
     mutationFn: async (): Promise<LastRefresh> => {
       const providers = providersFor(await loadSettings());
+      const db = await appDb();
+      // Los tipos del BCE no dependen del proveedor de precios: van primero
+      const fxError = await refreshFx(db, tauriFxClient()).then(
+        () => undefined,
+        (e: unknown) => `Tipos de cambio: ${e instanceof Error ? e.message : String(e)}`,
+      );
       if (!providers.US && !providers.EU) throw new Error("Elige un proveedor de precios en Ajustes.");
-      const result = await refreshPrices(await appDb(), providers);
-      return { ...result, at: new Date().toISOString(), provider: providersLabel(providers) };
+      const result = await refreshPrices(db, providers);
+      return { ...result, fxError, at: new Date().toISOString(), provider: providersLabel(providers) };
     },
     onSuccess: (r) => {
       qc.setQueryData(lastRefreshKey, r);
       void qc.invalidateQueries({ queryKey: ["watchlist"] });
       void qc.invalidateQueries({ queryKey: ["comparison"] });
+      void qc.invalidateQueries({ queryKey: ["portfolio"] });
     },
   });
 }

@@ -59,9 +59,8 @@ export function recommend(input: RecommendationInput, cfg = PORTFOLIO_CONFIG): R
   const noFinancials = input.kind !== "stock";
 
   if (!noFinancials) {
-    if (input.outcome === "Trampa de valor" || input.activeSignals.length >= QUALITY_CONFIG.trap.minSignals) {
-      alerts.push(`Posible trampa de valor: ${lower(input.activeSignals)}.`);
-    }
+    if (input.outcome === "Trampa de valor") alerts.push(`Posible trampa de valor: ${lower(input.activeSignals)}.`);
+    else if (input.activeSignals.length >= QUALITY_CONFIG.trap.minSignals) alerts.push(`El negocio muestra señales de deterioro: ${lower(input.activeSignals)}.`);
     if (input.debt === "Alta") alerts.push("Tiene mucha deuda para la caja que genera.");
     if (input.quality !== null && input.quality < cfg.watchQualityBelow) {
       alerts.push(`Su salud financiera es baja (${Math.round(input.quality)} de 100).`);

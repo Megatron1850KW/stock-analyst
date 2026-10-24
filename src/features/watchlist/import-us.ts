@@ -1,6 +1,6 @@
 import { filingUrl, findTicker, type SecClient } from "@/data/sec-edgar/client";
 import type { Db } from "@/db/client";
-import { pruneFilings, replaceFilingFacts, syncDocumentRequests, upsertFiling, upsertUsSecurity } from "@/db/repo";
+import { isTracked, pruneFilings, replaceFilingFacts, syncDocumentRequests, upsertFiling, upsertUsSecurity } from "@/db/repo";
 import { missingReportRequests } from "@/features/document-requests/missing";
 import { historyFilingsFromFacts } from "@/domain/fundamentals/history-filings";
 import { normalizeCompanyFacts } from "@/domain/fundamentals/normalize";
@@ -48,8 +48,11 @@ export async function importUsTicker(
   rawTicker: string,
   onStep: (step: ImportStep) => void = () => {},
   today: Date = new Date(),
-  /** Competidor: se guardan sus datos sin añadirlo a la watchlist ni pedirte sus informes. */
-  opts: { watchlist?: boolean } = {},
+  /**
+   * Competidor: se guardan sus datos sin añadirlo a la watchlist ni pedirte sus
+   * informes. `held`: está (o va a estar) en tu cartera, así que sí se piden.
+   */
+  opts: { watchlist?: boolean; held?: boolean } = {},
 ): Promise<ImportResult> {
   const watchlist = opts.watchlist ?? true;
   onStep("ticker");
@@ -111,7 +114,7 @@ export async function importUsTicker(
 
   const gapsByAccession = new Map<string, string[]>();
   for (const g of normalized.gaps) gapsByAccession.set(g.accession, [...(gapsByAccession.get(g.accession) ?? []), g.concept]);
-  const requests = !watchlist ? [] : missingReportRequests({
+  const requests = !(watchlist || opts.held || (await isTracked(db, securityId))) ? [] : missingReportRequests({
     filerType: selection.filerType,
     annual: selection.annual,
     interim: selection.interim,
