@@ -1,3 +1,6 @@
+mod http;
+mod prices;
+mod sec;
 mod secrets;
 
 use tauri_plugin_autostart::MacosLauncher;
@@ -8,12 +11,20 @@ const DB_URL: &str = "sqlite:agente-financiero.db";
 
 /// Migraciones SQL versionadas (fuente única en src/db/migrations).
 fn migrations() -> Vec<Migration> {
-    vec![Migration {
-        version: 1,
-        description: "esquema_inicial",
-        sql: include_str!("../../src/db/migrations/0001_init.sql"),
-        kind: MigrationKind::Up,
-    }]
+    vec![
+        Migration {
+            version: 1,
+            description: "esquema_inicial",
+            sql: include_str!("../../src/db/migrations/0001_init.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 2,
+            description: "datos_sec",
+            sql: include_str!("../../src/db/migrations/0002_sec.sql"),
+            kind: MigrationKind::Up,
+        },
+    ]
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -29,7 +40,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             secrets::secret_set,
             secrets::secret_exists,
-            secrets::secret_delete
+            secrets::secret_delete,
+            sec::sec_fetch,
+            prices::price_quote
         ])
         .run(tauri::generate_context!())
         .expect("error al iniciar Agente Financiero");

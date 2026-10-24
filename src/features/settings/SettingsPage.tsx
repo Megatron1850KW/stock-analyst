@@ -183,7 +183,7 @@ export function SettingsPage() {
             <CardDescription>Los precios se consultan una vez al abrir la app o al pulsar «Actualizar precios».</CardDescription>
           </CardHeader>
           <CardContent>
-            <Field label="Proveedor de precios históricos" htmlFor="price-provider" hint="Lo elegiremos juntos en la fase 2.">
+            <Field label="Proveedor de precios históricos" htmlFor="price-provider" hint="Por ahora solo funciona Financial Modeling Prep; el resto queda preparado para más adelante.">
               <Select
                 id="price-provider"
                 value={settings.priceProvider ?? ""}

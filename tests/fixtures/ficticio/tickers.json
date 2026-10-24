@@ -1,0 +1,29 @@
+{
+ "_aviso": "DATOS FICTICIOS PARA TESTS. No es una empresa real.",
+ "fields": [
+  "cik",
+  "name",
+  "ticker",
+  "exchange"
+ ],
+ "data": [
+  [
+   9999999,
+   "FICTICIA CORP",
+   "FICT",
+   "Nasdaq"
+  ],
+  [
+   8888888,
+   "OTRA FICTICIA PLC",
+   "OTRF",
+   "NYSE"
+  ],
+  [
+   7777777,
+   "FICTICIA CLASE B",
+   "FIC.B",
+   null
+  ]
+ ]
+}

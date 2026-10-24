@@ -29,3 +29,17 @@ describe("formato español", () => {
     expect(formatOrMissing(2, (v) => formatNumber(v, 0))).toBe("2");
   });
 });
+
+describe("importes y fechas", () => {
+  it("muestra importes en millones", async () => {
+    const { formatMillions } = await import("./format");
+    expect(nbsp(formatMillions(391_035_000_000, "USD"))).toBe("391.035 M$");
+    expect(nbsp(formatMillions(4_500_000, "EUR"))).toBe("4,5 M€");
+  });
+
+  it("formatea fechas en español", async () => {
+    const { formatDate, formatMonthYear } = await import("./format");
+    expect(formatDate("2025-12-31")).toBe("31 dic 2025");
+    expect(formatMonthYear("2026-06-30")).toBe("jun 2026");
+  });
+});

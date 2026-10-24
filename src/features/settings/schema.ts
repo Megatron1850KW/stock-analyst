@@ -40,7 +40,7 @@ export const DEFAULT_SETTINGS: Settings = {
   aiModelAnalysis: "claude-sonnet-5-5",
   aiModelExtraction: "claude-haiku-5-5",
   aiMonthlyBudgetEur: 10,
-  priceProvider: null,
+  priceProvider: "fmp",
   baseCurrency: "EUR",
   language: "es",
   theme: "system",
@@ -83,7 +83,7 @@ export const SECRET_KEYS = [
   {
     id: "prices_api_key",
     label: "Proveedor de precios",
-    description: "Clave del proveedor de precios históricos que elijas abajo.",
+    description: "Clave de Financial Modeling Prep (plan gratuito) u otro proveedor que elijas abajo.",
     required: false,
   },
   {
