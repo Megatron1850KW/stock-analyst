@@ -134,7 +134,7 @@ export async function importEuIsin(
 
   const toSave = [...core.map((f) => ({ f, role: "core" as const })), ...history.map((f) => ({ f, role: "history" as const }))];
   for (const { f, role } of toSave) {
-    const filingId = await upsertFiling(db, securityId, f, `https://filings.xbrl.org${f.primaryDocument}`, role, "filings.xbrl.org");
+    const filingId = await upsertFiling(db, securityId, f, `https://filings.xbrl.org${f.reportUrl ?? f.primaryDocument}`, role, "filings.xbrl.org");
     await replaceFilingFacts(
       db,
       securityId,

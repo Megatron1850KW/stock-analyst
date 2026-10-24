@@ -122,6 +122,7 @@ export function clip(text: string, limit: number): { text: string; truncated: bo
 
 /** Extractos de un informe. Las secciones que no se encuentran simplemente no aparecen. */
 export function extractSections(form: string, html: string, limits = SECTION_LIMITS): Excerpt[] {
+  if (form === "ESEF") return extractEuSections(html, limits);
   const text = htmlToText(html);
   const out: Excerpt[] = [];
   for (const [id, b] of Object.entries(boundsFor(form)) as [SectionId, Bounds][]) {
@@ -129,6 +130,65 @@ export function extractSections(form: string, html: string, limits = SECTION_LIM
     if (!body) continue;
     const c = clip(body, limits[id]);
     out.push({ section: id, text: c.text, fullLength: body.length, truncated: c.truncated });
+  }
+  return out;
+}
+
+/*
+ * Informes europeos (ESEF, CLAUDE.md §4.2): no hay «Items» fijos y cada país
+ * usa su idioma. Se buscan encabezados (líneas cortas) con palabras clave en
+ * los idiomas habituales y se toma el texto que sigue, hasta el siguiente
+ * encabezado reconocido o el tope de la sección. En el índice los encabezados
+ * van seguidos sin texto entre medias: se descartan; se queda la aparición más larga.
+ */
+const EU_KEYWORDS: Record<SectionId, string[]> = {
+  business: [
+    "modelo de negocio", "business model", "modèle d'affaires", "modèle économique", "geschäftsmodell", "modello di business",
+    "modello aziendale", "bedrijfsmodel", "modelo de negócio",
+  ],
+  risks: [
+    "principales riesgos", "gestión de riesgos", "riesgos e incertidumbres", "factores de riesgo", "principal risks", "risk management",
+    "risk factors", "facteurs de risque", "gestion des risques", "risikobericht", "chancen und risiken", "risiken", "rischi e incertezze",
+    "gestione dei rischi", "risicobeheer", "risico's", "riscos",
+  ],
+  mdna: [
+    "evolución previsible", "perspectivas", "evolución de los negocios", "evolución del negocio", "outlook", "business performance",
+    "perspectives", "activité et résultats", "ausblick", "prognosebericht", "wirtschaftsbericht", "geschäftsverlauf", "prospettive",
+    "evoluzione prevedibile", "andamento della gestione", "vooruitzichten", "perspetivas",
+  ],
+};
+const ALL_EU = Object.values(EU_KEYWORDS).flat();
+const isHeading = (line: string, words: string[]) => {
+  const l = line.trim().toLowerCase();
+  return l.length >= 4 && l.length <= 90 && !/[.;,]$/.test(l) && words.some((w) => l.includes(w));
+};
+
+export function extractEuSections(html: string, limits = SECTION_LIMITS): Excerpt[] {
+  const lines = htmlToText(html).split("\n");
+  const out: Excerpt[] = [];
+  for (const id of Object.keys(EU_KEYWORDS) as SectionId[]) {
+    let best: string | null = null;
+    for (let k = 0; k < lines.length; k++) {
+      if (!isHeading(lines[k]!, EU_KEYWORDS[id])) continue;
+      const body: string[] = [lines[k]!];
+      let size = 0;
+      let index = false;
+      for (let j = k + 1; j < lines.length && size < limits[id] * 1.5; j++) {
+        if (isHeading(lines[j]!, ALL_EU)) {
+          // Otro encabezado casi sin texto entre medias: es el índice, no la sección
+          index = size <= 200;
+          break;
+        }
+        body.push(lines[j]!);
+        size += lines[j]!.length;
+      }
+      if (index) continue;
+      const text = body.join("\n");
+      if (!best || text.length > best.length) best = text;
+    }
+    if (!best || best.length < 400) continue;
+    const c = clip(best, limits[id]);
+    out.push({ section: id, text: c.text, fullLength: best.length, truncated: c.truncated });
   }
   return out;
 }

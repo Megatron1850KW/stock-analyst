@@ -49,9 +49,9 @@ export function tauriEuClient(): EuClient {
     leiByIsin: async (isin) => parseGleif(await fetchRaw("lei_by_isin", isin)),
     figi: async (isin) => parseFigi(await fetchRaw("figi", isin)),
     esefFilings: async (lei) => parseEsefFilings(await fetchRaw("esef_filings", lei)),
-    esefDocument: async (path) => parseXbrlJson((await invoke<{ json: string }>("esef_document", { path })).json),
+    esefDocument: async (path) => parseXbrlJson((await invoke<{ text: string }>("esef_document", { path })).text),
   };
 }
 
-/** Enlace público al visor del informe en filings.xbrl.org. */
-export const esefViewerUrl = (jsonUrl: string) => `https://filings.xbrl.org${jsonUrl}`;
+/** XHTML de un informe ESEF (report_url completa), para los extractos de texto que lee la IA. Se guarda en el Mac. */
+export const fetchEsefReport = async (url: string) => (await invoke<{ text: string }>("esef_report", { url })).text;

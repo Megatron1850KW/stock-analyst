@@ -128,6 +128,7 @@ export function pickEsefFilings(list: EsefFiling[]): FilingRef[] {
       reportDate: periodEnd,
       filingDate: dates[0] ?? "",
       primaryDocument: latest.attributes.json_url!,
+      reportUrl: latest.attributes.report_url ?? undefined,
     });
   }
   return out.sort((a, b) => b.reportDate.localeCompare(a.reportDate));

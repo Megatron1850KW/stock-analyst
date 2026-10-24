@@ -66,6 +66,7 @@ pub fn run() {
             sec::sec_document,
             eu::eu_fetch,
             eu::esef_document,
+            eu::esef_report,
             claude::claude_request,
             prices::price_quote,
             prices::price_history,

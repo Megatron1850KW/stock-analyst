@@ -132,7 +132,8 @@ pub fn esef_path(root: &std::path::Path, path: &str) -> Result<std::path::PathBu
 
 #[derive(serde::Serialize, Debug)]
 pub struct EsefDocument {
-    json: String,
+    /// Contenido: xBRL-JSON o XHTML del informe.
+    text: String,
     path: String,
     cached: bool,
 }
@@ -144,7 +145,7 @@ pub async fn esef_document(app: tauri::AppHandle, path: String) -> Result<EsefDo
     let local = esef_path(&root, &path)?;
     let shown = local.to_string_lossy().into_owned();
     if let Ok(json) = std::fs::read_to_string(&local) {
-        return Ok(EsefDocument { json, path: shown, cached: true });
+        return Ok(EsefDocument { text: json, path: shown, cached: true });
     }
     XBRL_THROTTLE.wait().await;
     let req = client().get(format!("https://filings.xbrl.org{path}")).header(reqwest::header::ACCEPT, "application/json");
@@ -153,10 +154,51 @@ pub async fn esef_document(app: tauri::AppHandle, path: String) -> Result<EsefDo
         let tmp = local.with_extension("part");
         let saved = std::fs::create_dir_all(dir).and_then(|_| std::fs::write(&tmp, &json)).and_then(|_| std::fs::rename(&tmp, &local));
         if saved.is_err() {
-            return Ok(EsefDocument { json, path: String::new(), cached: false });
+            return Ok(EsefDocument { text: json, path: String::new(), cached: false });
         }
     }
-    Ok(EsefDocument { json, path: shown, cached: false })
+    Ok(EsefDocument { text: json, path: shown, cached: false })
+}
+
+/// URL de un informe ESEF (Inline XBRL) tal como la da filings.xbrl.org (report_url):
+/// https://filings.xbrl.org/<LEI>/<fecha>/ESEF/<país>/<n>/<carpeta>/reports/<fichero>.xhtml
+pub fn validate_report_url(url: &str) -> Result<&str, NetError> {
+    let bad = || NetError::Invalid(format!("Informe ESEF no válido: {url}"));
+    let rest = url.strip_prefix("https://filings.xbrl.org/").ok_or_else(bad)?;
+    let parts: Vec<&str> = rest.split('/').collect();
+    let [lei, date, esef, country, n, folder, reports, file] = parts.as_slice() else { return Err(bad()) };
+    let name_ok = |s: &str| !s.is_empty() && s.len() <= 120 && !s.starts_with('.') && s.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'));
+    let json_like = format!("/{lei}/{date}/{esef}/{country}/{n}/x.json");
+    let ok = validate_xbrl_json_path(&json_like).is_ok()
+        && name_ok(folder)
+        && *reports == "reports"
+        && name_ok(file)
+        && (file.ends_with(".xhtml") || file.ends_with(".html"));
+    if ok { Ok(url) } else { Err(bad()) }
+}
+
+/// Texto completo de un informe ESEF (para los extractos que lee la IA). Se
+/// descarga una sola vez y se guarda junto a su xBRL-JSON.
+#[tauri::command]
+pub async fn esef_report(app: tauri::AppHandle, url: String) -> Result<EsefDocument, NetError> {
+    let url = validate_report_url(&url)?.to_owned();
+    let root = crate::documents::documents_dir(&app).map_err(|e| NetError::Invalid(e.to_string()))?;
+    let parts: Vec<&str> = url["https://filings.xbrl.org/".len()..].split('/').collect();
+    let local = root.join("esef").join(parts[0]).join(parts[1]).join(parts[4]).join(parts[7]);
+    let shown = local.to_string_lossy().into_owned();
+    if let Ok(json) = std::fs::read_to_string(&local) {
+        return Ok(EsefDocument { text: json, path: shown, cached: true });
+    }
+    XBRL_THROTTLE.wait().await;
+    let html = get_text(XBRL_HOST, client().get(&url).header(reqwest::header::ACCEPT, "application/xhtml+xml,text/html")).await?;
+    if let Some(dir) = local.parent() {
+        let tmp = local.with_extension("part");
+        let saved = std::fs::create_dir_all(dir).and_then(|_| std::fs::write(&tmp, &html)).and_then(|_| std::fs::rename(&tmp, &local));
+        if saved.is_err() {
+            return Ok(EsefDocument { text: html, path: String::new(), cached: false });
+        }
+    }
+    Ok(EsefDocument { text: html, path: shown, cached: false })
 }
 
 #[cfg(test)]
@@ -192,6 +234,20 @@ mod tests {
             "//evil.example/2026-01-31/ESEF/ES/0/a.json",
         ] {
             assert!(validate_xbrl_json_path(bad).is_err(), "{bad}");
+        }
+    }
+
+    #[test]
+    fn solo_descarga_informes_esef_de_filings_xbrl_org() {
+        let ok = "https://filings.xbrl.org/549300TTCXZOGZM2EY83/2026-01-31/ESEF/ES/0/549300TTCXZOGZM2EY83-2026-01-31/reports/549300TTCXZOGZM2EY83-2026-01-31.xhtml";
+        assert!(validate_report_url(ok).is_ok());
+        for bad in [
+            "https://filings.xbrl.org/549300TTCXZOGZM2EY83/2026-01-31/ESEF/ES/0/x/reports/../a.xhtml",
+            "https://filings.xbrl.org/549300TTCXZOGZM2EY83/2026-01-31/ESEF/ES/0/x/otro/a.xhtml",
+            "https://evil.example/549300TTCXZOGZM2EY83/2026-01-31/ESEF/ES/0/x/reports/a.xhtml",
+            "https://filings.xbrl.org/549300TTCXZOGZM2EY83/2026-01-31/ESEF/ES/0/x/reports/a.exe",
+        ] {
+            assert!(validate_report_url(bad).is_err(), "{bad}");
         }
     }
 

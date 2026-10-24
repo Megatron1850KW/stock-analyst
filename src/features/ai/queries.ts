@@ -1,5 +1,6 @@
 import { useIsMutating, useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { createClaudeClient } from "@/data/claude/client";
+import { fetchEsefReport } from "@/data/esef/client";
 import { fetchSecDocument } from "@/data/sec-edgar/client";
 import { getLatestAnalysis, latestEurUsd, monthSpend } from "@/db/ai-repo";
 import { setFilingLocalPath } from "@/db/repo";
@@ -38,13 +39,15 @@ export async function analyzeSecurity(securityId: number, opts: RunOptions = {})
   const settings = await loadSettings();
   if (!(await secrets.has("anthropic_api_key"))) throw new AiAnalysisError("Falta la clave de Claude. Añádela en Ajustes.");
   const ua = secUserAgent(settings);
-  if (!ua) throw new AiAnalysisError("Falta tu nombre y email para la SEC. Añádelos en Ajustes.");
   const db = await appDb();
   return runEquityAnalysis(
     {
       db,
       client: createClaudeClient(),
       fetchDocument: async (url) => {
+        // Europa: informe ESEF de filings.xbrl.org (se guarda en el Mac la primera vez)
+        if (url.startsWith("https://filings.xbrl.org/")) return fetchEsefReport(url);
+        if (!ua) throw new AiAnalysisError("Falta tu nombre y email para la SEC. Añádelos en Ajustes.");
         const doc = await fetchSecDocument(url, ua);
         if (doc.path) await setFilingLocalPath(db, url, doc.path);
         return doc.html;
