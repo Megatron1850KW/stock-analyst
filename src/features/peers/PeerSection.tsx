@@ -187,7 +187,7 @@ function PeerTable({ group, onRemove, removing }: { group: PeerGroup; onRemove: 
                 {r.missing && <p className="text-[11.5px] text-warning-text">{r.missing}</p>}
               </td>
               {cells(r).map((c, i) => (
-                <td key={i} className={cn("px-3 py-2.5 text-right font-mono text-[12.5px] tabular", c === SIN_DATO && "font-sans text-[12px] text-muted")}>
+                <td key={i} className={cn("px-3 py-2.5 text-right font-mono text-[12.5px] whitespace-nowrap tabular", c === SIN_DATO && "font-sans text-[12px] text-muted")}>
                   {c}
                 </td>
               ))}
@@ -195,7 +195,11 @@ function PeerTable({ group, onRemove, removing }: { group: PeerGroup; onRemove: 
                 <DebtText r={r} />
               </td>
               <td className="px-3 py-2.5">
-                <span className={cn("font-mono text-[12.5px] tabular", QUALITY_TEXT[qualityTone(r.quality)])}>{r.quality === null ? SIN_DATO : Math.round(r.quality)}</span>
+                {r.quality === null ? (
+                  <span className="text-[12px] whitespace-nowrap text-muted">{SIN_DATO}</span>
+                ) : (
+                  <span className={cn("font-mono text-[12.5px] tabular", QUALITY_TEXT[qualityTone(r.quality)])}>{Math.round(r.quality)}</span>
+                )}
                 <span className="block text-[11px] text-muted">{r.quality === null ? "" : qualityWord(r.quality)}</span>
               </td>
               <td className="px-3 py-2.5">{r.historyVerdict ? <VerdictBadge value={r.historyVerdict} /> : <span className="text-[12px] text-muted">{SIN_DATO}</span>}</td>
@@ -212,15 +216,15 @@ function PeerTable({ group, onRemove, removing }: { group: PeerGroup; onRemove: 
             <tr className="text-[12px] text-muted">
               <td className="py-2.5 pr-3 font-medium">Mediana competidores</td>
               {[med((r) => (r.pe !== null && r.pe > 0 ? r.pe : null)), med((r) => (r.evEbit !== null && r.evEbit > 0 ? r.evEbit : null))].map((v, i) => (
-                <td key={i} className="px-3 py-2.5 text-right font-mono tabular">{v === null ? SIN_DATO : formatNumber(v, 1)}</td>
+                <td key={i} className={cn("px-3 py-2.5 text-right whitespace-nowrap", v !== null && "font-mono tabular")}>{v === null ? SIN_DATO : formatNumber(v, 1)}</td>
               ))}
               {[med((r) => r.fcfYield), med((r) => r.growth), med((r) => r.operatingMargin)].map((v, i) => (
-                <td key={i} className="px-3 py-2.5 text-right font-mono tabular">
+                <td key={i} className={cn("px-3 py-2.5 text-right whitespace-nowrap", v !== null && "font-mono tabular")}>
                   {v === null ? SIN_DATO : i === 1 ? signedPercent(v) : formatPercent(v, i === 0 ? 1 : 0)}
                 </td>
               ))}
               <td />
-              <td className="px-3 py-2.5 font-mono tabular">{(() => { const q = med((r) => r.quality); return q === null ? SIN_DATO : Math.round(q); })()}</td>
+              <td className="px-3 py-2.5 whitespace-nowrap">{(() => { const q = med((r) => r.quality); return q === null ? SIN_DATO : <span className="font-mono tabular">{Math.round(q)}</span>; })()}</td>
               <td colSpan={2} />
             </tr>
           )}

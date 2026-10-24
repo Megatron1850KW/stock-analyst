@@ -25,7 +25,18 @@ export interface MockOptions {
   realSec?: boolean;
   /** Respuesta de la IA (por defecto, el análisis FICTICIO de tests/helpers/fake-claude). */
   analysis?: unknown;
+  /** Competidores que propone la IA (por defecto, los REALES guardados o dos FICTICIOS). */
+  peers?: unknown;
 }
+
+/** Propuesta FICTICIA de competidores (existen en tests/fixtures/ficticio/tickers.json). */
+const FAKE_PEERS = {
+  competidores: [
+    { ticker: "OTRF", nombre: "Otra Ficticia", motivo: "También vende piezas industriales (ficticio)." },
+    { ticker: "FIC.B", nombre: "Ficticia clase B", motivo: "Negocio parecido (ficticio)." },
+  ],
+  nota: "",
+};
 
 const REAL_CIKS: Record<string, string> = { "723125": "MU", "1652044": "GOOG" };
 const realTickers = JSON.stringify({
@@ -50,12 +61,14 @@ export async function installTauriMock(page: Page, opts: MockOptions = {}) {
   }
   db.exec("PRAGMA foreign_keys = ON");
   // La app consulta esta tabla para mostrar la versión del esquema
-  db.exec("CREATE TABLE _sqlx_migrations (version INTEGER); INSERT INTO _sqlx_migrations VALUES (1), (2), (3);");
+  db.exec("CREATE TABLE _sqlx_migrations (version INTEGER); INSERT INTO _sqlx_migrations VALUES (1), (2), (3), (4);");
 
   const store = new Map<string, unknown>(opts.settings ? [["settings", opts.settings]] : []);
   const secrets = new Set(opts.secrets ?? []);
   const calls: string[] = [];
   const uploads: string[] = [];
+  /** Qué se pidió a la IA en cada llamada: "analysis" o "peers". */
+  const ai: string[] = [];
 
   await page.exposeFunction("__pwInvoke", (cmd: string, args: Record<string, unknown>) => {
     calls.push(cmd);
@@ -142,11 +155,20 @@ export async function installTauriMock(page: Page, opts: MockOptions = {}) {
       }
       case "claude_request": {
         if (!secrets.has("anthropic_api_key")) throw "Falta la clave de Claude. Añádela en Ajustes.";
-        const body = JSON.parse(args.body as string) as { model: string; messages: { content: string }[] };
-        // Análisis REAL guardado (Claude Sonnet 5.5, 24-10-2026) para MU y GOOG; FICTICIO para el resto
-        const ticker = /"ticker": "([A-Z]+)"/.exec(body.messages[0]!.content)?.[1];
-        const realAi = ticker && join(root, "tests/fixtures/ai", `${ticker}-analysis.json`);
-        const analysis = opts.analysis ?? (realAi && existsSync(realAi) ? JSON.parse(readFileSync(realAi, "utf8")).analysis : FAKE_ANALYSIS);
+        const body = JSON.parse(args.body as string) as { model: string; system: { text: string }[]; messages: { content: string }[] };
+        const ticker = /"ticker": ?"([A-Z.-]+)"/.exec(body.messages[0]!.content)?.[1];
+        const isPeers = body.system[0]!.text.includes("competidores");
+        ai.push(isPeers ? "peers" : "analysis");
+        let analysis: unknown;
+        if (isPeers) {
+          // Propuesta REAL guardada (Claude Haiku 5.5) para MU y GOOG; FICTICIA para el resto
+          const realPeers = ticker && join(root, "tests/fixtures/ai", `${ticker}-peers.json`);
+          analysis = opts.peers ?? (realPeers && existsSync(realPeers) ? JSON.parse(readFileSync(realPeers, "utf8")).proposal : FAKE_PEERS);
+        } else {
+          // Análisis REAL guardado (Claude Sonnet 5.5, 24-10-2026) para MU y GOOG; FICTICIO para el resto
+          const realAi = ticker && join(root, "tests/fixtures/ai", `${ticker}-analysis.json`);
+          analysis = opts.analysis ?? (realAi && existsSync(realAi) ? JSON.parse(readFileSync(realAi, "utf8")).analysis : FAKE_ANALYSIS);
+        }
         const message = {
           id: "msg_ficticio",
           type: "message",
@@ -155,7 +177,9 @@ export async function installTauriMock(page: Page, opts: MockOptions = {}) {
           content: [{ type: "text", text: JSON.stringify(analysis) }],
           stop_reason: "end_turn",
           stop_sequence: null,
-          usage: { input_tokens: 30_000, output_tokens: 4_000, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
+          usage: isPeers
+            ? { input_tokens: 800, output_tokens: 300, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 }
+            : { input_tokens: 30_000, output_tokens: 4_000, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
         };
         return { status: 200, headers: { "content-type": "application/json" }, body: JSON.stringify(message) };
       }
@@ -187,5 +211,5 @@ export async function installTauriMock(page: Page, opts: MockOptions = {}) {
     };
   });
 
-  return { db, calls, uploads };
+  return { db, calls, uploads, ai };
 }

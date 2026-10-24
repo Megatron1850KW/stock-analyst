@@ -16,6 +16,8 @@ const row = (ticker: string, p: { dev?: number | null; fcf?: number | null; rati
   operatingMargin: null,
   revenue: [],
   ai: null,
+  quality: null,
+  verdict: { outcome: null, reason: "", vsPeers: null, peers: 0 },
 });
 
 const rows = [

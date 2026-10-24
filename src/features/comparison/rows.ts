@@ -1,4 +1,5 @@
 import type { DebtLevel } from "@/domain/scoring/debt-level";
+import type { Outcome } from "@/domain/scoring/peer-verdict";
 import type { Verdict } from "@/domain/scoring/valuation-score";
 import type { StoredAnalysis } from "@/features/ai/equity-analysis";
 import type { EquityAnalysis } from "@/features/ai/schema";
@@ -30,9 +31,24 @@ export interface ComparisonRow {
   /** Ventas de los últimos ejercicios (hasta 6), para la mini línea. */
   revenue: number[];
   ai: { postura: EquityAnalysis["veredicto"]["postura"]; date: string } | null;
+  /** Nota de calidad 0–100 (§8.2). */
+  quality: number | null;
+  /** ¿Oportunidad o trampa? (§8.3) y cómo está frente a sus competidores. */
+  verdict: { outcome: Outcome | null; reason: string; vsPeers: Verdict | null; peers: number };
 }
 
-export function comparisonRow(detail: SecurityDetail, ai: { stored: StoredAnalysis | null; createdAt: string } | null): ComparisonRow | null {
+export interface PeerSummary {
+  outcome: Outcome | null;
+  reason: string;
+  vsPeers: Verdict | null;
+  peers: number;
+}
+
+export function comparisonRow(
+  detail: SecurityDetail,
+  ai: { stored: StoredAnalysis | null; createdAt: string } | null,
+  peers: PeerSummary = { outcome: null, reason: "", vsPeers: null, peers: 0 },
+): ComparisonRow | null {
   const s = detail.security;
   const a = detail.analysis;
   if (!s || !a) return null;
@@ -52,13 +68,16 @@ export function comparisonRow(detail: SecurityDetail, ai: { stored: StoredAnalys
     operatingMargin: a.current.operatingMargin.value,
     revenue: a.years.slice(-6).map((y) => y.revenue?.value).filter((v): v is number => typeof v === "number"),
     ai: ai?.stored ? { postura: ai.stored.analysis.veredicto.postura, date: ai.createdAt } : null,
+    quality: a.quality.score,
+    verdict: peers,
   };
 }
 
-export type SortKey = "cheapest" | "cash" | "debt" | "growth" | "ticker";
+export type SortKey = "cheapest" | "quality" | "cash" | "debt" | "growth" | "ticker";
 
 export const SORT_LABELS: Record<SortKey, string> = {
   cheapest: "Más barata frente a su historia",
+  quality: "Mejor negocio (calidad)",
   cash: "Más caja libre",
   debt: "Menos deuda",
   growth: "Más crecimiento",
@@ -73,6 +92,7 @@ export function sortRows(rows: ComparisonRow[], key: SortKey): ComparisonRow[] {
   const value = (r: ComparisonRow): number | null => {
     switch (key) {
       case "cheapest": return r.valuation.deviation;
+      case "quality": return r.quality === null ? null : -r.quality;
       case "cash": return r.fcfYield === null ? null : -r.fcfYield;
       case "debt": return r.debt.level === null ? null : debtRank(r);
       case "growth": return r.growth.value === null ? null : -r.growth.value;
@@ -98,10 +118,10 @@ export interface Highlight {
 /** La mejor de la lista en cada pregunta (solo si hay al menos dos con dato). */
 export function highlights(rows: ComparisonRow[]): Highlight[] {
   const out: Highlight[] = [];
-  for (const key of ["cheapest", "cash", "debt", "growth"] as const) {
+  for (const key of ["cheapest", "quality", "cash", "debt", "growth"] as const) {
     const sorted = sortRows(rows, key);
     const withData = sorted.filter((r) =>
-      key === "cheapest" ? r.valuation.deviation !== null : key === "cash" ? r.fcfYield !== null : key === "debt" ? r.debt.level !== null : r.growth.value !== null,
+      key === "cheapest" ? r.valuation.deviation !== null : key === "quality" ? r.quality !== null : key === "cash" ? r.fcfYield !== null : key === "debt" ? r.debt.level !== null : r.growth.value !== null,
     );
     if (withData.length >= 2) out.push({ key, row: withData[0]! });
   }

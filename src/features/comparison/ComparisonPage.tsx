@@ -9,10 +9,14 @@ import { SECTIONS } from "@/app/sections";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
+import { Tooltip } from "@/components/ui/tooltip";
 import { listLatestAnalyses } from "@/db/ai-repo";
 import { listWatchlist } from "@/db/repo";
 import { VALUATION_CONFIG } from "@/domain/scoring/config";
 import { parseStored } from "@/features/ai/equity-analysis";
+import { loadPeerGroup } from "@/features/peers/load";
+import { OutcomeBadge } from "@/features/peers/PeerSection";
+import { qualityTone, qualityWord } from "@/features/watchlist/ficha/Quality";
 import { loadSecurityDetail } from "@/features/watchlist/load";
 import { VerdictBadge, yearsText } from "@/features/watchlist/ficha/Indicators";
 import { signedPercent } from "@/features/watchlist/ficha/format";
@@ -30,7 +34,18 @@ function useComparison() {
       const db = await appDb();
       const [list, analyses] = await Promise.all([listWatchlist(db), listLatestAnalyses(db)]);
       const ai = new Map(analyses.map((r) => [r.security_id, { stored: parseStored(r), createdAt: r.created_at }]));
-      const rows = await Promise.all(list.map(async (w) => comparisonRow(await loadSecurityDetail(db, w.id), ai.get(w.id) ?? null)));
+      const rows = await Promise.all(
+        list.map(async (w) => {
+          const detail = await loadSecurityDetail(db, w.id);
+          const group = await loadPeerGroup(db, w.id, detail.analysis);
+          return comparisonRow(detail, ai.get(w.id) ?? null, {
+            outcome: group.verdict.outcome,
+            reason: group.verdict.reason,
+            vsPeers: group.comparison?.verdict ?? null,
+            peers: group.comparison?.peersWithData ?? 0,
+          });
+        }),
+      );
       return rows.filter((r): r is ComparisonRow => !!r);
     },
   });
@@ -143,6 +158,39 @@ const POSTURA = {
   Precaución: { tone: "negative", Icon: CircleAlert },
 } as const;
 
+function VerdictCell({ r }: { r: ComparisonRow }) {
+  const v = r.verdict;
+  if (!v.outcome) return <span className="text-[12px] text-muted">{SIN_DATO}</span>;
+  return (
+    <Tooltip content={v.reason}>
+      <div className="w-[150px]">
+        <OutcomeBadge outcome={v.outcome} />
+        <p className="mt-1 text-[11.5px] text-muted">
+          {v.vsPeers ? `${v.vsPeers} frente a ${v.peers} competidores` : "Sin competidores aún"}
+        </p>
+      </div>
+    </Tooltip>
+  );
+}
+
+function QualityCell({ r }: { r: ComparisonRow }) {
+  if (r.quality === null) return <span className="text-[12px] text-muted">{SIN_DATO}</span>;
+  const tone = qualityTone(r.quality);
+  return (
+    <div className="w-[96px]">
+      <p className="text-[13px]">
+        <span className="font-semibold tabular">{Math.round(r.quality)}</span>
+        <span className="text-muted">/100 · {qualityWord(r.quality)}</span>
+      </p>
+      <div className="mt-1.5 h-1.5 rounded-full bg-surface" aria-hidden>
+        <div className={cn("h-full rounded-full", QUALITY_BG[tone])} style={{ width: `${r.quality}%` }} />
+      </div>
+    </div>
+  );
+}
+
+const QUALITY_BG = { positive: "bg-positive", warning: "bg-warning", negative: "bg-negative", neutral: "bg-muted/40" } as const;
+
 function AiCell({ r }: { r: ComparisonRow }) {
   if (!r.ai) return <span className="text-[12px] text-muted">Sin analizar</span>;
   const { tone, Icon } = POSTURA[r.ai.postura];
@@ -161,6 +209,7 @@ const HIGHLIGHT_TEXT: Record<Highlight["key"], { title: string; text: (r: Compar
     title: "La más barata frente a su historia",
     text: (r) => `Cotiza un ${formatPercent(Math.abs(r.valuation.deviation!), 0)} ${r.valuation.deviation! < 0 ? "por debajo" : "por encima"} de lo que suele valer.`,
   },
+  quality: { title: "El mejor negocio", text: (r) => `Nota de calidad ${Math.round(r.quality!)}/100: crece, mantiene márgenes y convierte el beneficio en caja.` },
   cash: { title: "La que más caja genera", text: (r) => `Genera ${formatNumber(r.fcfYield! * 100, 1)} € de caja libre al año por cada 100 € que vale.` },
   debt: {
     title: "La menos endeudada",
@@ -223,7 +272,9 @@ function ComparisonTable({ rows }: { rows: ComparisonRow[] }) {
         <thead>
           <tr className="border-b border-border">
             <th scope="col" className={cn(head, "pl-5")}>Valor</th>
+            <th scope="col" className={head}>¿Oportunidad o trampa?</th>
             <th scope="col" className={head}>¿Cara o barata?</th>
+            <th scope="col" className={head}>¿Buen negocio?</th>
             <th scope="col" className={head}>¿Genera caja?</th>
             <th scope="col" className={head}>¿Tiene mucha deuda?</th>
             <th scope="col" className={head}>¿Crece? (ventas)</th>
@@ -246,7 +297,9 @@ function ComparisonTable({ rows }: { rows: ComparisonRow[] }) {
                 <p className="max-w-[200px] truncate text-[12px] text-muted" title={r.name}>{r.name}</p>
                 <p className="text-[12px] tabular">{r.price ? formatCurrency(r.price.value, r.price.currency) : <span className="text-muted">Sin precio</span>}</p>
               </th>
+              <td className="px-3 py-3"><VerdictCell r={r} /></td>
               <td className="px-3 py-3"><ValuationCell r={r} /></td>
+              <td className="px-3 py-3"><QualityCell r={r} /></td>
               <td className="px-3 py-3"><CashCell r={r} /></td>
               <td className="px-3 py-3"><DebtCell r={r} /></td>
               <td className="px-3 py-3"><GrowthCell r={r} /></td>
@@ -303,7 +356,7 @@ export function ComparisonPage() {
           {rows && rows.length > 0 && (
             <>
               {tops.length > 0 && (
-                <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-label="Destacados">
+                <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5" aria-label="Destacados">
                   {tops.map((h) => <HighlightCard key={h.key} h={h} />)}
                 </div>
               )}

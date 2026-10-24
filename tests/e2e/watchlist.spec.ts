@@ -107,8 +107,8 @@ test("sin clave de precios avisa en llano", async ({ page }) => {
   await expect(page.getByText("1 sin precio")).toBeVisible();
 });
 
-test("al añadir un valor la IA lo analiza una vez y la portada lo compara", async ({ page }) => {
-  const { calls } = await installTauriMock(page, { settings: SETTINGS, secrets: ["prices_api_key", "anthropic_api_key"] });
+test("al añadir un valor la IA lo analiza y busca sus competidores una vez, y la portada lo compara", async ({ page }) => {
+  const { ai } = await installTauriMock(page, { settings: SETTINGS, secrets: ["prices_api_key", "anthropic_api_key"] });
   await page.goto("/#/watchlist");
   await page.getByLabel("Ticker de EE. UU.").fill("FICT");
   await page.getByRole("button", { name: "Añadir" }).click();
@@ -120,23 +120,42 @@ test("al añadir un valor la IA lo analiza una vez y la portada lo compara", asy
   await expect(ia).toContainText("FICTICIA CORP (empresa inventada para pruebas)");
   await expect(ia.getByRole("button", { name: "Cita sin verificar" })).toBeVisible();
   await expect(ia.getByRole("button", { name: "Re-analizar" })).toBeEnabled();
-  expect(calls.filter((c) => c === "claude_request")).toHaveLength(1);
   await ia.scrollIntoViewIfNeeded();
   await shot(page, "7-analisis-ia");
 
-  // Volver a la ficha no vuelve a llamar a la IA
+  // Después del análisis, una sola llamada barata para proponer competidores
+  await expect.poll(() => ai.join(",")).toBe("analysis,peers");
+  const comp = page.getByRole("region", { name: "Frente a la competencia" });
+  await expect(comp.getByRole("row", { name: /OTRF/ })).toBeVisible();
+  await expect(comp.getByRole("row", { name: /FIC\.B/ })).toBeVisible();
+  await expect(comp.getByText("¿Oportunidad o trampa?")).toBeVisible();
+  await expect(comp).toContainText("Lista propuesta por la IA");
+  await expect(page.getByRole("region", { name: "¿Es un buen negocio?" })).toContainText("Nota de calidad");
+
+  // Editar la lista: quitar uno y añadir otro a mano (sin IA)
+  await comp.getByRole("button", { name: "Quitar FIC.B de los competidores" }).click();
+  await expect(comp.getByRole("row", { name: /FIC\.B/ })).toHaveCount(0);
+  await comp.getByLabel("Añadir competidor").fill("FIC.B");
+  await comp.getByRole("button", { name: "Añadir", exact: true }).click();
+  await expect(comp.getByRole("row", { name: /FIC\.B/ })).toContainText("Añadido por ti");
+  await comp.scrollIntoViewIfNeeded();
+  await shot(page, "11-competidores");
+
+  // Volver a la portada no vuelve a llamar a la IA; los competidores no entran en la watchlist
   await page.goto("/#/");
   const row = page.getByRole("row", { name: /FICT/ });
   await expect(row).toContainText("Neutral");
   await expect(row).toContainText("Más caja que deuda");
+  await expect(row).toContainText(/frente a 2 competidores/);
+  await expect(page.getByRole("row", { name: /OTRF/ })).toHaveCount(0);
   await shot(page, "8-comparativa");
   await row.click();
   await expect(page.getByRole("heading", { level: 1, name: /FICTICIA CORP/ })).toBeVisible();
-  expect(calls.filter((c) => c === "claude_request")).toHaveLength(1);
+  expect(ai).toEqual(["analysis", "peers"]);
 
-  // «Re-analizar» sí llama
+  // «Re-analizar» sí llama (solo al análisis)
   await page.getByRole("button", { name: "Re-analizar" }).click();
-  await expect.poll(() => calls.filter((c) => c === "claude_request").length).toBe(2);
+  await expect.poll(() => ai.join(",")).toBe("analysis,peers,analysis");
 });
 
 test("sin clave de Claude no se llama a la IA y se ofrece el botón", async ({ page }) => {
