@@ -1,11 +1,11 @@
 import type { CurrentMultiples, MultipleId, MultiplePoint, PricePoint, PriceRange, WindowStat } from "@/domain/valuation/multiples";
-import { priceRange, windowMedian } from "@/domain/valuation/multiples";
+import { median, priceRange, windowMedian } from "@/domain/valuation/multiples";
 import { VALUATION_CONFIG } from "./config";
 
 /**
  * Puntuación de valoración frente a su propia historia (CLAUDE.md §8.1).
  * Determinista y con desglose: cada múltiplo actual se compara con su mediana
- * de 5 y 10 años y la media de esas desviaciones decide el veredicto.
+ * de 5 y 10 años (media de ambas) y la mediana entre múltiplos decide el veredicto.
  */
 
 export type Verdict = "Barata" | "Justa" | "Cara";
@@ -26,7 +26,7 @@ export interface ValuationScore {
   verdict: Verdict | null;
   /** 0–100: 100 = mucho más barata que de costumbre. */
   score: number | null;
-  /** Desviación media de los múltiplos frente a su historia (−0,2 = un 20 % por debajo). */
+  /** Desviación típica (mediana) de los múltiplos frente a su historia (−0,2 = un 20 % por debajo). */
   deviation: number | null;
   comparisons: MultipleComparison[];
   range5: PriceRange | null;
@@ -65,7 +65,9 @@ export function valuationScore(
 
   const range5 = priceRange(monthly, current.price.value, asOf, cfg.windows.fiveYears.months);
   const range10 = priceRange(monthly, current.price.value, asOf, cfg.windows.tenYears.months);
-  const deviation = avg(comparisons.map((c) => c.deviation).filter((x): x is number => x !== null));
+  // Mediana entre múltiplos: un solo múltiplo disparado (p. ej. la caja libre en
+  // un año de mucha inversión) no decide por sí solo el veredicto
+  const deviation = median(comparisons.map((c) => c.deviation).filter((x): x is number => x !== null));
   const multiplesPart = deviation === null ? null : clamp(50 - (deviation / cfg.fullScaleDeviation) * 50);
   const range = range10 ?? range5;
   const rangePart = range ? clamp(100 * (1 - range.position)) : null;

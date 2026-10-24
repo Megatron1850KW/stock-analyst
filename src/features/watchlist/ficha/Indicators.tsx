@@ -99,21 +99,33 @@ export function yearsText(v: number): string {
 export function ValuationIndicator({ a }: { a: Analysis }) {
   const v = a.valuation;
   // Se explica con el primer múltiplo que tenga valor actual y media de 5 (o 10) años
-  const c = v?.comparisons.find((x) => x.current !== null && (x.fiveYears.median ?? x.tenYears.median) !== null);
-  const metric = c && a.multiples ? a.multiples[c.id] : null;
-  const unitWord = c ? MULTIPLES[c.id].label.replace(/^Años de /, "") : "";
-  const ref = c ? (c.fiveYears.median !== null ? { years: 5, value: c.fiveYears.median } : { years: 10, value: c.tenYears.median! }) : null;
+  // Se explica con el primer múltiplo que tenga valor actual y media de 5 (o 10) años
+  const usable = v?.comparisons.filter((x) => x.current !== null && (x.fiveYears.median ?? x.tenYears.median) !== null) ?? [];
+  const c = usable[0];
+  // Si otro múltiplo apunta claramente en sentido contrario, se dice (no se esconde)
+  const side = (d: number | null) => (d === null ? 0 : d < VALUATION_CONFIG.cheapBelow ? -1 : d > VALUATION_CONFIG.expensiveAbove ? 1 : 0);
+  const contrary = c ? usable.slice(1).find((x) => side(x.deviation) !== 0 && side(x.deviation) === -side(c.deviation)) : undefined;
+  const clause = (x: NonNullable<typeof c>) => {
+    const m = a.multiples![x.id];
+    const ref = x.fiveYears.median !== null ? { years: 5, value: x.fiveYears.median } : { years: 10, value: x.tenYears.median! };
+    return (
+      <>
+        <MetricValue metric={m} className="font-semibold">
+          {yearsText(m.value!)}
+        </MetricValue>{" "}
+        de {MULTIPLES[x.id].label.replace(/^Años de /, "")} (su media de {ref.years} años es{" "}
+        <strong className="tabular">{formatNumber(ref.value, ref.value < 10 ? 1 : 0)}</strong>)
+      </>
+    );
+  };
   let answer: ReactNode;
   if (!a.price) answer = <span className="text-muted">Sin precio todavía: añade la clave del proveedor de precios en Ajustes y pulsa ⌘R.</span>;
-  else if (!v?.verdict || !c || !metric || !ref) answer = <span className="text-muted">{v?.note ?? "Sin datos suficientes para valorarla."}</span>;
+  else if (!v?.verdict || !c || !a.multiples) answer = <span className="text-muted">{v?.note ?? "Sin datos suficientes para valorarla."}</span>;
   else
     answer = (
       <>
-        Hoy pagas{" "}
-        <MetricValue metric={metric} className="font-semibold">
-          {yearsText(metric.value!)}
-        </MetricValue>{" "}
-        de {unitWord}. Su media de {ref.years} años es <strong className="tabular">{formatNumber(ref.value, ref.value < 10 ? 1 : 0)}</strong>. {VERDICT_TEXT[v.verdict]}
+        Hoy pagas {clause(c)}
+        {contrary && <>, pero {clause(contrary)}</>}. {contrary ? `En conjunto, ${VERDICT_TEXT[v.verdict].charAt(0).toLowerCase()}${VERDICT_TEXT[v.verdict].slice(1)}` : VERDICT_TEXT[v.verdict]}
       </>
     );
   return (

@@ -66,7 +66,7 @@ export function ExpertDetail({ a, children }: { a: Analysis; children?: ReactNod
           <div className="rounded-xl bg-surface p-4 text-[12.5px] leading-relaxed">
             <p className="font-medium">Puntuación de valoración: {v.score ?? SIN_DATO}/100</p>
             <p className="text-muted">
-              {formatPercent(VALUATION_CONFIG.weights.multiples, 0)} múltiplos frente a su historia ({v.parts.multiples ?? SIN_DATO}/100: desviación media{" "}
+              {formatPercent(VALUATION_CONFIG.weights.multiples, 0)} múltiplos frente a su historia ({v.parts.multiples ?? SIN_DATO}/100: desviación típica (mediana entre múltiplos){" "}
               {v.deviation === null ? SIN_DATO : formatPercent(v.deviation, 1)}, ±{formatPercent(VALUATION_CONFIG.fullScaleDeviation, 0)} lleva a 0 o 100) y{" "}
               {formatPercent(VALUATION_CONFIG.weights.priceRange, 0)} posición del precio en su rango de 10 años ({v.parts.priceRange ?? SIN_DATO}/100). Barata por debajo de{" "}
               {formatPercent(VALUATION_CONFIG.cheapBelow, 0)}, cara por encima de +{formatPercent(VALUATION_CONFIG.expensiveAbove, 0)}.
