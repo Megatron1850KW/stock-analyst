@@ -95,4 +95,21 @@ describe("datos reales de la SEC (sin conexión)", () => {
     expect(f.grossDebt.value).toBe(5_179_000_000);
     expect(f.netDebt.value).toBe(5_179_000_000 - f.cash.value!);
   });
+
+  it("historia de 10 años desde companyfacts, sin pedir más a la SEC", async () => {
+    const mu = await importReal("MU");
+    expect(mu.r.historyYears).toBe(8);
+    expect(mu.years.map((y) => y.periodEnd.slice(0, 4))).toEqual(["2016", "2017", "2018", "2019", "2020", "2021", "2022", "2023", "2024", "2025", "2026"]);
+    // Ejercicio 2023 de Micron: pérdidas y caja libre negativa
+    expect(mu.years.find((y) => y.periodEnd.startsWith("2023"))!.netIncome!.value).toBeLessThan(0);
+
+    const goog = await importReal("GOOG");
+    expect(goog.r.historyYears).toBe(8);
+    // Antes de 2022 Alphabet no da el total de acciones diluidas: se deducen de beneficio ÷ BPA
+    const y2021 = goog.years.find((y) => y.periodEnd === "2021-12-31")!;
+    expect(y2021.shares!.note).toMatch(/beneficio neto ÷ beneficio por acción/);
+    // Base anterior al split 20×1 de julio de 2022 (≈ 680 M de acciones)
+    expect(y2021.shares!.value / 1e6).toBeGreaterThan(600);
+    expect(y2021.shares!.value / 1e6).toBeLessThan(720);
+  });
 });

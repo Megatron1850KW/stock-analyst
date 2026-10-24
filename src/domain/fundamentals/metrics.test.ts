@@ -111,3 +111,13 @@ describe("últimos doce meses (datos ficticios)", () => {
     expect(lastQuarterGrowth(filings, facts, "revenue")!.growth).toBeCloseTo(0.2);
   });
 });
+
+describe("acciones diluidas (datos ficticios)", () => {
+  it("si no hay total, las deduce de beneficio ÷ BPA y lo dice", async () => {
+    const { dilutedShares } = await import("./metrics");
+    const s = { concept: "x", value: 0, unit: "USD", tag: null, periodStart: null, periodEnd: "2020-12-31", fetchedAt: "", filing: filings[0]!, fromComparative: false };
+    const get = (c: string) =>
+      c === "net_income" ? { label: "Beneficio", value: 100 * M, unit: "USD", sources: [s] } : c === "eps_diluted" ? { label: "BPA", value: 2, unit: "USD/shares", sources: [s] } : null;
+    expect(dilutedShares(get)).toMatchObject({ value: 50 * M, note: expect.stringMatching(/beneficio neto ÷ beneficio por acción/) });
+  });
+});

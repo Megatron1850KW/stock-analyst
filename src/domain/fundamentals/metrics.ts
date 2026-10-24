@@ -210,6 +210,26 @@ function ratio(lbl: string, num: Metric | Input | null, den: Input | null, formu
   return { label: lbl, kind: "percent", value: numInput.value / den.value, formula, inputs };
 }
 
+/**
+ * Acciones diluidas. Si el informe no da el total (p. ej. Alphabet antes de
+ * 2022, que lo desglosa por clases), se deducen como beneficio neto ÷ BPA
+ * diluido y se dice.
+ */
+export function dilutedShares(get: Getter): Input | null {
+  const direct = get("shares_diluted");
+  if (direct) return direct;
+  const ni = get("net_income");
+  const eps = get("eps_diluted");
+  if (!ni || !eps || eps.value <= 0 || ni.value <= 0) return null;
+  return {
+    label: "Acciones diluidas (deducidas)",
+    value: ni.value / eps.value,
+    unit: "shares",
+    sources: [...ni.sources, ...eps.sources],
+    note: "El informe no da el total de acciones diluidas: calculadas como beneficio neto ÷ beneficio por acción diluido.",
+  };
+}
+
 export interface Fundamentals {
   revenue: Input | null;
   netIncome: Input | null;
@@ -255,7 +275,7 @@ export function fundamentals(get: Getter): Fundamentals {
     netMargin: ratio("Margen neto", netIncome, revenue, "Beneficio neto ÷ Ventas", unit),
     fcfMargin: ratio("Margen de caja libre", fcf, revenue, "Caja libre ÷ Ventas", unit),
     cashConversion: ratio("Conversión en caja", fcf, netIncome, "Caja libre ÷ Beneficio neto", unit),
-    shares: get("shares_diluted"),
+    shares: dilutedShares(get),
   };
 }
 
