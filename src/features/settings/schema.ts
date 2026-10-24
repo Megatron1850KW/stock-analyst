@@ -33,6 +33,8 @@ export const settingsSchema = z.object({
   theme: z.enum(["system", "light", "dark"]),
   autostart: z.boolean(),
   reportCheckFrequency: z.enum(["daily", "weekly", "manual"]),
+  /** Informe nuevo detectado: avisar y preguntar (por defecto) o analizarlo solo (§7). */
+  newReportAction: z.enum(["ask", "auto"]),
 });
 
 export type Settings = z.infer<typeof settingsSchema>;
@@ -50,6 +52,7 @@ export const DEFAULT_SETTINGS: Settings = {
   theme: "system",
   autostart: false,
   reportCheckFrequency: "daily",
+  newReportAction: "ask",
 };
 
 /**

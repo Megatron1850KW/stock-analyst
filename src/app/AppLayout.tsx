@@ -1,4 +1,5 @@
 import { Outlet } from "react-router";
+import { useBackgroundChecks } from "@/features/calendar/queries";
 import { usePriceRefreshOnLaunch } from "@/features/prices/queries";
 import { useSettings } from "@/features/settings/queries";
 import { Disclaimer } from "./Disclaimer";
@@ -11,6 +12,7 @@ export function AppLayout() {
   useTheme(settings?.theme);
   useShortcuts();
   usePriceRefreshOnLaunch();
+  useBackgroundChecks();
 
   return (
     <div className="flex h-full flex-col bg-bg">

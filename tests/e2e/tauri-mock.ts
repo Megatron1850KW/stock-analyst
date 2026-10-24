@@ -29,6 +29,8 @@ export interface MockOptions {
   analysis?: unknown;
   /** Competidores que propone la IA (por defecto, los REALES guardados o dos FICTICIOS). */
   peers?: unknown;
+  /** FICTICIO: a partir de esta llamada a submissions, la SEC ficticia publica un 10-Q nuevo (Q3 2026). */
+  newFilingAfter?: number;
 }
 
 /** Propuesta FICTICIA de competidores (existen en tests/fixtures/ficticio/tickers.json). */
@@ -119,7 +121,7 @@ export async function installTauriMock(page: Page, opts: MockOptions = {}) {
   }
   db.exec("PRAGMA foreign_keys = ON");
   // La app consulta esta tabla para mostrar la versión del esquema
-  db.exec("CREATE TABLE _sqlx_migrations (version INTEGER); INSERT INTO _sqlx_migrations VALUES (1), (2), (3), (4), (5), (6), (7);");
+  db.exec("CREATE TABLE _sqlx_migrations (version INTEGER); INSERT INTO _sqlx_migrations VALUES (1), (2), (3), (4), (5), (6), (7), (8), (9);");
 
   const store = new Map<string, unknown>(opts.settings ? [["settings", opts.settings]] : []);
   const secrets = new Set(opts.secrets ?? []);
@@ -129,6 +131,7 @@ export async function installTauriMock(page: Page, opts: MockOptions = {}) {
   const ai: string[] = [];
 
   const eu = fakeEu().client;
+  let submissionsCalls = 0;
   /** Alpha Vantage FICTICIO (tests/helpers/fake-alphavantage): pide su propia clave. */
   const alphaVantage = (body: () => string) => {
     if (!secrets.has("alphavantage_api_key")) throw "Falta la clave de Alpha Vantage (precios europeos). Añádela en Ajustes.";
@@ -180,6 +183,12 @@ export async function installTauriMock(page: Page, opts: MockOptions = {}) {
         const map: Record<string, string> = { tickers: "tickers", submissions: "submissions", company_facts: "companyfacts" };
         const name = map[args.resource as string];
         if (!name) throw new Error("recurso no simulado");
+        if (name === "submissions" && opts.newFilingAfter !== undefined && ++submissionsCalls > opts.newFilingAfter) {
+          const sub = JSON.parse(fixture(name)) as { filings: { recent: Record<string, unknown[]> } };
+          const add: Record<string, unknown> = { accessionNumber: "0009999999-26-000050", filingDate: "2026-11-03", reportDate: "2026-09-30", form: "10-Q", primaryDocument: "fict-20260930.htm", isXBRL: 1 };
+          for (const [k, v] of Object.entries(sub.filings.recent)) sub.filings.recent[k] = [add[k] ?? "", ...v];
+          return JSON.stringify(sub);
+        }
         return fixture(name);
       }
       case "price_quote": {
@@ -282,6 +291,10 @@ export async function installTauriMock(page: Page, opts: MockOptions = {}) {
       case "price_splits":
         if (!secrets.has("prices_api_key")) throw "Falta la clave del proveedor de precios. Añádela en Ajustes.";
         return realPrices(args.symbol as string, "splits") ?? "[]";
+      case "plugin:event|listen":
+        return 1;
+      case "plugin:event|unlisten":
+        return null;
       default:
         throw new Error(`Comando no simulado: ${cmd}`);
     }
@@ -290,6 +303,16 @@ export async function installTauriMock(page: Page, opts: MockOptions = {}) {
   await page.addInitScript(() => {
     const w = window as unknown as Record<string, unknown>;
     w.isTauri = true;
+    // Notificaciones de macOS: se apuntan en vez de mostrarse
+    const sent: { title: string; body?: string }[] = [];
+    w.__notifications = sent;
+    w.Notification = class {
+      static permission = "granted";
+      static requestPermission = async () => "granted";
+      constructor(title: string, opts?: { body?: string }) {
+        sent.push({ title, body: opts?.body });
+      }
+    };
     w.__TAURI_INTERNALS__ = {
       invoke: async (cmd: string, args: unknown, options?: { headers?: Record<string, string> }) => {
         // Los cuerpos binarios no viajan bien a Node: se mandan la firma y el tamaño
