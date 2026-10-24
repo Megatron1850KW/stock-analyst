@@ -67,6 +67,7 @@ export function useAddTicker() {
     onSettled: () => {
       setStep(null);
       void qc.invalidateQueries({ queryKey: watchlistKey });
+      void qc.invalidateQueries({ queryKey: ["technical-risk"] });
       void qc.invalidateQueries({ queryKey: ["comparison"] });
     },
     onSuccess: (r) => {
@@ -84,6 +85,7 @@ export function useRemoveSecurity() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["peers"] });
       void qc.invalidateQueries({ queryKey: watchlistKey });
+      void qc.invalidateQueries({ queryKey: ["technical-risk"] });
       void qc.invalidateQueries({ queryKey: ["comparison"] });
     },
   });

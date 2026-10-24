@@ -7,6 +7,7 @@ import { recommend, trendFromCloses, type Recommendation, type Trend } from "@/d
 import { buildScenarios, priceCagr, type GrowthInput, type Scenarios } from "@/domain/portfolio/scenarios";
 import { sectorFromSic } from "@/domain/portfolio/sector";
 import type { OpportunityVerdict } from "@/domain/scoring/peer-verdict";
+import { technicalRisk, type TechnicalRisk } from "@/domain/technical/risk";
 import { loadPeerGroup } from "@/features/peers/load";
 import type { Analysis } from "@/features/watchlist/analysis";
 import { loadSecurityDetail } from "@/features/watchlist/load";
@@ -26,6 +27,8 @@ export interface Holding {
   verdict: OpportunityVerdict | null;
   fund: FundProfileRow | null;
   trend: Trend | null;
+  /** Riesgo técnico de largo plazo (§5.3). */
+  technical: TechnicalRisk;
   recommendation: Recommendation;
   /** De dónde sale el sector mostrado. */
   sectorSource: "user" | "sic" | "factsheet" | null;
@@ -92,6 +95,7 @@ export async function loadPortfolio(db: Db, now = new Date()): Promise<Portfolio
     let trend: Trend | null = null;
     let g: number | null = null;
     const monthly = await getPriceBars(db, row.id, "1mo");
+    const technical = technicalRisk(monthly.slice(-120));
     if (row.kind === "stock") {
       analysis = (await loadSecurityDetail(db, row.id)).analysis;
       verdict = analysis ? (await loadPeerGroup(db, row.id, analysis)).verdict : null;
@@ -114,6 +118,7 @@ export async function loadPortfolio(db: Db, now = new Date()): Promise<Portfolio
       activeSignals: analysis?.quality.signals.filter((s) => s.active).map((s) => s.label) ?? [],
       debt: analysis?.debt ?? null,
       trend,
+      technical: { level: technical.level, sentence: technical.sentence },
     });
     holdings.push({
       position,
@@ -122,6 +127,7 @@ export async function loadPortfolio(db: Db, now = new Date()): Promise<Portfolio
       verdict,
       fund,
       trend,
+      technical,
       recommendation,
       sectorSource: row.sector ? ((row.sector_source as Holding["sectorSource"]) ?? "user") : sicSector(row) ? "sic" : null,
     });

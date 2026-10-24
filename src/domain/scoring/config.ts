@@ -112,3 +112,37 @@ export const SCENARIO_CONFIG = {
   /** Años de precios que se exigen como mínimo para un ETF/ETC. */
   minPriceYears: 3,
 };
+
+/**
+ * Riesgo técnico de largo plazo (§5.3): solo velas mensuales y semanales de
+ * varios años, nunca intradía. Cada señal suma puntos; el total da el semáforo.
+ */
+export const TECHNICAL_CONFIG = {
+  /** Media de largo plazo: 10 meses (≈ 200 sesiones / 40 semanas). */
+  maPeriods: 10,
+  /** Meses atrás con los que se compara la media para ver si sube o baja. */
+  slopeLookback: 3,
+  /** Por debajo de este cambio de la media (±1 %) se considera plana. */
+  flatSlope: 0.01,
+  /** Meses de historia mínimos para dar semáforo. */
+  minMonths: 24,
+  /** Soportes y resistencias: mínimo/máximo de ±3 meses a cada lado; zonas a menos de un 4 % se juntan. */
+  pivotWindow: 3,
+  mergeWithin: 0.04,
+  points: {
+    trend: { Bajista: 2, Lateral: 1, Alcista: 0 },
+    /** Caída actual desde máximos. */
+    drawdown: [
+      { above: 0.5, points: 2 },
+      { above: 0.25, points: 1 },
+    ],
+    /** Volatilidad anual (desviación típica de las rentabilidades mensuales × √12). */
+    volatility: [
+      { above: 0.4, points: 2 },
+      { above: 0.25, points: 1 },
+    ],
+  },
+  /** Semáforo según los puntos: 0–1 Bajo, 2–3 Medio, 4 o más Alto. */
+  mediumFrom: 2,
+  highFrom: 4,
+};
