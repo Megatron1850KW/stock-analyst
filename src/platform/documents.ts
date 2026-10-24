@@ -28,6 +28,8 @@ export async function storeDocument(securityId: number, file: File): Promise<Sto
 }
 
 export const openDocument = (path: string) => invoke("document_open", { path });
+/** Muestra el archivo en el Finder, seleccionado. */
+export const revealDocument = (path: string) => invoke("document_reveal", { path });
 export const deleteDocumentFile = (path: string) => invoke("document_delete", { path });
 
 /** Bytes de un PDF guardado (para la extracción de cifras con Claude). */

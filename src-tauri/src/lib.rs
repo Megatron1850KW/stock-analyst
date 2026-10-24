@@ -121,6 +121,7 @@ pub fn run() {
             fx::fx_series,
             documents::document_store,
             documents::document_open,
+            documents::document_reveal,
             documents::document_delete,
             documents::document_read_pdf,
             documents::document_esef_report

@@ -139,17 +139,7 @@ export async function extractPdfFacts(
 
   const bytes = await deps.readPdf(filing.local_path);
   const pages = countPdfPages(bytes);
-  const userText = [
-    "<informe>",
-    JSON.stringify({
-      empresa: security.name,
-      tipo_segun_usuario: KIND_TEXT[filing.period_type],
-      cierre_segun_usuario: filing.period_end,
-      conceptos: CONCEPTS.map((c) => ({ id: c.id, nombre: c.label, tipo: c.period === "instant" ? "balance (a una fecha)" : "del periodo" })),
-    }),
-    "</informe>",
-    "Extrae las cifras siguiendo las instrucciones y el esquema de salida.",
-  ].join("\n");
+  const userText = pdfUserText(security.name, filing);
 
   const rate = await checkBudget(db, {
     budgetEur: deps.budgetEur,
@@ -201,7 +191,38 @@ export async function extractPdfFacts(
     throw new AiAnalysisError("La IA devolvió las cifras del PDF con un formato inesperado. No se ha guardado nada.");
   }
 
-  const outcome = toFacts(checked.data, filing.accession_no, pages);
+  const saved = await saveExtraction(db, securityId, filing, checked.data, pages);
+  return { status: "created", ...saved, costEur: cost.eur };
+}
+
+/** Qué documento es y qué conceptos se buscan: lo mismo para la API y para claude.ai. */
+export function pdfUserText(company: string, filing: Pick<FilingRow, "period_type" | "period_end">): string {
+  return [
+    "<informe>",
+    JSON.stringify({
+      empresa: company,
+      tipo_segun_usuario: KIND_TEXT[filing.period_type],
+      cierre_segun_usuario: filing.period_end,
+      conceptos: CONCEPTS.map((c) => ({ id: c.id, nombre: c.label, tipo: c.period === "instant" ? "balance (a una fecha)" : "del periodo" })),
+    }),
+    "</informe>",
+    "Extrae las cifras siguiendo las instrucciones y el esquema de salida.",
+  ].join("\n");
+}
+
+/**
+ * Guarda las cifras ya validadas por el esquema: comprobaciones deterministas
+ * (fechas, páginas), corrección del periodo si el documento dice otro y huecos.
+ */
+export async function saveExtraction(
+  db: Db,
+  securityId: number,
+  filing: FilingRow,
+  data: PdfExtraction,
+  pages: number,
+): Promise<{ facts: number; discarded: number; notes: string[] }> {
+  const filingId = filing.id;
+  const outcome = toFacts(data, filing.accession_no, pages);
   const notes = [...outcome.notes];
   // Si el documento es de otro periodo distinto del indicado, manda el documento
   if (ISO_DATE.test(outcome.periodEnd) && !near(outcome.periodEnd, filing.period_end) && outcome.facts.some((f) => f.periodEnd === outcome.periodEnd)) {
@@ -213,5 +234,5 @@ export async function extractPdfFacts(
   const gaps: ConceptGap[] = CONCEPTS.filter((c) => !found.has(c.id)).map((c) => ({ accession: filing.accession_no, concept: c.id }));
   await replaceFilingFacts(db, securityId, filingId, outcome.facts, gaps, "pdf-extraction");
   if (outcome.discarded > 0) notes.push(`${outcome.discarded} cifras descartadas por fechas o páginas incoherentes.`);
-  return { status: "created", facts: outcome.facts.length, discarded: outcome.discarded, costEur: cost.eur, notes };
+  return { facts: outcome.facts.length, discarded: outcome.discarded, notes };
 }

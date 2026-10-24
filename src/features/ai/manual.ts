@@ -27,16 +27,12 @@ export const MANUAL_LIMITS: Record<SectionId, number> = {
 
 /** Texto completo que se copia en claude.ai. */
 export function buildManualPrompt(p: PreparedAnalysis): string {
-  const schema = JSON.stringify(z.toJSONSchema(equityAnalysisSchema));
   return [
     `Analiza la acción ${p.name} (${p.ticker}) siguiendo estas instrucciones.`,
     "",
     p.prompt.text,
     "",
-    "## Formato de la respuesta",
-    "",
-    "Responde ÚNICAMENTE con un objeto JSON válido, sin texto antes ni después, que cumpla este esquema JSON:",
-    schema,
+    jsonFormatBlock(equityAnalysisSchema),
     "",
     "## Datos",
     "",
@@ -47,8 +43,11 @@ export function buildManualPrompt(p: PreparedAnalysis): string {
 /** Aproximación de tokens (≈ 4 caracteres por token), para mostrarla al usuario. */
 export const approxTokens = (text: string) => Math.round(text.length / 4);
 
-/** Saca el JSON de la respuesta pegada (con o sin bloque ```json) y lo valida. */
-export function parseManualAnswer(text: string): EquityAnalysis {
+/**
+ * Saca el JSON de una respuesta pegada de claude.ai (con o sin bloque ```json
+ * y texto alrededor) y lo valida con su esquema. Errores en llano.
+ */
+export function parsePastedJson<T extends z.ZodType>(text: string, schema: T): z.infer<T> {
   const trimmed = text.trim();
   if (!trimmed) throw new AiAnalysisError("Pega la respuesta de Claude en el recuadro.");
   const fenced = /```(?:json)?\s*([\s\S]*?)```/i.exec(trimmed)?.[1];
@@ -62,14 +61,25 @@ export function parseManualAnswer(text: string): EquityAnalysis {
   } catch {
     throw new AiAnalysisError("La respuesta pegada está incompleta o mal formada. Si Claude se cortó, pídele «continúa» o vuelve a copiar el texto.");
   }
-  const checked = equityAnalysisSchema.safeParse(raw);
+  const checked = schema.safeParse(raw);
   if (!checked.success) {
     const fields = [...new Set(checked.error.issues.map((i) => i.path.join(".") || "(raíz)"))].slice(0, 4).join(", ");
     throw new AiAnalysisError(`La respuesta no sigue el formato pedido (revisa: ${fields}). Pídele a Claude que responda solo con el JSON del esquema.`);
   }
-  const problems = analysisProblems(checked.data);
-  if (problems.length) throw new AiAnalysisError(`El análisis pegado está incompleto (${problems.join(" ")}). No se ha guardado.`);
   return checked.data;
+}
+
+/** Valida un análisis pegado: formato y que no falte lo esencial. */
+export function parseManualAnswer(text: string): EquityAnalysis {
+  const analysis = parsePastedJson(text, equityAnalysisSchema);
+  const problems = analysisProblems(analysis);
+  if (problems.length) throw new AiAnalysisError(`El análisis pegado está incompleto (${problems.join(" ")}). No se ha guardado.`);
+  return analysis;
+}
+
+/** Bloque final del texto para claude.ai: formato JSON estricto con su esquema. */
+export function jsonFormatBlock(schema: z.ZodType): string {
+  return ["## Formato de la respuesta", "", "Responde ÚNICAMENTE con un objeto JSON válido, sin texto antes ni después, que cumpla este esquema JSON:", JSON.stringify(z.toJSONSchema(schema))].join("\n");
 }
 
 /** Guarda el análisis pegado, con las mismas fuentes y foto del día que uno hecho con la API. */

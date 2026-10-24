@@ -219,6 +219,7 @@ export async function installTauriMock(page: Page, opts: MockOptions = {}) {
         return { path: `/simulado/documents/${headers["x-security-id"]}/${sha.slice(0, 12)}-${name}`, sha256: sha, bytes: args.length, kind: head.startsWith("%PDF-") ? "pdf" : "zip" };
       }
       case "document_open":
+      case "document_reveal":
       case "document_delete":
         return null;
       case "sec_document": {
