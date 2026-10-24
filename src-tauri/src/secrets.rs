@@ -59,8 +59,7 @@ pub fn delete(name: &str) -> Result<(), SecretError> {
     }
 }
 
-/// Uso interno de Rust (fases siguientes): nunca se expone como comando.
-#[allow(dead_code)]
+/// Uso interno de Rust: nunca se expone como comando.
 pub fn get(name: &str) -> Result<Option<String>, SecretError> {
     match entry(name)?.get_password() {
         Ok(v) => Ok(Some(v)),

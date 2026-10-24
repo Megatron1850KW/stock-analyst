@@ -5,13 +5,16 @@ import { createMemoryRouter, RouterProvider } from "react-router";
 import { describe, expect, it } from "vitest";
 import { routes } from "@/app/router";
 import { DISCLAIMER } from "@/app/Disclaimer";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 function renderApp(path = "/") {
   const router = createMemoryRouter(routes, { initialEntries: [path] });
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={qc}>
-      <RouterProvider router={router} />
+      <TooltipProvider>
+        <RouterProvider router={router} />
+      </TooltipProvider>
     </QueryClientProvider>,
   );
   return router;
@@ -36,7 +39,7 @@ describe("esqueleto de la app", () => {
     expect(await screen.findByRole("heading", { level: 1, name: "Equity Analyst" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Watchlist" })).toBeInTheDocument();
     const nav = screen.getByRole("navigation", { name: "Secciones" });
-    expect(within(nav).getAllByRole("link").map((a) => a.getAttribute("aria-label"))).toEqual([
+    expect(within(nav).getAllByRole("link").map((a) => a.getAttribute("aria-label")).filter(Boolean)).toEqual([
       "Mi Portfolio",
       "Riesgo técnico",
       "Estrellas",

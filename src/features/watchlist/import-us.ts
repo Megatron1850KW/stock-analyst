@@ -1,0 +1,111 @@
+import { filingUrl, findTicker, type SecClient } from "@/data/sec-edgar/client";
+import type { Db } from "@/db/client";
+import { pruneFilings, replaceFilingFacts, upsertFiling, upsertUsSecurity } from "@/db/repo";
+import { normalizeCompanyFacts } from "@/domain/fundamentals/normalize";
+import { needsOlderPages, selectFilings, toRows, type FilingRef } from "@/domain/fundamentals/select-filings";
+
+export type ImportStep = "ticker" | "filings" | "facts" | "save";
+
+export const IMPORT_STEP_LABELS: Record<ImportStep, string> = {
+  ticker: "Buscando la empresa en la SEC",
+  filings: "Localizando sus últimos informes",
+  facts: "Descargando las cifras (XBRL)",
+  save: "Guardando en tu Mac",
+};
+
+export interface ImportResult {
+  securityId: number;
+  ticker: string;
+  name: string;
+  annual: number;
+  interim: number;
+  facts: number;
+  gaps: number;
+  notes: string[];
+}
+
+export class ImportError extends Error {
+  name = "ImportError";
+}
+
+/** Páginas antiguas de presentaciones que se piden como mucho (cada una ~1.000 presentaciones). */
+const MAX_OLDER_PAGES = 3;
+
+/**
+ * Alta de una acción de EE. UU.: ticker → CIK, presentaciones, 3 anuales + 3
+ * trimestrales, cifras XBRL normalizadas y guardado con su origen.
+ * Es idempotente: volver a ejecutarlo actualiza sin duplicar.
+ */
+export async function importUsTicker(
+  sec: SecClient,
+  db: Db,
+  rawTicker: string,
+  onStep: (step: ImportStep) => void = () => {},
+): Promise<ImportResult> {
+  onStep("ticker");
+  const match = findTicker(await sec.tickers(), rawTicker);
+  if (!match) {
+    throw new ImportError(
+      `No encuentro «${rawTicker.trim().toUpperCase()}» entre las empresas que presentan en la SEC. Revisa el ticker; si cotiza en Europa, podrás añadirla por ISIN en la fase 6.`,
+    );
+  }
+
+  onStep("filings");
+  const submissions = await sec.submissions(match.cik);
+  let rows: FilingRef[] = toRows(submissions.filings.recent);
+  for (const file of submissions.filings.files.slice(0, MAX_OLDER_PAGES)) {
+    if (!needsOlderPages(rows)) break;
+    rows = rows.concat(toRows(await sec.submissionsFile(file.name)));
+  }
+  const selection = selectFilings(rows);
+  const chosen = [...selection.annual, ...selection.interim];
+  if (chosen.length === 0) {
+    throw new ImportError(`${match.name} no tiene informes 10-K, 10-Q ni 20-F en EDGAR, así que no hay datos que analizar.`);
+  }
+
+  onStep("facts");
+  const facts = await sec.companyFacts(match.cik);
+  const normalized = normalizeCompanyFacts(facts, chosen);
+
+  onStep("save");
+  const securityId = await upsertUsSecurity(db, {
+    ticker: match.ticker,
+    cik: match.cik,
+    name: submissions.name || match.name,
+    exchange: match.exchange,
+    sic: submissions.sic ?? null,
+    sicDescription: submissions.sicDescription ?? null,
+    fiscalYearEnd: submissions.fiscalYearEnd ?? null,
+    filerType: selection.filerType,
+    // Cotiza en EE. UU.: el precio va en dólares aunque los estados vengan en otra divisa
+    currency: "USD",
+    reportingCurrency: normalized.currency,
+  });
+  for (const filing of chosen) {
+    const filingId = await upsertFiling(db, securityId, filing, filingUrl(match.cik, filing.accession, filing.primaryDocument));
+    await replaceFilingFacts(
+      db,
+      securityId,
+      filingId,
+      normalized.facts.filter((f) => f.accession === filing.accession),
+      normalized.gaps.filter((g) => g.accession === filing.accession),
+    );
+  }
+  await pruneFilings(db, securityId, chosen.map((f) => f.accession));
+
+  return {
+    securityId,
+    ticker: match.ticker,
+    name: submissions.name || match.name,
+    annual: selection.annual.length,
+    interim: selection.interim.length,
+    facts: normalized.facts.length,
+    gaps: normalized.gaps.length,
+    notes: selection.notes,
+  };
+}
+
+/** ISIN: 2 letras de país, 9 alfanuméricos y un dígito de control. */
+export function looksLikeIsin(input: string): boolean {
+  return /^[A-Z]{2}[A-Z0-9]{9}\d$/.test(input.trim().toUpperCase());
+}

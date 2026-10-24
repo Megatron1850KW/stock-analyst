@@ -21,7 +21,7 @@ describe("migraciones SQLite", () => {
       .all()
       .map((r) => (r as { name: string }).name);
     expect(tables).toEqual([
-      "ai_usage", "analyses", "document_requests", "earnings_calendar", "filings", "financial_facts",
+      "ai_usage", "analyses", "concept_gaps", "document_requests", "earnings_calendar", "filings", "financial_facts",
       "fx_rates", "peers", "prices", "securities", "transactions",
     ]);
   });

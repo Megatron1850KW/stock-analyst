@@ -37,3 +37,23 @@ export const SIN_DATO = "Sin dato";
 export function formatOrMissing(value: number | null | undefined, fmt: (v: number) => string): string {
   return value === null || value === undefined || Number.isNaN(value) ? SIN_DATO : fmt(value);
 }
+
+/** Importes grandes en millones: 391.035 M$ (sin decimales). */
+export function formatMillions(value: number, currency: string): string {
+  const symbol = currency === "USD" ? "$" : currency === "EUR" ? "€" : ` ${currency}`;
+  return `${formatNumber(value / 1e6, Math.abs(value) < 1e7 ? 1 : 0)} M${symbol}`;
+}
+
+/** Fecha corta en español: «31 dic 2025». */
+export function formatDate(iso: string): string {
+  return new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })
+    .format(new Date(`${iso.slice(0, 10)}T00:00:00Z`))
+    .replace(".", "");
+}
+
+/** Mes y año: «dic 2025». */
+export function formatMonthYear(iso: string): string {
+  return new Intl.DateTimeFormat("es-ES", { month: "short", year: "numeric", timeZone: "UTC" })
+    .format(new Date(`${iso.slice(0, 10)}T00:00:00Z`))
+    .replace(".", "");
+}

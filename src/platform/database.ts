@@ -1,4 +1,5 @@
 import Database from "@tauri-apps/plugin-sql";
+import type { Db } from "@/db/client";
 import { inDesktopApp } from "./runtime";
 
 /**
@@ -14,6 +15,18 @@ export function getDb(): Promise<Database> {
   if (!inDesktopApp) return Promise.reject(new Error("La base de datos solo existe en la app de escritorio"));
   db ??= Database.load(DB_URL);
   return db;
+}
+
+/** La base de la app con la interfaz Db que usan los repositorios. */
+export async function appDb(): Promise<Db> {
+  const conn = await getDb();
+  return {
+    execute: async (sql, params = []) => {
+      const r = await conn.execute(sql, params);
+      return { rowsAffected: r.rowsAffected, lastInsertId: r.lastInsertId };
+    },
+    select: (sql, params = []) => conn.select(sql, params),
+  };
 }
 
 export interface DbStatus {
