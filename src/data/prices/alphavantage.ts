@@ -250,6 +250,9 @@ export const alphaVantageProvider: PriceProvider = {
     const weekly = since(splitAdjusted(weeklyRows, splits));
     return { bars: weekly, weekly, monthly: since(splitAdjusted(monthlyRows, detectSplits(monthlyRows))), splits };
   },
+  // Comprobado con datos reales (24-10-2026): no tiene Inditex, e Iberdrola solo fuera de España
+  unsupported: (target) =>
+    target.exchange === "SM" || target.exchange === "SQ" ? "Alpha Vantage no cubre la Bolsa de Madrid: por ahora va sin precio." : null,
   resolveSymbol: async (target) => {
     const search = async (keywords: string) => parseAvSearch(await invoke<string>("price_search", { provider: "alphavantage", keywords }));
     const byTicker = pickAvSymbol(await search(target.ticker), target);

@@ -197,7 +197,7 @@ export function SettingsPage() {
                 ))}
               </Select>
             </Field>
-            <Field label="Precios de bolsas europeas" htmlFor="price-provider-eu" hint="Alpha Vantage (cuenta gratuita, 25 consultas al día). Cada acción europea gasta una consulta al actualizar precios y tres al añadirla o renovar su histórico (una vez al mes).">
+            <Field label="Precios de bolsas europeas" htmlFor="price-provider-eu" hint="Alpha Vantage (cuenta gratuita, 25 consultas al día): cubre París, Ámsterdam y otras bolsas, pero no Madrid. Cada acción gasta una consulta al actualizar precios y tres al añadirla o renovar su histórico (una vez al mes).">
               <Select
                 id="price-provider-eu"
                 value={settings.priceProviderEu ?? ""}

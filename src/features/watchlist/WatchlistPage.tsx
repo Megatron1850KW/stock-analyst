@@ -233,7 +233,7 @@ export function WatchlistPage() {
               {add.data.requests > 0 && <> Te pido {add.data.requests === 1 ? "1 informe" : `${add.data.requests} informes`} en «Documentos pendientes».</>}
             </span>
           </p>
-          {add.data.notes.map((n) => (
+          {[...add.data.notes, ...add.data.priceErrors.map((m) => `Precio: ${m}`)].map((n) => (
             <p key={n} className="mt-1 pl-6 text-muted">{n}</p>
           ))}
         </div>

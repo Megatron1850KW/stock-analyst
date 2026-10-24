@@ -98,9 +98,9 @@ test("una acción europea (ficticia) se añade por su ISIN con sus informes ESEF
   // Faltan los semestrales: se piden en «Documentos pendientes»
   await expect(page.getByText(/en «Documentos pendientes»/)).toBeVisible();
   expect(calls).not.toContain("sec_fetch");
-  // Precio en euros de Alpha Vantage, con su histórico (semanal y mensual)
-  await expect(page.getByRole("row", { name: /FTX/ })).toContainText("38,40");
-  expect(calls.filter((c) => c === "price_series")).toHaveLength(2);
+  // Alpha Vantage no cubre Madrid: se dice sin gastar consultas
+  await expect(page.getByText("Precio: Alpha Vantage no cubre la Bolsa de Madrid: por ahora va sin precio.")).toBeVisible();
+  expect(calls.filter((c) => c.startsWith("price_"))).toEqual([]);
   await shot(page, "6-europa-watchlist");
 
   await page.getByRole("row", { name: /FTX/ }).getByRole("link").first().click();

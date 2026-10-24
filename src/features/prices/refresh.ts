@@ -77,6 +77,11 @@ export async function refreshPrices(
       continue;
     }
     if (stopped.has(target.market)) continue;
+    const reason = provider.unsupported?.({ ticker: target.ticker, name: target.name, exchange: target.exchange, currency: target.currency });
+    if (reason) {
+      if (!target.peer_only) result.failed.push({ ticker: target.ticker, message: reason });
+      continue;
+    }
     let symbol: string | null;
     try {
       symbol = await symbolFor(db, provider, target, now);

@@ -49,6 +49,8 @@ export interface PriceProvider {
    * europeas). Null si el proveedor no lo cubre. Se guarda: se busca una vez.
    */
   resolveSymbol?(target: SymbolTarget): Promise<string | null>;
+  /** Motivo en llano si se sabe de antemano que no cubre el valor (sin gastar consultas). */
+  unsupported?(target: SymbolTarget): string | null;
   /**
    * Cierres diarios ajustados por splits desde `from` (AAAA-MM-DD), del más
    * antiguo al más reciente, y los splits del proveedor (null si no los da).

@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { avSearchJson, avSeriesJson } from "../../../tests/helpers/fake-alphavantage";
-import { detectSplits, parseAvQuote, parseAvSearch, parseAvSeries, pickAvSymbol, ProviderLimitError, splitAdjusted } from "./alphavantage";
+import { alphaVantageProvider, detectSplits, parseAvQuote, parseAvSearch, parseAvSeries, pickAvSymbol, ProviderLimitError, splitAdjusted } from "./alphavantage";
 
 describe("Alpha Vantage (respuestas FICTICIAS con su formato)", () => {
   it("lee la cotización y traduce sus errores", () => {
@@ -44,5 +44,10 @@ describe("Alpha Vantage (respuestas FICTICIAS con su formato)", () => {
     expect(pickAvSymbol(matches, { ...target, exchange: "GY" })).toBe("FTX.DEX");
     // Mismo ticker en Londres pero otra empresa y otra divisa: no vale
     expect(pickAvSymbol(matches.filter((m) => m.region === "United Kingdom"), target)).toBeNull();
+  });
+
+  it("sabe sin consultar que no cubre la Bolsa de Madrid", () => {
+    expect(alphaVantageProvider.unsupported?.({ ticker: "ITX", name: "Inditex", exchange: "SM", currency: "EUR" })).toMatch(/Madrid/);
+    expect(alphaVantageProvider.unsupported?.({ ticker: "MC", name: "LVMH", exchange: "FP", currency: "EUR" })).toBeNull();
   });
 });
