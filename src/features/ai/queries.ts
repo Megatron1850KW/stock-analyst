@@ -66,6 +66,7 @@ function invalidateAfterRun(qc: QueryClient, securityId: number) {
   void qc.invalidateQueries({ queryKey: aiAnalysisKey(securityId) });
   void qc.invalidateQueries({ queryKey: aiSpendKey });
   void qc.invalidateQueries({ queryKey: ["comparison"] });
+  void qc.invalidateQueries({ queryKey: ["stars"] });
 }
 
 export function useRunAnalysis(securityId: number) {

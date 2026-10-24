@@ -35,6 +35,7 @@ export function useRefreshPrices() {
       qc.setQueryData(lastRefreshKey, r);
       void qc.invalidateQueries({ queryKey: ["watchlist"] });
       void qc.invalidateQueries({ queryKey: ["comparison"] });
+      void qc.invalidateQueries({ queryKey: ["stars"] });
       void qc.invalidateQueries({ queryKey: ["portfolio"] });
       void qc.invalidateQueries({ queryKey: ["technical-risk"] });
       void qc.invalidateQueries({ queryKey: ["watchlist-funds"] });

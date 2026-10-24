@@ -146,3 +146,21 @@ export const TECHNICAL_CONFIG = {
   mediumFrom: 2,
   highFrom: 4,
 };
+
+/**
+ * Estrellas ⭐ (§5.4 y §8.5). Watchlist: valoración × calidad × complemento de
+ * la cartera. Cartera: la posición con más descuento (historia y competencia)
+ * que pase la calidad mínima, para no premiar trampas de valor.
+ */
+export const STARS_CONFIG = {
+  /** Calidad mínima (0–100) para optar a cualquier estrella. */
+  minQuality: 50,
+  /** Watchlist: peso de cada parte del «complemento de cartera». */
+  complementWeights: { sector: 0.35, country: 0.2, currency: 0.15, correlation: 0.3 },
+  /** Peso en tu cartera a partir del cual un sector, país o divisa ya no aporta nada (0 puntos). */
+  fullAt: { sector: 0.35, country: 0.6, currency: 0.6 },
+  /** Correlación media de precios mensuales con tus posiciones: 0,2 o menos = 100 puntos, 0,9 o más = 0. */
+  correlation: { low: 0.2, high: 0.9, years: 5, minMonths: 24 },
+  /** Cartera: hace falta un descuento (media historia + competencia) de al menos un 5 % para dar estrella. */
+  minDiscount: 0.05,
+};

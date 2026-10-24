@@ -54,6 +54,7 @@ function invalidate(qc: QueryClient, securityId: number) {
   void qc.invalidateQueries({ queryKey: peerGroupKey(securityId) });
   void qc.invalidateQueries({ queryKey: aiSpendKey });
   void qc.invalidateQueries({ queryKey: ["comparison"] });
+  void qc.invalidateQueries({ queryKey: ["stars"] });
 }
 
 export function useFindPeers(securityId: number) {

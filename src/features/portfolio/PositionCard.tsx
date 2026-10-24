@@ -15,6 +15,8 @@ import { signedPercent } from "@/features/watchlist/ficha/format";
 import { formatCurrency, formatNumber, formatPercent, SIN_DATO } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { RiskBadge } from "@/features/technical-risk/RiskBadge";
+import { StarMark } from "@/features/stars/StarMark";
+import { Range52, YearToDate } from "@/features/prices/PriceStatsCells";
 import type { Holding } from "./load";
 
 const KIND_LABEL = { stock: "Acción", etf: "ETF", etc: "ETC" } as const;
@@ -138,6 +140,7 @@ export function PositionCard({ h, onBuy, onSheet, onClassify }: { h: Holding; on
               <span className="font-serif text-[20px] leading-none font-semibold tracking-tight">{h.row.ticker}</span>
             )}
             <Badge>{KIND_LABEL[h.row.kind]}</Badge>
+            {h.row.kind === "stock" && <StarMark id={h.row.id} which="portfolio" />}
           </div>
           <p className="mt-1 truncate text-[12px] text-muted" title={h.row.name}>{h.row.name}</p>
         </div>
@@ -179,6 +182,16 @@ export function PositionCard({ h, onBuy, onSheet, onClassify }: { h: Holding; on
         </div>
       </div>
 
+      <div className="mt-4 flex items-start justify-between gap-3">
+        <div>
+          <p className="mb-1.5 text-[11.5px] text-muted">Precio en 52 semanas</p>
+          <Range52 stats={h.stats} currency={h.row.price_currency ?? h.row.currency} />
+        </div>
+        <div className="text-right">
+          <p className="mb-1 text-[11.5px] text-muted">En el año</p>
+          <YearToDate stats={h.stats} currency={h.row.price_currency ?? h.row.currency} />
+        </div>
+      </div>
       <div className="mt-4"><WeightBar weight={p.weight} /></div>
       <div className="mt-4 border-t border-border pt-4">{h.row.kind === "stock" ? <StockFacts h={h} /> : <FundFacts h={h} onSheet={onSheet} />}</div>
 

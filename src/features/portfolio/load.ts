@@ -7,6 +7,7 @@ import { recommend, trendFromCloses, type Recommendation, type Trend } from "@/d
 import { buildScenarios, priceCagr, type GrowthInput, type Scenarios } from "@/domain/portfolio/scenarios";
 import { sectorFromSic } from "@/domain/portfolio/sector";
 import type { OpportunityVerdict } from "@/domain/scoring/peer-verdict";
+import { priceStats, type PriceStats } from "@/domain/technical/price-range";
 import { technicalRisk, type TechnicalRisk } from "@/domain/technical/risk";
 import { loadPeerGroup } from "@/features/peers/load";
 import type { Analysis } from "@/features/watchlist/analysis";
@@ -29,6 +30,8 @@ export interface Holding {
   trend: Trend | null;
   /** Riesgo técnico de largo plazo (§5.3). */
   technical: TechnicalRisk;
+  /** Rango de 52 semanas y año en curso. */
+  stats: PriceStats;
   recommendation: Recommendation;
   /** De dónde sale el sector mostrado. */
   sectorSource: "user" | "sic" | "factsheet" | null;
@@ -96,6 +99,7 @@ export async function loadPortfolio(db: Db, now = new Date()): Promise<Portfolio
     let g: number | null = null;
     const monthly = await getPriceBars(db, row.id, "1mo");
     const technical = technicalRisk(monthly.slice(-120));
+    const stats = priceStats(await getPriceBars(db, row.id, "1w"), position.price ? { value: position.price.price, date: position.price.date } : null);
     if (row.kind === "stock") {
       analysis = (await loadSecurityDetail(db, row.id)).analysis;
       verdict = analysis ? (await loadPeerGroup(db, row.id, analysis)).verdict : null;
@@ -128,6 +132,7 @@ export async function loadPortfolio(db: Db, now = new Date()): Promise<Portfolio
       fund,
       trend,
       technical,
+      stats,
       recommendation,
       sectorSource: row.sector ? ((row.sector_source as Holding["sectorSource"]) ?? "user") : sicSector(row) ? "sic" : null,
     });
