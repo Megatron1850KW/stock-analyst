@@ -148,8 +148,11 @@ function AnalysisBody({ a, docs }: { a: EquityAnalysis; docs: AnalysisDocument[]
         <ul className="space-y-2.5">
           {a.riesgos.map((r, i) => (
             <li key={i} className="border-l-2 border-negative/50 pl-3 text-[13px]">
-              <p className="flex items-center gap-2 font-medium">
-                {r.titulo} <Badge tone={GRAVEDAD[r.gravedad]}>Gravedad {r.gravedad}</Badge>
+              <p className="flex items-start justify-between gap-2 font-medium">
+                {r.titulo}{" "}
+                <Badge tone={GRAVEDAD[r.gravedad]} className="mt-0.5 shrink-0 whitespace-nowrap">
+                  Gravedad {r.gravedad}
+                </Badge>
               </p>
               <p className="text-muted">
                 {r.detalle} <Citation cita={r.cita} docs={docs} />

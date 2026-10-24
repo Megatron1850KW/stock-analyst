@@ -1,0 +1,208 @@
+{
+ "analysis": {
+  "modelo_negocio": "Alphabet es el grupo matriz de Google. Gana dinero sobre todo con publicidad (Búsqueda, YouTube y la red de anunciantes asociados), que en 2025 supuso más del 70% de sus ingresos. También vende suscripciones (YouTube, Google One), aplicaciones en Google Play y dispositivos Pixel, que suman otra parte relevante de las ventas. Google Cloud ofrece a empresas infraestructura, plataformas de IA, ciberseguridad y herramientas como Workspace, cobrando por consumo y suscripción. Other Bets agrupa apuestas de futuro como Waymo (taxis autónomos), que hoy pierden dinero. En 2025 EE. UU. aportó el 48% de las ventas, Europa, Oriente Medio y África el 29%, Asia-Pacífico el 17% y el resto de América el 6%.",
+  "outlook": {
+   "resumen": "La dirección no da una previsión numérica de ventas ni de beneficios en los textos recibidos. Sí describe tendencias: más inversión en infraestructura de IA, más peso de ingresos distintos de la publicidad (con márgenes menores) y costes de infraestructura al alza.",
+   "guidance": [
+    {
+     "texto": "Para 2026 la empresa espera aumentar de forma significativa su inversión en infraestructura técnica (servidores, redes y centros de datos) frente a 2025. En el primer semestre de 2026 ya ha gastado 80.600 millones de USD en inversión en capital (capex, el dinero que se destina a equipos y centros de datos).",
+     "cita": {
+      "documento": "0001652044-26-000071",
+      "seccion": "Comentario de la dirección (MD&A)",
+      "texto": "In 2026, we expect to significantly increase, relative to 2025, our investment in our technical infrastructure"
+     }
+    },
+    {
+     "texto": "La dirección espera que los ingresos fuera de la publicidad (nube, suscripciones, plataformas y dispositivos) sigan ganando peso, aunque sus márgenes son en general inferiores a los de la publicidad.",
+     "cita": {
+      "documento": "0001652044-26-000018",
+      "seccion": "Comentario de la dirección (MD&A)",
+      "texto": "The margins on these revenues vary significantly and are generally lower than the margins on our advertising revenues."
+     }
+    },
+    {
+     "texto": "Los costes de operar la infraestructura (amortización, energía, equipos y red) se prevé que aumenten de forma significativa porque la IA requiere más potencia de cálculo.",
+     "cita": {
+      "documento": "0001652044-26-000018",
+      "seccion": "Comentario de la dirección (MD&A)",
+      "texto": "are expected to significantly increase as developing and serving AI offerings require more compute power"
+     }
+    },
+    {
+     "texto": "La empresa empezó a reconocer ingresos por la venta de sistemas TPU (sus chips propios de IA) en el segundo trimestre de 2026, y la mayor parte se reconocerá en 2027.",
+     "cita": {
+      "documento": "0001652044-26-000071",
+      "seccion": "Comentario de la dirección (MD&A)",
+      "texto": "with the significant majority to be recognized in 2027"
+     }
+    }
+   ]
+  },
+  "catalizadores": [
+   {
+    "titulo": "Google Cloud acelera con fuerza y gana rentabilidad",
+    "detalle": "En el segundo trimestre de 2026 los ingresos de Cloud subieron un 82% y su beneficio operativo pasó de 2.826 a 8.814 millones de USD. Si mantiene este ritmo, aporta crecimiento y mejora el margen del grupo.",
+    "cita": {
+     "documento": "0001652044-26-000071",
+     "seccion": "Comentario de la dirección (MD&A)",
+     "texto": "an increase in Google Cloud revenues of $11.1 billion, or 82%"
+    }
+   },
+   {
+    "titulo": "Venta de chips propios (TPU) a clientes",
+    "detalle": "Alphabet empieza a vender sistemas TPU a clientes que quieren infraestructura propia, una fuente de ingresos nueva que, según la dirección, se concentrará sobre todo en 2027.",
+    "cita": {
+     "documento": "0001652044-26-000071",
+     "seccion": "Comentario de la dirección (MD&A)",
+     "texto": "In the second quarter of 2026, we began recognizing revenues from these agreements"
+    }
+   },
+   {
+    "titulo": "La IA refuerza la Búsqueda",
+    "detalle": "En el segundo trimestre de 2026 los clics de pago en Búsqueda subieron un 13%, lo que sugiere que la IA (AI Overviews, AI Mode) no está restando uso por ahora. Búsqueda sigue siendo el motor principal de beneficio.",
+    "cita": {
+     "documento": "0001652044-26-000071",
+     "seccion": "Comentario de la dirección (MD&A)",
+     "texto": "Paid clicks change 13 % 13 %"
+    }
+   },
+   {
+    "titulo": "Suscripciones y Waymo como motores adicionales",
+    "detalle": "Las suscripciones de pago de YouTube y Google One crecen, y Waymo ofrece ya servicio de taxi autónomo de pago en varias ciudades y se expande. Son vías de crecimiento menos dependientes de la publicidad, aunque Waymo todavía genera pérdidas.",
+    "cita": {
+     "documento": "0001652044-26-000018",
+     "seccion": "Negocio",
+     "texto": "Waymo, is now providing fully autonomous, paid ride-hailing services to customers in multiple cities."
+    }
+   }
+  ],
+  "riesgos": [
+   {
+    "titulo": "Inversión en IA enorme que se come la caja libre",
+    "detalle": "En los últimos 12 meses la empresa generó 185.675 millones de USD de caja operativa pero invirtió 132.402 millones en capex, y la caja libre quedó en 53.273 millones, con una rentabilidad por caja libre de solo el 1,4%. Además, tiene compromisos de compra y otras obligaciones por 811.000 millones de USD (200.700 millones a corto plazo). Si la demanda de IA no justifica ese gasto, el retorno sería menor y podría quedar capacidad sin usar.",
+    "cita": {
+     "documento": "0001652044-26-000018",
+     "seccion": "Factores de riesgo",
+     "texto": "Our investments ultimately may not be commercially viable or may not result in an adequate return of capital"
+    },
+    "gravedad": "alta"
+   },
+   {
+    "titulo": "Dependencia de la publicidad y cambio de hábitos por la IA",
+    "detalle": "Más del 70% de los ingresos de 2025 vinieron de publicidad online. La empresa admite que la IA está reconfigurando el sector y que no hay garantía de que se adapte bien; además, los anunciantes pueden irse en cualquier momento y el gasto publicitario sigue al ciclo económico.",
+    "cita": {
+     "documento": "0001652044-26-000018",
+     "seccion": "Factores de riesgo",
+     "texto": "We generated more than 70% of total revenues from online advertising in 2025."
+    },
+    "gravedad": "alta"
+   },
+   {
+    "titulo": "Regulación y multas",
+    "detalle": "Alphabet afronta antimonopolio, privacidad y normas de IA en varias jurisdicciones. En 2025 contabilizó una multa de 3.500 millones de USD de la Comisión Europea, y en julio de 2026 la justicia europea confirmó una sanción de 5.200 millones por Android. Las provisiones por multas y litigios a corto plazo eran de 17.400 millones a junio de 2026.",
+    "cita": {
+     "documento": "0001652044-26-000071",
+     "seccion": "Comentario de la dirección (MD&A)",
+     "texto": "the EC upheld its 2018 decision that certain provisions in Google's Android-related distribution agreements infringed European antitrust laws"
+    },
+    "gravedad": "alta"
+   },
+   {
+    "titulo": "Mayor financiación: deuda, dilución y garantías",
+    "detalle": "Hasta ahora Alphabet financiaba su crecimiento con caja propia, pero en 2026 ha emitido bonos y también acciones y preferentes convertibles (49.600 millones de USD netos en junio), y tiene un programa de hasta 40.000 millones para vender más acciones. Esto puede diluir al accionista actual. Además ofrece garantías (backstops) sobre centros de datos de terceros por 43.800 millones en derivados de crédito y 7.600 millones en garantías financieras.",
+    "cita": {
+     "documento": "0001652044-26-000071",
+     "seccion": "Factores de riesgo",
+     "texto": "could dilute our existing stockholders or otherwise depress the market prices of our Class A stock and Class C stock"
+    },
+    "gravedad": "media"
+   },
+   {
+    "titulo": "Beneficio inflado por ganancias contables no recurrentes",
+    "detalle": "El beneficio neto de los últimos 12 meses (244.205 millones de USD, margen neto del 54,8%) incluye enormes plusvalías latentes en participaciones: 99.000 millones en el segundo trimestre de 2026, sobre todo por SpaceX y otra empresa privada. Son ganancias sobre el papel, no caja, y pueden revertirse. Por eso el PER de 16 veces parece más barato de lo que es.",
+    "cita": {
+     "documento": "0001652044-26-000071",
+     "seccion": "Comentario de la dirección (MD&A)",
+     "texto": "primarily related to unrealized gains in our equity securities portfolio from SpaceX and a private company"
+    },
+    "gravedad": "media"
+   },
+   {
+    "titulo": "Limitaciones de energía y suministro de chips",
+    "detalle": "Escalar los centros de datos depende de energía, agua, terrenos y de pocos proveedores de chips de IA. Un retraso limitaría el entrenamiento de modelos y el servicio a clientes de Cloud.",
+    "cita": {
+     "documento": "0001652044-26-000018",
+     "seccion": "Factores de riesgo",
+     "texto": "Our ability to scale our technical infrastructure is increasingly constrained by the availability of power, water, and land."
+    },
+    "gravedad": "media"
+   }
+  ],
+  "veredicto": {
+   "postura": "Neutral",
+   "resumen": "El negocio es excelente: ventas de 445.866 millones de USD en 12 meses, margen operativo del 33,1%, crecimiento del 24,2% en el último trimestre y una nube que se dispara. El balance es muy sólido, con 242.474 millones en caja e inversiones y deuda neta negativa (más caja que deuda). La valoración, sin embargo, es justa (40/100) y las señales son mixtas: el PER de 16 veces está un 45% por debajo de su historia, pero está distorsionado por plusvalías contables no recurrentes, mientras que el precio sobre caja libre (73,3 veces, frente a una mediana de 30,2 a 5 años) está muy por encima y la rentabilidad por caja libre es solo del 1,4%. El EV/EBIT de 25,5 veces está casi en línea con su media. Es una compañía de gran calidad, pero el precio ya refleja bastante y la enorme inversión en IA, junto con la nueva financiación mediante acciones, exige que el retorno se materialice. Este análisis no es una recomendación personalizada."
+  },
+  "puntos_clave": [
+   "Negocio de primer nivel: ventas de 445.866 millones de USD y margen operativo del 33,1% en los últimos 12 meses.",
+   "Cloud crece un 82% en el último trimestre y ya es rentable, aunque la publicidad sigue siendo más del 70% de las ventas.",
+   "La caja libre cae a 53.273 millones por un capex de 132.402 millones, y la rentabilidad por caja libre es solo del 1,4%.",
+   "Valoración justa: el PER bajo es engañoso por plusvalías contables, mientras que el precio sobre caja libre es muy alto frente a su historia.",
+   "Empieza a financiarse con acciones y deuda, con riesgo de dilución y garantías sobre terceros."
+  ],
+  "datos_no_encontrados": [
+   "Guidance numérica de ventas, márgenes o cifra concreta de capex para 2026.",
+   "Desglose del beneficio neto sin plusvalías contables, para valorar el beneficio recurrente.",
+   "Retorno esperado de la inversión en IA (ingresos o margen asociados al capex).",
+   "Cartera contratada de la nube (backlog) y concentración de clientes de Cloud.",
+   "Resultado y calendario de los procesos antimonopolio en EE. UU. y posibles remedios.",
+   "Cifras de rentabilidad de Waymo y plazo para alcanzar el equilibrio."
+  ]
+ },
+ "documents": [
+  {
+   "id": "0001652044-26-000018",
+   "form": "10-K",
+   "periodEnd": "2025-12-31",
+   "filedAt": "2026-02-05",
+   "url": "https://www.sec.gov/Archives/edgar/data/1652044/000165204426000018/goog-20251231.htm",
+   "sections": [
+    {
+     "section": "business",
+     "truncated": false,
+     "fullLength": 23802
+    },
+    {
+     "section": "risks",
+     "truncated": true,
+     "fullLength": 85181
+    },
+    {
+     "section": "mdna",
+     "truncated": true,
+     "fullLength": 52391
+    }
+   ]
+  },
+  {
+   "id": "0001652044-26-000071",
+   "form": "10-Q",
+   "periodEnd": "2026-06-30",
+   "filedAt": "2026-07-23",
+   "url": "https://www.sec.gov/Archives/edgar/data/1652044/000165204426000071/goog-20260630.htm",
+   "sections": [
+    {
+     "section": "mdna",
+     "truncated": true,
+     "fullLength": 51223
+    },
+    {
+     "section": "risks",
+     "truncated": false,
+     "fullLength": 16574
+    }
+   ]
+  }
+ ],
+ "servedModel": "claude-sonnet-5-5",
+ "costApprox": true
+}

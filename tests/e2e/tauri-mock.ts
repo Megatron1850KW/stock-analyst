@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import { gunzipSync } from "node:zlib";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import type { Page } from "@playwright/test";
 import { FAKE_ANALYSIS, fakeReportHtml } from "../helpers/fake-claude";
@@ -131,18 +132,26 @@ export async function installTauriMock(page: Page, opts: MockOptions = {}) {
       case "document_open":
       case "document_delete":
         return null;
-      case "sec_document":
-        // FICTICIO: el mismo 10-K inventado para cualquier informe
-        return fakeReportHtml("10-K");
+      case "sec_document": {
+        // Informe REAL guardado (MU, GOOG) si existe; si no, el 10-K FICTICIO
+        const m = /data\/(\d+)\/(\d{18})\//.exec(args.url as string);
+        const ticker = m ? REAL_CIKS[m[1]!] : undefined;
+        const file = ticker && join(root, "tests/fixtures/sec-docs", `${ticker}-${m![2]}.htm.gz`);
+        return file && existsSync(file) ? gunzipSync(readFileSync(file)).toString("utf8") : fakeReportHtml("10-K");
+      }
       case "claude_request": {
         if (!secrets.has("anthropic_api_key")) throw "Falta la clave de Claude. Añádela en Ajustes.";
-        const body = JSON.parse(args.body as string) as { model: string };
+        const body = JSON.parse(args.body as string) as { model: string; messages: { content: string }[] };
+        // Análisis REAL guardado (Claude Sonnet 5.5, 24-10-2026) para MU y GOOG; FICTICIO para el resto
+        const ticker = /"ticker": "([A-Z]+)"/.exec(body.messages[0]!.content)?.[1];
+        const realAi = ticker && join(root, "tests/fixtures/ai", `${ticker}-analysis.json`);
+        const analysis = opts.analysis ?? (realAi && existsSync(realAi) ? JSON.parse(readFileSync(realAi, "utf8")).analysis : FAKE_ANALYSIS);
         const message = {
           id: "msg_ficticio",
           type: "message",
           role: "assistant",
           model: body.model,
-          content: [{ type: "text", text: JSON.stringify(opts.analysis ?? FAKE_ANALYSIS) }],
+          content: [{ type: "text", text: JSON.stringify(analysis) }],
           stop_reason: "end_turn",
           stop_sequence: null,
           usage: { input_tokens: 30_000, output_tokens: 4_000, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
