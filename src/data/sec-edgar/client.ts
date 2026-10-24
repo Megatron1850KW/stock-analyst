@@ -82,3 +82,8 @@ export function findTicker(list: TickersExchange, ticker: string): TickerMatch |
 export function filingUrl(cik: string, accession: string, primaryDocument: string): string {
   return `https://www.sec.gov/Archives/edgar/data/${Number(cik)}/${accession.replace(/-/g, "")}/${primaryDocument}`;
 }
+
+/** HTML de un informe (10-K, 10-Q, 20-F) para extraer sus secciones de texto. */
+export function fetchSecDocument(url: string, userAgent: string): Promise<string> {
+  return invoke<string>("sec_document", { url, userAgent });
+}

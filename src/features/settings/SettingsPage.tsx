@@ -8,6 +8,7 @@ import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { useAiSpend } from "@/features/ai/queries";
 import { formatCurrency } from "@/lib/format";
 import { inDesktopApp } from "@/platform/runtime";
 import { useDbStatus, useSettings, useUpdateSettings } from "./queries";
@@ -82,6 +83,7 @@ export function SettingsPage() {
   const { data: settings } = useSettings();
   const update = useUpdateSettings();
   const db = useDbStatus();
+  const { data: spend } = useAiSpend();
   const [savedAt, setSavedAt] = useState(0);
 
   if (!settings) return null;
@@ -155,7 +157,7 @@ export function SettingsPage() {
             <Field
               label="Presupuesto mensual"
               htmlFor="ai-budget"
-              hint={`Si se supera, la app pedirá confirmación antes de cada llamada. Gastado este mes: ${formatCurrency(0)}.`}
+              hint={`Si se supera, la app pedirá confirmación antes de cada llamada. Gastado este mes: ${spend ? `${spend.approx ? "≈ " : ""}${formatCurrency(spend.eur, "EUR", 2)} en ${spend.calls} llamada${spend.calls === 1 ? "" : "s"}` : "…"}.`}
             >
               <div className="relative">
                 <Input

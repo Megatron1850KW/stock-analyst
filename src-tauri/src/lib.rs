@@ -1,3 +1,4 @@
+mod claude;
 mod documents;
 mod http;
 mod prices;
@@ -49,6 +50,8 @@ pub fn run() {
             secrets::secret_exists,
             secrets::secret_delete,
             sec::sec_fetch,
+            sec::sec_document,
+            claude::claude_request,
             prices::price_quote,
             prices::price_history,
             prices::price_splits,
