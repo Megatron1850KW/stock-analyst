@@ -10,6 +10,7 @@ import { describe, expect, it } from "vitest";
 import type { SecClient } from "@/data/sec-edgar/client";
 import { companyFactsSchema, submissionsSchema } from "@/data/sec-edgar/schemas";
 import { getFacts, getFilings } from "@/db/repo";
+import { currentGetter, fundamentals, yearlyFundamentals } from "@/domain/fundamentals/metrics";
 import { ownPeriodFact } from "@/domain/fundamentals/period-value";
 import { importUsTicker } from "@/features/watchlist/import-us";
 import { memoryDb } from "../helpers/sqlite-db";
@@ -43,7 +44,7 @@ async function importReal(ticker: string) {
     if (!f) throw new Error(`no hay ${form} ${end}`);
     return ownPeriodFact(facts, f, concept);
   };
-  return { r, filings, value };
+  return { r, filings, value, current: fundamentals(currentGetter(filings, facts)), years: yearlyFundamentals(filings, facts) };
 }
 
 describe("datos reales de la SEC (sin conexión)", () => {
@@ -72,5 +73,26 @@ describe("datos reales de la SEC (sin conexión)", () => {
     expect(value("10-K", "2026-09-03", "debt_current")?.fact.value).toBe(491_000_000);
     // DebtCurrent ya no se cuela como «préstamos a corto plazo» (se contaría dos veces)
     expect(value("10-K", "2026-09-03", "short_term_borrowings")).toBeNull();
+  });
+
+  it("Alphabet: cifras de los últimos doce meses y caja neta", async () => {
+    const { current: f, years } = await importReal("GOOG");
+    // Ventas 2025 (402.836 M$) + 1S 2026 − 1S 2025
+    expect(f.revenue!.value).toBe(445_866_000_000);
+    expect(f.revenue!.sources.map((s) => s.filing.form_type)).toEqual(["10-K", "10-Q", "10-Q"]);
+    // No publica beneficio bruto: se calcula y se dice
+    expect(f.grossProfit.note).toMatch(/calculado/);
+    expect(f.netDebt.value).toBeLessThan(0);
+    expect(f.debtYears).toMatchObject({ value: 0, note: expect.stringMatching(/caja neta/) });
+    expect(years.at(-1)!.revenueGrowth.value).toBeCloseTo(402_836 / 350_018 - 1, 6);
+  });
+
+  it("Micron: con el 10-K más reciente que los 10-Q, usa el ejercicio completo", async () => {
+    const { current: f } = await importReal("MU");
+    expect(f.revenue!.sources).toHaveLength(1);
+    expect(f.revenue!.note).toMatch(/Último ejercicio completo/);
+    // Deuda 5.179 M$ − (caja + inversiones a corto)
+    expect(f.grossDebt.value).toBe(5_179_000_000);
+    expect(f.netDebt.value).toBe(5_179_000_000 - f.cash.value!);
   });
 });
