@@ -1,4 +1,5 @@
 import { AlertTriangle, ArrowLeft, RefreshCw, Trash2 } from "lucide-react";
+import { alphaVantageProvider } from "@/data/prices/alphavantage";
 import type { ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { DISCLAIMER } from "@/app/Disclaimer";
@@ -118,7 +119,10 @@ export function SecurityDetailPage() {
       )}
 
       <div className="mt-6 grid gap-4 md:grid-cols-2" aria-label="Resumen en cuatro preguntas">
-        <ValuationIndicator a={a} />
+        <ValuationIndicator
+          a={a}
+          noPriceReason={s.market === "EU" ? alphaVantageProvider.unsupported?.({ ticker: s.ticker, name: s.name, exchange: s.exchange, currency: s.currency }) : null}
+        />
         <CashIndicator a={a} />
         <DebtIndicator a={a} />
         <GrowthIndicator a={a} />

@@ -96,7 +96,8 @@ export function yearsText(v: number): string {
   return `${n} ${n === "1" ? "año" : "años"}`;
 }
 
-export function ValuationIndicator({ a }: { a: Analysis }) {
+/** `noPriceReason`: por qué no hay precio, si se sabe (p. ej. bolsa que no cubre el proveedor). */
+export function ValuationIndicator({ a, noPriceReason }: { a: Analysis; noPriceReason?: string | null }) {
   const v = a.valuation;
   // Se explica con el primer múltiplo que tenga valor actual y media de 5 (o 10) años
   // Se explica con el primer múltiplo que tenga valor actual y media de 5 (o 10) años
@@ -119,7 +120,8 @@ export function ValuationIndicator({ a }: { a: Analysis }) {
     );
   };
   let answer: ReactNode;
-  if (!a.price) answer = <span className="text-muted">Sin precio todavía: añade la clave del proveedor de precios en Ajustes y pulsa ⌘R.</span>;
+  if (!a.price && noPriceReason) answer = <span className="text-muted">{noPriceReason} Tienes sus cifras y su análisis; para saber si está cara o barata hace falta su precio.</span>;
+  else if (!a.price) answer = <span className="text-muted">Sin precio todavía: añade la clave del proveedor de precios en Ajustes y pulsa ⌘R.</span>;
   else if (!v?.verdict || !c || !a.multiples) answer = <span className="text-muted">{v?.note ?? "Sin datos suficientes para valorarla."}</span>;
   else
     answer = (
