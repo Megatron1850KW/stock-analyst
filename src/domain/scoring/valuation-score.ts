@@ -72,6 +72,8 @@ export function valuationScore(
 
   if (multiplesPart === null) {
     const anyCurrent = comparisons.some((c) => c.current !== null);
+    // Si ni siquiera hay capitalización, su nota explica por qué (acciones, divisa…)
+    const capNote = current.marketCap.value === null ? current.marketCap.note : undefined;
     return {
       verdict: null,
       score: null,
@@ -80,9 +82,9 @@ export function valuationScore(
       range5,
       range10,
       parts: { multiples: null, priceRange: rangePart },
-      note: anyCurrent
+      note: capNote ?? (anyCurrent
         ? "No hay suficiente historia de precios y resultados para comparar (hacen falta al menos 2 años de datos mensuales)."
-        : "La empresa no tiene beneficios ni caja libre positivos ahora mismo, así que los múltiplos no sirven para valorarla.",
+        : "La empresa no tiene beneficios ni caja libre positivos ahora mismo, así que los múltiplos no sirven para valorarla."),
     };
   }
   const score =

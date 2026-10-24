@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
@@ -50,6 +51,7 @@ export async function installTauriMock(page: Page, opts: MockOptions = {}) {
   const store = new Map<string, unknown>(opts.settings ? [["settings", opts.settings]] : []);
   const secrets = new Set(opts.secrets ?? []);
   const calls: string[] = [];
+  const uploads: string[] = [];
 
   await page.exposeFunction("__pwInvoke", (cmd: string, args: Record<string, unknown>) => {
     calls.push(cmd);
@@ -108,6 +110,19 @@ export async function installTauriMock(page: Page, opts: MockOptions = {}) {
         const bars = fakeDaily(args.from as string, "2026-10-23", (opts.price ?? 42.5) / 2.6, 0.09);
         return JSON.stringify(bars.reverse().map((b) => ({ symbol: args.symbol, ...b })));
       }
+      case "document_store": {
+        // El navegador envía {head, length, headers}: ver addInitScript
+        const head = String.fromCharCode(...((args.head as number[]) ?? []));
+        if (!head.startsWith("%PDF-") && !head.startsWith("PK")) throw "El archivo no es un PDF ni un ZIP. Sube el informe en PDF o el paquete ESEF (.zip).";
+        const headers = (args.headers as Record<string, string>) ?? {};
+        const name = decodeURIComponent(headers["x-file-name"] ?? "informe.pdf");
+        const sha = createHash("sha256").update(name + String(args.length)).digest("hex");
+        uploads.push(name);
+        return { path: `/simulado/documents/${headers["x-security-id"]}/${sha.slice(0, 12)}-${name}`, sha256: sha, bytes: args.length, kind: head.startsWith("%PDF-") ? "pdf" : "zip" };
+      }
+      case "document_open":
+      case "document_delete":
+        return null;
       case "price_splits":
         if (!secrets.has("prices_api_key")) throw "Falta la clave del proveedor de precios. Añádela en Ajustes.";
         return realPrices(args.symbol as string, "splits") ?? "[]";
@@ -120,7 +135,9 @@ export async function installTauriMock(page: Page, opts: MockOptions = {}) {
     const w = window as unknown as Record<string, unknown>;
     w.isTauri = true;
     w.__TAURI_INTERNALS__ = {
-      invoke: async (cmd: string, args: Record<string, unknown>) => {
+      invoke: async (cmd: string, args: unknown, options?: { headers?: Record<string, string> }) => {
+        // Los cuerpos binarios no viajan bien a Node: se mandan la firma y el tamaño
+        if (args instanceof Uint8Array) args = { head: Array.from(args.slice(0, 8)), length: args.length, headers: options?.headers ?? {} };
         try {
           return await (w.__pwInvoke as (c: string, a: unknown) => Promise<unknown>)(cmd, args ?? {});
         } catch (e) {
@@ -134,5 +151,5 @@ export async function installTauriMock(page: Page, opts: MockOptions = {}) {
     };
   });
 
-  return { db, calls };
+  return { db, calls, uploads };
 }

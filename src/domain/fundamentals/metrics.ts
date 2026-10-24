@@ -214,6 +214,8 @@ export interface Fundamentals {
   revenue: Input | null;
   netIncome: Input | null;
   operatingIncome: Input | null;
+  operatingCashFlow: Input | null;
+  capex: Input | null;
   grossProfit: Metric;
   freeCashFlow: Metric;
   netDebt: Metric;
@@ -240,6 +242,8 @@ export function fundamentals(get: Getter): Fundamentals {
     revenue,
     netIncome,
     operatingIncome,
+    operatingCashFlow: get("operating_cash_flow"),
+    capex: get("capex"),
     grossProfit: gp,
     freeCashFlow: fcf,
     netDebt: netDebt(get),

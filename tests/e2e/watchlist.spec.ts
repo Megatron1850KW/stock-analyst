@@ -12,7 +12,7 @@ async function shot(page: import("@playwright/test").Page, name: string) {
   await page.screenshot({ path: `${SCREENSHOTS}/${name}.png` });
 }
 
-test("añade un ticker (empresa ficticia), muestra precio y cifras con su origen", async ({ page }) => {
+test("añade un ticker (empresa ficticia), muestra la ficha y el origen de cada cifra", async ({ page }) => {
   const { calls } = await installTauriMock(page, { settings: SETTINGS, secrets: ["prices_api_key"] });
   await page.goto("/#/watchlist");
 
@@ -23,26 +23,61 @@ test("añade un ticker (empresa ficticia), muestra precio y cifras con su origen
   await expect(page.getByText(/FICTICIA CORP.*añadida: 3 informes anuales y 3 trimestrales/)).toBeVisible();
   const row = page.getByRole("row", { name: /FICT/ });
   await expect(row).toContainText("3 anuales · 3 trimestrales");
-
-  // Al añadir no se pide precio: se pide al abrir la app o con ⌘R
-  await page.keyboard.press("Control+r");
+  // Al añadirlo se piden su precio y su histórico una vez
   await expect(row).toContainText("42,50");
-  expect(calls.filter((c) => c === "price_quote")).toHaveLength(1);
+  // ⌘R vuelve a pedir el precio, pero no el histórico (tiene menos de 30 días)
+  await page.keyboard.press("Control+r");
+  await expect.poll(() => calls.filter((c) => c === "price_quote").length).toBe(2);
+  expect(calls.filter((c) => c === "price_history")).toHaveLength(1);
   await shot(page, "1-watchlist");
 
   await row.getByRole("link", { name: "FICT" }).click();
   await expect(page.getByRole("heading", { level: 1, name: /FICTICIA CORP/ })).toBeVisible();
-  const ventas = page.getByRole("row", { name: /^Ventas/ });
-  await expect(ventas).toContainText("1.200 M$");
-  await expect(page.getByRole("row", { name: /^Beneficio bruto/ })).toContainText("Sin dato");
+  for (const q of ["¿Cara o barata?", "¿Genera caja?", "¿Tiene mucha deuda?", "¿Crece?"]) {
+    await expect(page.getByRole("heading", { name: q })).toBeVisible();
+  }
+  await expect(page.getByText("Herramienta informativa, no constituye asesoramiento financiero.").first()).toBeVisible();
 
+  const ventas = page.locator("#financieros ~ div").getByRole("row", { name: /^Ventas/ });
+  await expect(ventas).toContainText("1.200 M$");
   // Origen de la cifra al enfocar
-  await ventas.locator("span[tabindex='0']").first().focus();
+  // Con teclado (Tab), como lo haría un usuario
+  await ventas.getByText("1.200 M$").first().focus();
+  await page.keyboard.press("Shift+Tab");
+  await page.keyboard.press("Tab");
   const tip = page.getByRole("tooltip");
-  await expect(tip).toContainText("SEC EDGAR (XBRL)");
-  await expect(tip).toContainText("10-K · 0009999999-26-000020");
-  await expect(tip).toContainText("us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax");
+  await expect(tip).toContainText("0009999999-26-000020");
   await shot(page, "2-detalle-origen");
+
+  // Las cifras originales siguen en «Detalle para expertos»
+  await page.getByText("Detalle para expertos").click();
+  await expect(page.getByText("Cifras tal como aparecen en los informes de la SEC")).toBeVisible();
+});
+
+test("sube un informe en PDF y lo lista", async ({ page }) => {
+  const { uploads } = await installTauriMock(page, { settings: SETTINGS, secrets: ["prices_api_key"] });
+  await page.goto("/#/watchlist");
+  await page.getByLabel("Ticker de EE. UU.").fill("FICT");
+  await page.getByRole("button", { name: "Añadir" }).click();
+  await page.getByRole("link", { name: "FICT" }).click();
+
+  await page.getByRole("button", { name: "Subir informe" }).click();
+  const panel = page.getByRole("region", { name: "Subir informe" });
+  await panel.getByLabel("Archivo del informe").setInputFiles({ name: "Informe H1 2026.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.7 FICTICIO") });
+  await panel.getByLabel("Tipo de informe").selectOption("half");
+  await panel.getByLabel("Cierre del periodo que cubre").fill("2026-06-30");
+  await shot(page, "6-subir-informe");
+  await panel.getByRole("button", { name: "Guardar informe" }).click();
+
+  const list = page.getByRole("region", { name: "Informes subidos" });
+  await expect(list).toContainText("Informe H1 2026.pdf");
+  await expect(list).toContainText("Semestral (PDF)");
+  expect(uploads).toEqual(["Informe H1 2026.pdf"]);
+
+  // Un archivo que no es PDF ni ZIP se rechaza antes de enviarlo
+  await page.getByRole("button", { name: "Subir informe" }).click();
+  await page.getByLabel("Archivo del informe").setInputFiles({ name: "notas.txt", mimeType: "text/plain", buffer: Buffer.from("hola") });
+  await expect(page.getByRole("alert")).toContainText("Solo PDF o ZIP");
 });
 
 test("sin nombre y email para la SEC no deja buscar y lo explica", async ({ page }) => {
