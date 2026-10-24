@@ -5,19 +5,26 @@ import { StarsPage } from "@/features/stars/StarsPage";
 import { TechnicalRiskPage } from "@/features/technical-risk/TechnicalRiskPage";
 import { WatchlistPage } from "@/features/watchlist/WatchlistPage";
 import { AppLayout } from "./AppLayout";
+import { HomePage } from "./HomePage";
+import { SectionColumns } from "./SectionColumns";
 
 export const routes: RouteObject[] = [
   {
     path: "/",
     element: <AppLayout />,
     children: [
-      { index: true, element: <Navigate to="/watchlist" replace /> },
-      { path: "watchlist", element: <WatchlistPage /> },
-      { path: "portfolio", element: <PortfolioPage /> },
-      { path: "riesgo-tecnico", element: <TechnicalRiskPage /> },
-      { path: "estrellas", element: <StarsPage /> },
+      { index: true, element: <HomePage /> },
+      {
+        element: <SectionColumns />,
+        children: [
+          { path: "watchlist", element: <WatchlistPage /> },
+          { path: "portfolio", element: <PortfolioPage /> },
+          { path: "riesgo-tecnico", element: <TechnicalRiskPage /> },
+          { path: "estrellas", element: <StarsPage /> },
+        ],
+      },
       { path: "ajustes", element: <SettingsPage /> },
-      { path: "*", element: <Navigate to="/watchlist" replace /> },
+      { path: "*", element: <Navigate to="/" replace /> },
     ],
   },
 ];

@@ -18,28 +18,40 @@ function renderApp(path = "/") {
 }
 
 describe("esqueleto de la app", () => {
-  it("abre en la Watchlist con el aviso legal visible", async () => {
+  it("abre en la portada con el logo, las 4 columnas y el aviso legal", async () => {
     renderApp();
-    expect(await screen.findByRole("heading", { level: 1, name: "Equity Analyst" })).toBeInTheDocument();
-    expect(screen.getByText("Añade tu primer ticker")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Agente Financiero" })).toBeInTheDocument();
+    expect(screen.getAllByAltText("Agente Financiero").length).toBeGreaterThan(0);
+    const nav = screen.getByRole("navigation", { name: "Secciones" });
+    const titles = within(nav).getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
+    expect(titles).toEqual(["Watchlist", "Mi Portfolio", "Riesgo técnico", "Estrellas"]);
+    expect(screen.getByRole("link", { name: /Ajustes/ })).toBeInTheDocument();
     expect(screen.getByText(DISCLAIMER)).toBeInTheDocument();
   });
 
-  it("la barra lateral tiene las 4 secciones y Ajustes", async () => {
+  it("al abrir una sección, esa columna se despliega y las demás quedan como franjas", async () => {
+    const user = userEvent.setup();
     renderApp();
-    const nav = await screen.findByRole("navigation", { name: "Secciones" });
-    const labels = within(nav).getAllByRole("link").map((a) => a.textContent?.replace(/⌘.$/, ""));
-    expect(labels).toEqual(["Watchlist", "Mi Portfolio", "Riesgo técnico", "Estrellas"]);
-    expect(screen.getByRole("link", { name: /Ajustes/ })).toBeInTheDocument();
+    await user.click(await screen.findByRole("link", { name: /Watchlist/ }));
+    expect(await screen.findByRole("heading", { level: 1, name: "Equity Analyst" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Watchlist" })).toBeInTheDocument();
+    const nav = screen.getByRole("navigation", { name: "Secciones" });
+    expect(within(nav).getAllByRole("link").map((a) => a.getAttribute("aria-label"))).toEqual([
+      "Mi Portfolio",
+      "Riesgo técnico",
+      "Estrellas",
+    ]);
   });
 
-  it("navega entre secciones con clic y con ⌘2", async () => {
+  it("navega entre columnas con clic y con atajos de teclado", async () => {
     const user = userEvent.setup();
-    const router = renderApp();
-    await user.click(await screen.findByRole("link", { name: /Estrellas/ }));
+    const router = renderApp("/watchlist");
+    await user.click(await screen.findByRole("link", { name: "Estrellas" }));
     expect(await screen.findByRole("heading", { level: 1, name: "Estrellas" })).toBeInTheDocument();
     await user.keyboard("{Meta>}2{/Meta}");
     expect(router.state.location.pathname).toBe("/portfolio");
+    await user.keyboard("{Meta>}0{/Meta}");
+    expect(router.state.location.pathname).toBe("/");
   });
 
   it("guarda una clave sin volver a mostrarla", async () => {

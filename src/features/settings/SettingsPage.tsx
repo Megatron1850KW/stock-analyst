@@ -89,7 +89,7 @@ export function SettingsPage() {
   const ua = secUserAgent(settings);
 
   return (
-    <div className="mx-auto max-w-[1080px]">
+    <div className="mx-auto max-w-[1080px] px-10 pt-4 pb-12">
       <PageHeader title={SETTINGS_SECTION.title} subtitle={SETTINGS_SECTION.subtitle} actions={<SavedIndicator at={savedAt} />} />
 
       <div className="flex max-w-[860px] flex-col gap-6">

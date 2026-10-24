@@ -2,14 +2,19 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router";
 import { SECTIONS, SETTINGS_SECTION } from "./sections";
 
-/** ⌘1–⌘4 cambian de sección y ⌘, abre Ajustes (convención de macOS). */
+const TARGETS = [...SECTIONS, SETTINGS_SECTION];
+
+/** ⌘1–⌘4 abren cada columna, ⌘0 vuelve a la portada y ⌘, abre Ajustes (convención de macOS). */
 export function useShortcuts(): void {
   const navigate = useNavigate();
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (!(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey) return;
-      const target = [...SECTIONS, SETTINGS_SECTION].find((s) => s.shortcut === e.key);
-      if (target) {
+      const target = TARGETS.find((s) => s.shortcut === e.key);
+      if (e.key === "0") {
+        e.preventDefault();
+        navigate("/");
+      } else if (target) {
         e.preventDefault();
         navigate(target.path);
       }

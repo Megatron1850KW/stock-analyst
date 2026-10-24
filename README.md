@@ -2,7 +2,7 @@
 
 Analista financiero personal para macOS (Tauri 2 + React 19). La especificación completa está en [CLAUDE.md](CLAUDE.md).
 
-**Estado:** fase 1 (esqueleto) — navegación, diseño, Ajustes con Llavero y base de datos SQLite.
+**Estado:** fase 1 (esqueleto) — portada con logo animado, secciones en columnas, Ajustes con Llavero y base de datos SQLite.
 
 ## Requisitos en el Mac
 
