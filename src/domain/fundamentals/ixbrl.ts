@@ -14,6 +14,8 @@ import type { XbrlJson } from "@/data/esef/schemas";
 const IX = "http://www.xbrl.org/2013/inlineXBRL";
 const XBRLI = "http://www.xbrl.org/2003/instance";
 const IFRS_NS = /xbrl\.ifrs\.org\/taxonomy\/[\d-]+\/ifrs-full/;
+/** US-GAAP, dei de la SEC y demás taxonomías estándar: se conserva su prefijo. */
+const STANDARD_NS = /fasb\.org|xbrl\.sec\.gov|xbrl\.ifrs\.org|xbrl\.org\//i;
 
 const text = (el: Element | null | undefined) => (el?.textContent ?? "").trim();
 const children = (el: Element, ns: string, name: string) => Array.from(el.getElementsByTagNameNS(ns, name));
@@ -108,7 +110,8 @@ export function parseIxbrl(xhtml: string): XbrlJson {
     const value = base * 10 ** scale * (el.getAttribute("sign") === "-" ? -1 : 1);
     const [prefix, local] = name.split(":");
     const ns = el.lookupNamespaceURI(prefix ?? null) ?? "";
-    const concept = IFRS_NS.test(ns) ? `ifrs-full:${local}` : name;
+    // Extensión propia de la empresa: prefijo común «ext» (ver esef.ts)
+    const concept = IFRS_NS.test(ns) ? `ifrs-full:${local}` : STANDARD_NS.test(ns) ? name : `ext:${local}`;
     const dimensions: Record<string, string> = { concept, entity: ctx.entity, period: ctx.period, unit };
     if (ctx.classA) dimensions[CLASS_A_DIMENSION] = "A";
     else if (ctx.dimensional) dimensions["xbrl:segment"] = "desglose";
