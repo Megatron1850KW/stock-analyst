@@ -2,7 +2,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { tauriEuClient } from "@/data/esef/client";
 import { tauriSecClient } from "@/data/sec-edgar/client";
-import { listWatchlist, removeFromWatchlist } from "@/db/repo";
+import { getPriceBars, listWatchlist, removeFromWatchlist, type WatchlistRow } from "@/db/repo";
+import { priceStats, type PriceStats } from "@/domain/technical/price-range";
 import { startInitialAnalysis } from "@/features/ai/queries";
 import { startInitialPeers } from "@/features/peers/queries";
 import { providersFor, refreshPrices } from "@/features/prices/refresh";
@@ -16,8 +17,22 @@ import { loadWatchlistFunds } from "./load-funds";
 
 export const watchlistKey = ["watchlist"] as const;
 
+export type WatchlistItem = WatchlistRow & { stats: PriceStats };
+
 export function useWatchlist() {
-  return useQuery({ queryKey: watchlistKey, queryFn: async () => listWatchlist(await appDb()) });
+  return useQuery({
+    queryKey: watchlistKey,
+    queryFn: async (): Promise<WatchlistItem[]> => {
+      const db = await appDb();
+      const rows = await listWatchlist(db);
+      return Promise.all(
+        rows.map(async (r) => ({
+          ...r,
+          stats: priceStats(await getPriceBars(db, r.id, "1w"), r.price != null && r.price_date ? { value: r.price, date: r.price_date } : null),
+        })),
+      );
+    },
+  });
 }
 
 export const watchlistFundsKey = ["watchlist-funds"] as const;

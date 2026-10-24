@@ -29,6 +29,12 @@ test("estrellas de la watchlist y de la cartera, con sus razones", async ({ page
     await expect(page.getByText(/añadida: 3 informes anuales y 3 trimestrales/)).toBeVisible();
   }
 
+  // Rango de 52 semanas y año en curso, con las velas semanales reales
+  const mu = page.getByRole("row").filter({ hasText: /^MU/ });
+  await expect(mu.getByLabel(/Rango de 52 semanas/)).toBeVisible();
+  await expect(mu).toContainText(/[+−]\d+(,\d)?\s%/);
+  await shot(page, "22-watchlist-52-semanas");
+
   await page.goto("/#/estrellas");
   const ranking = page.getByRole("region", { name: "Cómo se elige la mejor siguiente compra" });
   await expect(ranking.getByRole("row")).toHaveCount(3);
@@ -59,6 +65,8 @@ test("estrellas de la watchlist y de la cartera, con sus razones", async ({ page
     await dlg.getByRole("button", { name: "Guardar operación" }).click();
     await expect(dlg).toBeHidden();
   }
+  await expect(page.getByRole("article", { name: /^MU/ })).toContainText("Precio en 52 semanas");
+  await shot(page, "23-cartera-52-semanas");
   await page.goto("/#/estrellas");
   const pranking = page.getByRole("region", { name: "Cómo se elige la más barata de tu cartera" });
   await expect(pranking.getByRole("row")).toHaveCount(3);
