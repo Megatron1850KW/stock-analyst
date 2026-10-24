@@ -1,0 +1,73 @@
+/*
+ * Tokens de diseño (CLAUDE.md §9).
+ * Los valores base son los de la especificación. Las variantes "-text" existen
+ * para cumplir contraste AA cuando el color se usa en texto pequeño.
+ */
+:root {
+  --bg: #faf9f5;
+  --surface: #f0eee6;
+  --surface-raised: #ffffff;
+  --border: #e3e0d6;
+  --text: #191919;
+  --text-muted: #6b6a65;
+  --accent: #cc785c;
+  --accent-text: #a4543a;
+  --accent-soft: #d4a27f;
+  --sand: #ebdbbc;
+  --positive: #5a8a5e;
+  --positive-text: #44704a;
+  --warning: #c99a3b;
+  --warning-text: #8a6516;
+  --negative: #b5523b;
+  --negative-text: #a0432e;
+  --sidebar: rgba(240, 238, 230, 0.78);
+  --focus-ring: #cc785c;
+  --shadow: 0 1px 2px rgba(25, 25, 25, 0.04), 0 1px 1px rgba(25, 25, 25, 0.03);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1f1e1d;
+    --surface: #2a2927;
+    --surface-raised: #312f2d;
+    --border: #3b3936;
+    --text: #f0eee6;
+    --text-muted: #a8a69e;
+    --accent: #d98b6f;
+    --accent-text: #e3a088;
+    --accent-soft: #d4a27f;
+    --sand: #4a4234;
+    --positive: #7aaa7e;
+    --positive-text: #8fbf93;
+    --warning: #d6aa52;
+    --warning-text: #e0b866;
+    --negative: #d06a52;
+    --negative-text: #e08770;
+    --sidebar: rgba(36, 35, 33, 0.8);
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #1f1e1d;
+  --surface: #2a2927;
+  --surface-raised: #312f2d;
+  --border: #3b3936;
+  --text: #f0eee6;
+  --text-muted: #a8a69e;
+  --accent: #d98b6f;
+  --accent-text: #e3a088;
+  --accent-soft: #d4a27f;
+  --sand: #4a4234;
+  --positive: #7aaa7e;
+  --positive-text: #8fbf93;
+  --warning: #d6aa52;
+  --warning-text: #e0b866;
+  --negative: #d06a52;
+  --negative-text: #e08770;
+  --sidebar: rgba(36, 35, 33, 0.8);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  color-scheme: dark;
+}
