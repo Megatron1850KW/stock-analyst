@@ -2,9 +2,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import {
   getAnalysisByKey,
-  latestEurUsd,
   linkUsage,
-  monthSpend,
   recordAiUsage,
   saveAnalysis,
   type AnalysisRow,
@@ -14,7 +12,10 @@ import type { FilingRow } from "@/db/repo";
 import { latestReports } from "@/domain/fundamentals/statements";
 import { extractSections, SECTION_LABELS, type Excerpt, type SectionId } from "@/domain/reports/sections";
 import { loadSecurityDetail } from "@/features/watchlist/load";
+import { BudgetExceededError, checkBudget } from "./budget";
 import { costUsd, estimateCostUsd, usdToEur } from "./cost";
+
+export { BudgetExceededError };
 import { EQUITY_ANALYSIS_PROMPT, type Prompt } from "./prompts";
 import { analysisProblems, equityAnalysisSchema, type EquityAnalysis } from "./schema";
 import { snapshotOf, type AnalysisSnapshot } from "./since";
@@ -49,17 +50,6 @@ export interface StoredAnalysis {
   costApprox: boolean;
   /** Precio y valoración del día del análisis, para compararlos después sin llamar a la IA. */
   snapshot?: AnalysisSnapshot;
-}
-
-export class BudgetExceededError extends Error {
-  constructor(
-    readonly spentEur: number,
-    readonly budgetEur: number,
-    readonly estimateEur: number,
-  ) {
-    super("Este análisis superaría tu presupuesto mensual de IA.");
-    this.name = "BudgetExceededError";
-  }
 }
 
 export class AiAnalysisError extends Error {
@@ -167,12 +157,12 @@ export async function runEquityAnalysis(deps: RunDeps, securityId: number, opts:
   const userMessage = buildUserMessage(numericSummary(security, detail.analysis), docs, excerpts);
 
   // Presupuesto: se avisa antes de gastar
-  const rate = await latestEurUsd(db);
-  const spent = await monthSpend(db, deps.now);
-  const estimate = usdToEur(estimateCostUsd(prompt.text.length + userMessage.length, model), rate).eur;
-  if (deps.budgetEur > 0 && spent.eur + estimate > deps.budgetEur && !opts.allowOverBudget) {
-    throw new BudgetExceededError(spent.eur, deps.budgetEur, estimate);
-  }
+  const rate = await checkBudget(db, {
+    budgetEur: deps.budgetEur,
+    estimateUsd: estimateCostUsd(prompt.text.length + userMessage.length, model),
+    now: deps.now,
+    allowOverBudget: opts.allowOverBudget,
+  });
 
   let response;
   try {

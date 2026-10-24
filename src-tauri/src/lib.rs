@@ -32,6 +32,12 @@ fn migrations() -> Vec<Migration> {
             sql: include_str!("../../src/db/migrations/0003_ficha.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 4,
+            description: "competidores",
+            sql: include_str!("../../src/db/migrations/0004_peers.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
 

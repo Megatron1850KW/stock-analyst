@@ -69,3 +69,10 @@ export const QUALITY_CONFIG = {
     minSignals: 2,
   },
 };
+
+/** Competidores (§5.1.6): los 3–4 más cercanos. */
+export const PEERS_CONFIG = {
+  max: 4,
+  /** Hacen falta al menos 2 con datos para dar un veredicto frente a la competencia. */
+  minForVerdict: 2,
+};
