@@ -75,3 +75,24 @@ describe("ventas de un banco (datos FICTICIOS al estilo de American Express)", (
     expect(r.facts.find((f) => f.concept === "revenue")).toMatchObject({ value: 58_606, sourceTag: "us-gaap:RevenuesNetOfInterestExpense" });
   });
 });
+
+describe("banco europeo con etiquetas propias (datos FICTICIOS al estilo de UniCredit)", () => {
+  it("toma el margen de intermediación como ventas y su patrimonio, pero no inventa deuda", () => {
+    const accn = "FICTICIO-2025-12-31";
+    const fy = (val: number) => [{ start: "2025-01-01", end: "2025-12-31", val, accn, form: "ESEF", filed: "2026-04-02" }];
+    const at = (val: number) => [{ end: "2025-12-31", val, accn, form: "ESEF", filed: "2026-04-02" }];
+    const bank = companyFactsSchema.parse({
+      cik: "FICTICIO",
+      entityName: "BANCO FICTICIO",
+      facts: {
+        ext: { GrossIncome: { units: { EUR: fy(24_826) } }, TotalEquityAttributableToOwnersOfParent: { units: { EUR: at(67_711) } }, TotalEquity: { units: { EUR: at(68_109) } } },
+        "ifrs-full": { DebtSecurities: { units: { EUR: at(98_198) } } },
+      },
+    });
+    const r = normalizeCompanyFacts(bank, [{ accession: accn, form: "ESEF", periodType: "annual", reportDate: "2025-12-31", filingDate: "2026-04-02", primaryDocument: "" }]);
+    const get = (c: string) => r.facts.find((f) => f.concept === c);
+    expect(get("revenue")).toMatchObject({ value: 24_826, sourceTag: "ext:GrossIncome" });
+    expect(get("equity")).toMatchObject({ value: 67_711, sourceTag: "ext:TotalEquityAttributableToOwnersOfParent" });
+    expect(get("debt_total")).toBeUndefined();
+  });
+});

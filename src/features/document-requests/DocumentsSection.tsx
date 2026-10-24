@@ -40,6 +40,9 @@ function RequestCard({ r, name, onUpload, onDismiss }: { r: DocumentRequestRow; 
 }
 
 /** Informes usados en la ficha, subidos por el usuario y pendientes de conseguir. */
+/** Un ZIP ESEF se lee sin IA ni coste: se puede volver a leer cuando mejora la lectura. */
+const isZip = (f: { local_path: string | null }) => !!f.local_path?.toLowerCase().endsWith(".zip");
+
 export function DocumentsSection({
   securityId,
   name,
@@ -131,10 +134,14 @@ export function DocumentsSection({
                       : "cifras sin leer"}
                   </p>
                 </div>
-                {!factsBy.get(f.id) && f.local_path && (
-                  <Button size="sm" variant="secondary" disabled={read.isPending} onClick={() => readFiling(f)}>
+                {(!factsBy.get(f.id) || isZip(f)) && f.local_path && (
+                  <Button size="sm" variant="secondary" disabled={read.isPending} onClick={() => readFiling(f, !!factsBy.get(f.id))}>
                     <Sparkles aria-hidden />
-                    {read.isPending && read.variables?.filing.id === f.id ? "Leyendo…" : f.local_path.toLowerCase().endsWith(".zip") ? "Leer cifras" : "Leer cifras con IA"}
+                    {read.isPending && read.variables?.filing.id === f.id
+                      ? "Leyendo…"
+                      : isZip(f)
+                        ? factsBy.get(f.id) ? "Volver a leer" : "Leer cifras"
+                        : "Leer cifras con IA"}
                   </Button>
                 )}
                 {f.local_path && (
