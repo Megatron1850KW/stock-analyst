@@ -1,7 +1,9 @@
-import { readFileSync, readdirSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import type { Page } from "@playwright/test";
+import { fakeDaily } from "../helpers/fake-prices";
 
 /**
  * Simula el lado Rust de Tauri para los tests de UI en el navegador:
@@ -29,6 +31,11 @@ const realTickers = JSON.stringify({
     [1652044, "Alphabet Inc.", "GOOG", "Nasdaq"],
   ],
 });
+/** Precios REALES guardados (tests/fixtures/prices), si existen para ese símbolo. */
+function realPrices(symbol: string, kind: "history" | "splits" | "quote" = "history"): string | null {
+  const file = join(root, "tests/fixtures/prices", `${symbol}-${kind}.json`);
+  return existsSync(file) ? readFileSync(file, "utf8") : null;
+}
 const realFile = (ticker: string, kind: string) => readFileSync(join(root, "tests/fixtures/sec", `${ticker}-${kind}.json`), "utf8");
 
 export async function installTauriMock(page: Page, opts: MockOptions = {}) {
@@ -39,11 +46,12 @@ export async function installTauriMock(page: Page, opts: MockOptions = {}) {
   }
   db.exec("PRAGMA foreign_keys = ON");
   // La app consulta esta tabla para mostrar la versión del esquema
-  db.exec("CREATE TABLE _sqlx_migrations (version INTEGER); INSERT INTO _sqlx_migrations VALUES (1), (2);");
+  db.exec("CREATE TABLE _sqlx_migrations (version INTEGER); INSERT INTO _sqlx_migrations VALUES (1), (2), (3);");
 
   const store = new Map<string, unknown>(opts.settings ? [["settings", opts.settings]] : []);
   const secrets = new Set(opts.secrets ?? []);
   const calls: string[] = [];
+  const uploads: string[] = [];
 
   await page.exposeFunction("__pwInvoke", (cmd: string, args: Record<string, unknown>) => {
     calls.push(cmd);
@@ -91,9 +99,38 @@ export async function installTauriMock(page: Page, opts: MockOptions = {}) {
         if (!name) throw new Error("recurso no simulado");
         return fixture(name);
       }
-      case "price_quote":
+      case "price_quote": {
         if (!secrets.has("prices_api_key")) throw "Falta la clave del proveedor de precios. Añádela en Ajustes.";
+        const realQuote = realPrices(args.symbol as string, "quote");
+        if (realQuote) return realQuote;
+        if (args.provider === "tiingo") return JSON.stringify([{ date: "2026-10-23T00:00:00.000Z", close: opts.price ?? 42.5, splitFactor: 1 }]);
         return JSON.stringify([{ symbol: args.symbol, price: opts.price ?? 42.5, timestamp: 1792785600 }]);
+      }
+      case "price_history": {
+        if (!secrets.has("prices_api_key")) throw "Falta la clave del proveedor de precios. Añádela en Ajustes.";
+        const real = realPrices(args.symbol as string);
+        if (real) return real;
+        // FICTICIO: curva suave que acaba cerca del precio simulado
+        const bars = fakeDaily(args.from as string, "2026-10-23", (opts.price ?? 42.5) / 2.6, 0.09);
+        if (args.provider === "tiingo") return JSON.stringify(bars.map((b) => ({ ...b, date: `${b.date}T00:00:00.000Z`, splitFactor: 1 })));
+        return JSON.stringify(bars.reverse().map((b) => ({ symbol: args.symbol, ...b })));
+      }
+      case "document_store": {
+        // El navegador envía {head, length, headers}: ver addInitScript
+        const head = String.fromCharCode(...((args.head as number[]) ?? []));
+        if (!head.startsWith("%PDF-") && !head.startsWith("PK")) throw "El archivo no es un PDF ni un ZIP. Sube el informe en PDF o el paquete ESEF (.zip).";
+        const headers = (args.headers as Record<string, string>) ?? {};
+        const name = decodeURIComponent(headers["x-file-name"] ?? "informe.pdf");
+        const sha = createHash("sha256").update(name + String(args.length)).digest("hex");
+        uploads.push(name);
+        return { path: `/simulado/documents/${headers["x-security-id"]}/${sha.slice(0, 12)}-${name}`, sha256: sha, bytes: args.length, kind: head.startsWith("%PDF-") ? "pdf" : "zip" };
+      }
+      case "document_open":
+      case "document_delete":
+        return null;
+      case "price_splits":
+        if (!secrets.has("prices_api_key")) throw "Falta la clave del proveedor de precios. Añádela en Ajustes.";
+        return realPrices(args.symbol as string, "splits") ?? "[]";
       default:
         throw new Error(`Comando no simulado: ${cmd}`);
     }
@@ -103,7 +140,9 @@ export async function installTauriMock(page: Page, opts: MockOptions = {}) {
     const w = window as unknown as Record<string, unknown>;
     w.isTauri = true;
     w.__TAURI_INTERNALS__ = {
-      invoke: async (cmd: string, args: Record<string, unknown>) => {
+      invoke: async (cmd: string, args: unknown, options?: { headers?: Record<string, string> }) => {
+        // Los cuerpos binarios no viajan bien a Node: se mandan la firma y el tamaño
+        if (args instanceof Uint8Array) args = { head: Array.from(args.slice(0, 8)), length: args.length, headers: options?.headers ?? {} };
         try {
           return await (w.__pwInvoke as (c: string, a: unknown) => Promise<unknown>)(cmd, args ?? {});
         } catch (e) {
@@ -117,5 +156,5 @@ export async function installTauriMock(page: Page, opts: MockOptions = {}) {
     };
   });
 
-  return { db, calls };
+  return { db, calls, uploads };
 }

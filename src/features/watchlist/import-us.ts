@@ -1,6 +1,8 @@
 import { filingUrl, findTicker, type SecClient } from "@/data/sec-edgar/client";
 import type { Db } from "@/db/client";
-import { pruneFilings, replaceFilingFacts, upsertFiling, upsertUsSecurity } from "@/db/repo";
+import { pruneFilings, replaceFilingFacts, syncDocumentRequests, upsertFiling, upsertUsSecurity } from "@/db/repo";
+import { missingReportRequests } from "@/features/document-requests/missing";
+import { historyFilingsFromFacts } from "@/domain/fundamentals/history-filings";
 import { normalizeCompanyFacts } from "@/domain/fundamentals/normalize";
 import { needsOlderPages, selectFilings, toRows, type FilingRef } from "@/domain/fundamentals/select-filings";
 
@@ -19,9 +21,13 @@ export interface ImportResult {
   name: string;
   annual: number;
   interim: number;
+  /** Anuales antiguos añadidos solo para la valoración histórica. */
+  historyYears: number;
   facts: number;
   gaps: number;
   notes: string[];
+  /** Informes que hay que pedir al usuario (bandeja «Documentos pendientes»). */
+  requests: number;
 }
 
 export class ImportError extends Error {
@@ -41,6 +47,7 @@ export async function importUsTicker(
   db: Db,
   rawTicker: string,
   onStep: (step: ImportStep) => void = () => {},
+  today: Date = new Date(),
 ): Promise<ImportResult> {
   onStep("ticker");
   const match = findTicker(await sec.tickers(), rawTicker);
@@ -65,7 +72,8 @@ export async function importUsTicker(
 
   onStep("facts");
   const facts = await sec.companyFacts(match.cik);
-  const normalized = normalizeCompanyFacts(facts, chosen);
+  const history = historyFilingsFromFacts(facts, chosen);
+  const normalized = normalizeCompanyFacts(facts, [...chosen, ...history]);
 
   onStep("save");
   const securityId = await upsertUsSecurity(db, {
@@ -81,8 +89,13 @@ export async function importUsTicker(
     currency: "USD",
     reportingCurrency: normalized.currency,
   });
-  for (const filing of chosen) {
-    const filingId = await upsertFiling(db, securityId, filing, filingUrl(match.cik, filing.accession, filing.primaryDocument));
+  const toSave = [
+    ...chosen.map((f) => ({ f, role: "core" as const })),
+    ...history.map((f) => ({ f, role: "history" as const })),
+  ];
+  for (const { f: filing, role } of toSave) {
+    const url = filingUrl(match.cik, filing.accession, filing.primaryDocument);
+    const filingId = await upsertFiling(db, securityId, filing, url, role);
     await replaceFilingFacts(
       db,
       securityId,
@@ -91,7 +104,19 @@ export async function importUsTicker(
       normalized.gaps.filter((g) => g.accession === filing.accession),
     );
   }
-  await pruneFilings(db, securityId, chosen.map((f) => f.accession));
+  await pruneFilings(db, securityId, toSave.map(({ f }) => f.accession));
+
+  const gapsByAccession = new Map<string, string[]>();
+  for (const g of normalized.gaps) gapsByAccession.set(g.accession, [...(gapsByAccession.get(g.accession) ?? []), g.concept]);
+  const requests = missingReportRequests({
+    filerType: selection.filerType,
+    annual: selection.annual,
+    interim: selection.interim,
+    gapsByAccession,
+    secUrl: (f) => filingUrl(match.cik, f.accession, f.primaryDocument),
+    today,
+  });
+  await syncDocumentRequests(db, securityId, requests);
 
   return {
     securityId,
@@ -99,9 +124,11 @@ export async function importUsTicker(
     name: submissions.name || match.name,
     annual: selection.annual.length,
     interim: selection.interim.length,
+    historyYears: history.length,
     facts: normalized.facts.length,
-    gaps: normalized.gaps.length,
+    gaps: normalized.gaps.filter((g) => chosen.some((c) => c.accession === g.accession)).length,
     notes: selection.notes,
+    requests: requests.length,
   };
 }
 

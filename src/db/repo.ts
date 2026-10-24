@@ -40,15 +40,21 @@ export async function upsertUsSecurity(db: Db, s: UsSecurityInput): Promise<numb
   return rows[0]!.id;
 }
 
-export async function upsertFiling(db: Db, securityId: number, f: FilingRef, url: string): Promise<number> {
+export async function upsertFiling(
+  db: Db,
+  securityId: number,
+  f: FilingRef,
+  url: string,
+  role: "core" | "history" = "core",
+): Promise<number> {
   const fiscalPeriod = f.periodType === "annual" ? "FY" : null;
   await db.execute(
-    `INSERT INTO filings (security_id, form_type, period_type, period_end, fiscal_period, filed_at, source, accession_no, url, fetched_at)
-     VALUES (?, ?, ?, ?, ?, ?, 'sec-edgar', ?, ?, ?)
+    `INSERT INTO filings (security_id, form_type, period_type, period_end, fiscal_period, filed_at, source, accession_no, url, fetched_at, role)
+     VALUES (?, ?, ?, ?, ?, ?, 'sec-edgar', ?, ?, ?, ?)
      ON CONFLICT (security_id, source, accession_no) DO UPDATE SET
        form_type = excluded.form_type, period_type = excluded.period_type, period_end = excluded.period_end,
-       filed_at = excluded.filed_at, url = excluded.url, fetched_at = excluded.fetched_at`,
-    [securityId, f.form, f.periodType, f.reportDate, fiscalPeriod, f.filingDate, f.accession, url, now()],
+       filed_at = excluded.filed_at, url = excluded.url, fetched_at = excluded.fetched_at, role = excluded.role`,
+    [securityId, f.form, f.periodType, f.reportDate, fiscalPeriod, f.filingDate, f.accession, url, now(), role],
   );
   const rows = await db.select<{ id: number }>(
     "SELECT id FROM filings WHERE security_id = ? AND source = 'sec-edgar' AND accession_no = ?",
@@ -119,11 +125,11 @@ export interface WatchlistRow {
 export function listWatchlist(db: Db): Promise<WatchlistRow[]> {
   return db.select<WatchlistRow>(
     `SELECT s.id, s.ticker, s.name, s.exchange, s.currency, s.filer_type, s.updated_at,
-       (SELECT COUNT(*) FROM filings f WHERE f.security_id = s.id AND f.period_type = 'annual') AS annual_count,
-       (SELECT COUNT(*) FROM filings f WHERE f.security_id = s.id AND f.period_type = 'interim') AS interim_count,
+       (SELECT COUNT(*) FROM filings f WHERE f.security_id = s.id AND f.role = 'core' AND f.period_type = 'annual') AS annual_count,
+       (SELECT COUNT(*) FROM filings f WHERE f.security_id = s.id AND f.role = 'core' AND f.period_type = 'interim') AS interim_count,
        (SELECT COUNT(DISTINCT g.concept) FROM concept_gaps g
           JOIN filings f ON f.id = g.filing_id
-          WHERE g.security_id = s.id AND f.period_end = (SELECT MAX(period_end) FROM filings WHERE security_id = s.id AND period_type = 'annual')) AS gap_count,
+          WHERE g.security_id = s.id AND f.period_end = (SELECT MAX(period_end) FROM filings WHERE security_id = s.id AND role = 'core' AND period_type = 'annual')) AS gap_count,
        p.close AS price, p.date AS price_date, p.source AS price_source, p.fetched_at AS price_fetched_at
      FROM securities s
      LEFT JOIN prices p ON p.security_id = s.id AND p.interval = '1d'
@@ -166,12 +172,17 @@ export interface FilingRow {
   accession_no: string;
   url: string | null;
   fetched_at: string;
+  role: "core" | "history" | "upload";
+  source: string;
+  local_path: string | null;
+  original_name: string | null;
+  bytes: number | null;
 }
 
 export function getFilings(db: Db, securityId: number): Promise<FilingRow[]> {
   return db.select<FilingRow>(
-    `SELECT id, form_type, period_type, period_end, filed_at, accession_no, url, fetched_at
-     FROM filings WHERE security_id = ? ORDER BY period_type, period_end DESC`,
+    `SELECT id, form_type, period_type, period_end, filed_at, accession_no, url, fetched_at, role, source, local_path, original_name, bytes
+     FROM filings WHERE security_id = ? ORDER BY role, period_type, period_end DESC`,
     [securityId],
   );
 }
@@ -232,4 +243,216 @@ export async function saveQuote(db: Db, q: QuoteInput): Promise<void> {
 
 export function listPriceTargets(db: Db): Promise<{ id: number; ticker: string; currency: string }[]> {
   return db.select("SELECT id, ticker, currency FROM securities WHERE ticker IS NOT NULL AND market = 'US' ORDER BY ticker");
+}
+
+export interface BarRow {
+  date: string;
+  open: number | null;
+  high: number | null;
+  low: number | null;
+  close: number;
+  volume: number | null;
+}
+
+const BARS_PER_INSERT = 80; // 800 parámetros por sentencia
+
+/** Sustituye las velas de un intervalo ('1w' o '1mo') de un valor. */
+export async function replacePriceBars(
+  db: Db,
+  securityId: number,
+  interval: "1w" | "1mo",
+  bars: BarRow[],
+  currency: string,
+  source: string,
+): Promise<void> {
+  await db.execute("DELETE FROM prices WHERE security_id = ? AND interval = ?", [securityId, interval]);
+  const fetchedAt = now();
+  for (let k = 0; k < bars.length; k += BARS_PER_INSERT) {
+    const chunk = bars.slice(k, k + BARS_PER_INSERT);
+    await db.execute(
+      `INSERT INTO prices (security_id, interval, date, open, high, low, close, volume, currency, source, fetched_at)
+       VALUES ${chunk.map(() => `(?, '${interval}', ?, ?, ?, ?, ?, ?, ?, ?, ?)`).join(", ")}`,
+      chunk.flatMap((b) => [securityId, b.date, b.open, b.high, b.low, b.close, b.volume, currency, source, fetchedAt]),
+    );
+  }
+}
+
+export function getPriceBars(db: Db, securityId: number, interval: "1d" | "1w" | "1mo"): Promise<BarRow[]> {
+  return db.select<BarRow>(
+    "SELECT date, open, high, low, close, volume FROM prices WHERE security_id = ? AND interval = ? ORDER BY date",
+    [securityId, interval],
+  );
+}
+
+export interface LatestQuoteRow {
+  date: string;
+  close: number;
+  currency: string;
+  source: string;
+  fetched_at: string;
+}
+
+export async function getLatestQuote(db: Db, securityId: number): Promise<LatestQuoteRow | null> {
+  const rows = await db.select<LatestQuoteRow>(
+    `SELECT date, close, currency, source, fetched_at FROM prices
+     WHERE security_id = ? AND interval = '1d' ORDER BY date DESC LIMIT 1`,
+    [securityId],
+  );
+  return rows[0] ?? null;
+}
+
+export interface SplitRow {
+  date: string;
+  numerator: number;
+  denominator: number;
+}
+
+export async function replaceSplits(db: Db, securityId: number, splits: SplitRow[], source: string): Promise<void> {
+  await db.execute("DELETE FROM splits WHERE security_id = ?", [securityId]);
+  for (const s of splits) {
+    await db.execute(
+      "INSERT OR REPLACE INTO splits (security_id, date, numerator, denominator, source) VALUES (?, ?, ?, ?, ?)",
+      [securityId, s.date, s.numerator, s.denominator, source],
+    );
+  }
+}
+
+export function getSplits(db: Db, securityId: number): Promise<SplitRow[]> {
+  return db.select<SplitRow>("SELECT date, numerator, denominator FROM splits WHERE security_id = ? ORDER BY date", [securityId]);
+}
+
+export interface PriceHistoryMeta {
+  source: string;
+  first_date: string | null;
+  last_date: string | null;
+  splits_checked: 0 | 1;
+  note: string | null;
+  fetched_at: string;
+}
+
+export async function getPriceHistoryMeta(db: Db, securityId: number): Promise<PriceHistoryMeta | null> {
+  const rows = await db.select<PriceHistoryMeta>(
+    "SELECT source, first_date, last_date, splits_checked, note, fetched_at FROM price_history_meta WHERE security_id = ?",
+    [securityId],
+  );
+  return rows[0] ?? null;
+}
+
+export async function savePriceHistoryMeta(db: Db, securityId: number, m: Omit<PriceHistoryMeta, "fetched_at">): Promise<void> {
+  await db.execute(
+    `INSERT INTO price_history_meta (security_id, source, first_date, last_date, splits_checked, note, fetched_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT (security_id) DO UPDATE SET source = excluded.source, first_date = excluded.first_date,
+       last_date = excluded.last_date, splits_checked = excluded.splits_checked, note = excluded.note, fetched_at = excluded.fetched_at`,
+    [securityId, m.source, m.first_date, m.last_date, m.splits_checked, m.note, now()],
+  );
+}
+
+export interface UploadInput {
+  securityId: number;
+  periodType: "annual" | "interim";
+  periodEnd: string;
+  /** Cómo se muestra el informe: «Informe anual (PDF)», «Semestral (ZIP ESEF)»… */
+  label: string;
+  path: string;
+  sha256: string;
+  bytes: number;
+  originalName: string;
+}
+
+/** Registra un informe subido por el usuario (el mismo archivo dos veces no se duplica). */
+export async function saveUpload(db: Db, u: UploadInput): Promise<number> {
+  const accession = `upload-${u.sha256.slice(0, 16)}`;
+  await db.execute(
+    `INSERT INTO filings (security_id, form_type, period_type, period_end, fiscal_period, filed_at, source, accession_no,
+       local_path, content_hash, bytes, original_name, role, fetched_at)
+     VALUES (?, ?, ?, ?, ?, NULL, 'user-upload', ?, ?, ?, ?, ?, 'upload', ?)
+     ON CONFLICT (security_id, source, accession_no) DO UPDATE SET
+       form_type = excluded.form_type, period_type = excluded.period_type, period_end = excluded.period_end,
+       fiscal_period = excluded.fiscal_period, original_name = excluded.original_name`,
+    [u.securityId, u.label, u.periodType, u.periodEnd, u.periodType === "annual" ? "FY" : null, accession, u.path, u.sha256, u.bytes, u.originalName, now()],
+  );
+  const rows = await db.select<{ id: number }>(
+    "SELECT id FROM filings WHERE security_id = ? AND source = 'user-upload' AND accession_no = ?",
+    [u.securityId, accession],
+  );
+  return rows[0]!.id;
+}
+
+/** Borra un informe subido y devuelve su ruta para quitar también el archivo. */
+export async function deleteUpload(db: Db, filingId: number): Promise<string | null> {
+  const rows = await db.select<{ local_path: string | null }>(
+    "SELECT local_path FROM filings WHERE id = ? AND source = 'user-upload'",
+    [filingId],
+  );
+  if (!rows[0]) return null;
+  await db.execute(
+    "UPDATE document_requests SET status = 'pending', filing_id = NULL, resolved_at = NULL WHERE filing_id = ?",
+    [filingId],
+  );
+  await db.execute("DELETE FROM filings WHERE id = ?", [filingId]);
+  return rows[0].local_path;
+}
+
+export interface DocumentRequestInput {
+  documentType: string;
+  period: string;
+  expectedDate: string | null;
+  preferredFormat: string;
+  whereToFind: string;
+}
+
+export interface DocumentRequestRow {
+  id: number;
+  security_id: number;
+  document_type: string;
+  period: string;
+  expected_date: string | null;
+  preferred_format: string | null;
+  where_to_find: string | null;
+  status: "pending" | "fulfilled" | "dismissed";
+  filing_id: number | null;
+  created_at: string;
+}
+
+export function getDocumentRequests(db: Db, securityId?: number): Promise<DocumentRequestRow[]> {
+  return db.select<DocumentRequestRow>(
+    `SELECT id, security_id, document_type, period, expected_date, preferred_format, where_to_find, status, filing_id, created_at
+     FROM document_requests ${securityId === undefined ? "" : "WHERE security_id = ?"}
+     ORDER BY status = 'pending' DESC, period DESC`,
+    securityId === undefined ? [] : [securityId],
+  );
+}
+
+/**
+ * Deja las solicitudes automáticas de un valor como dice la última
+ * comprobación: añade las nuevas, conserva las atendidas o descartadas y
+ * retira las pendientes que ya no hacen falta.
+ */
+export async function syncDocumentRequests(db: Db, securityId: number, wanted: DocumentRequestInput[]): Promise<void> {
+  const existing = await getDocumentRequests(db, securityId);
+  const key = (type: string, period: string) => `${type}|${period}`;
+  const wantedKeys = new Set(wanted.map((w) => key(w.documentType, w.period)));
+  for (const r of existing) {
+    if (r.status === "pending" && !wantedKeys.has(key(r.document_type, r.period))) {
+      await db.execute("DELETE FROM document_requests WHERE id = ?", [r.id]);
+    }
+  }
+  const have = new Set(existing.map((r) => key(r.document_type, r.period)));
+  for (const w of wanted) {
+    if (have.has(key(w.documentType, w.period))) continue;
+    await db.execute(
+      `INSERT INTO document_requests (security_id, document_type, period, expected_date, preferred_format, where_to_find)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [securityId, w.documentType, w.period, w.expectedDate, w.preferredFormat, w.whereToFind],
+    );
+  }
+}
+
+export async function resolveDocumentRequest(db: Db, id: number, status: "fulfilled" | "dismissed", filingId: number | null = null): Promise<void> {
+  await db.execute("UPDATE document_requests SET status = ?, filing_id = ?, resolved_at = ? WHERE id = ?", [status, filingId, now(), id]);
+}
+
+export function countPendingRequests(db: Db): Promise<{ security_id: number; n: number }[]> {
+  return db.select("SELECT security_id, COUNT(*) AS n FROM document_requests WHERE status = 'pending' GROUP BY security_id");
 }

@@ -1,3 +1,4 @@
+mod documents;
 mod http;
 mod prices;
 mod sec;
@@ -24,6 +25,12 @@ fn migrations() -> Vec<Migration> {
             sql: include_str!("../../src/db/migrations/0002_sec.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 3,
+            description: "ficha",
+            sql: include_str!("../../src/db/migrations/0003_ficha.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
 
@@ -42,7 +49,12 @@ pub fn run() {
             secrets::secret_exists,
             secrets::secret_delete,
             sec::sec_fetch,
-            prices::price_quote
+            prices::price_quote,
+            prices::price_history,
+            prices::price_splits,
+            documents::document_store,
+            documents::document_open,
+            documents::document_delete
         ])
         .run(tauri::generate_context!())
         .expect("error al iniciar Agente Financiero");
