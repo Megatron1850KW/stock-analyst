@@ -71,13 +71,14 @@ describe("Alpha Vantage con respuestas REALES", () => {
     expect(rows[0]!.date).toBe("2005-02-28");
   });
 
-  it("elige París y Ámsterdam, y no da Madrid (Inditex no aparece; Iberdrola solo fuera de España)", () => {
+  it("elige París y Ámsterdam; Madrid no está (Inditex no aparece; Iberdrola, por su cotización en Xetra)", () => {
     const lvmh = parseAvSearch(read("av-search-FR0000121014.json"));
     expect(pickAvSymbol(lvmh, { ticker: "MC", name: "Lvmh Moet Hennessy Louis Vuitton", exchange: "FP", currency: "EUR" })).toBe("MC.PAR");
     const asml = parseAvSearch(read("av-search-NL0010273215.json"));
     expect(pickAvSymbol(asml, { ticker: "ASML", name: "Asml Holding N.V.", exchange: "NA", currency: "EUR" })).toBe("ASML.AMS");
     expect(parseAvSearch(read("av-search-ES0148396007.json"))).toEqual([]);
     const ibe = parseAvSearch(read("av-search-ES0144580Y14.json"));
-    expect(pickAvSymbol(ibe, { ticker: "IBE", name: "Iberdrola Sa", exchange: "SM", currency: "EUR" })).toBeNull();
+    // Misma empresa y misma divisa en Xetra; nunca el «International Order Book» de Londres (0HIT.LON)
+    expect(pickAvSymbol(ibe, { ticker: "IBE", name: "Iberdrola Sa", exchange: "SM", currency: "EUR" })).toBe("IBE1.DEX");
   });
 });

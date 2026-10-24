@@ -153,6 +153,17 @@ export async function getFundProfiles(db: Db): Promise<Map<number, FundProfileRo
   return out;
 }
 
+/** Solicitud de «Documentos pendientes» para un ETF/ETC de la watchlist sin ficha. */
+export const FUND_SHEET_REQUEST = "Ficha del fondo (factsheet) o KID";
+
+/** Con la ficha ya leída (o escrita a mano), su solicitud queda cerrada. */
+async function resolveFundSheetRequests(db: Db, securityId: number, now: string): Promise<void> {
+  await db.execute(
+    "UPDATE document_requests SET status = 'fulfilled', resolved_at = ? WHERE security_id = ? AND status = 'pending' AND document_type = ?",
+    [now, securityId, FUND_SHEET_REQUEST],
+  );
+}
+
 /** Corrección manual de la ficha: queda marcada como editada por ti. */
 export async function saveFundProfileEdit(db: Db, securityId: number, profile: FundProfile): Promise<void> {
   const p = fundProfileSchema.parse(profile);
@@ -162,6 +173,7 @@ export async function saveFundProfileEdit(db: Db, securityId: number, profile: F
      ON CONFLICT (security_id) DO UPDATE SET profile_json = excluded.profile_json, edited_at = excluded.edited_at`,
     [securityId, JSON.stringify(p), now],
   );
+  await resolveFundSheetRequests(db, securityId, now);
 }
 
 export interface FundDoc {
@@ -280,5 +292,6 @@ export async function extractFundProfile(
        cost_eur = excluded.cost_eur, extracted_at = excluded.extracted_at, edited_at = NULL`,
     [securityId, JSON.stringify(profile), doc.path, doc.name, doc.sha256, response.model, prompt.key, cost.eur, now],
   );
+  await resolveFundSheetRequests(db, securityId, now);
   return { status: "created", profile, costEur: cost.eur };
 }

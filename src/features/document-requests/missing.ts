@@ -123,20 +123,19 @@ export function euMissingRequests(input: EuMissingInput): DocumentRequestInput[]
   const out: DocumentRequestInput[] = [];
   const published = (end: string, months: number) => addMonths(end, months) <= todayIso;
 
-  // Cierre de ejercicio: el del último anual o, si no hay ninguno, el 31-dic.
-  const fyEnd = input.annualEnds[0] ?? `${Number(todayIso.slice(0, 4)) - 1}-12-31`;
-  if (input.annualEnds.length < WANTED) {
-    for (const end of [0, -12, -24, -36].map((m) => addMonths(fyEnd, m)).filter((e) => published(e, 4))) {
-      if (out.length >= WANTED - input.annualEnds.length) break;
-      if (input.annualEnds.some((a) => near(a, end))) continue;
-      out.push({
-        documentType: `Informe financiero anual ${end.slice(0, 4)}`,
-        period: end,
-        expectedDate: addMonths(end, 3).slice(0, 7),
-        preferredFormat: "ZIP ESEF o PDF",
-        whereToFind: `${where}. Es el informe anual con las cuentas consolidadas auditadas.`,
-      });
-    }
+  // Cierre de ejercicio: el del último anual o, si no hay ninguno, el 31-dic. Si ya debería
+  // haber salido uno más nuevo (4 meses tras el cierre), se cuenta desde ese y se pide.
+  let fyEnd = input.annualEnds[0] ?? `${Number(todayIso.slice(0, 4)) - 1}-12-31`;
+  while (published(addMonths(fyEnd, 12), 4)) fyEnd = addMonths(fyEnd, 12);
+  for (const end of [0, -12, -24].map((m) => addMonths(fyEnd, m)).filter((e) => published(e, 4))) {
+    if (input.annualEnds.some((a) => near(a, end))) continue;
+    out.push({
+      documentType: `Informe financiero anual ${end.slice(0, 4)}`,
+      period: end,
+      expectedDate: addMonths(end, 3).slice(0, 7),
+      preferredFormat: "ZIP ESEF o PDF",
+      whereToFind: `${where}. Es el informe anual con las cuentas consolidadas auditadas.`,
+    });
   }
 
   // Plazo legal: 3 meses; la mayoría publica a los 2

@@ -106,21 +106,23 @@ export interface FundSecurityInput {
   exchange: string | null;
   currency: string;
   kind: "etf" | "etc";
+  /** Darlo de alta también en la watchlist. */
+  watchlist?: boolean;
 }
 
-/** Alta de un ETF o ETC (por ISIN). No va a la watchlist: no tiene informes que analizar. */
+/** Alta de un ETF o ETC (por ISIN). Solo va a la watchlist si se pide: no tiene informes que analizar. */
 export async function upsertFundSecurity(db: Db, f: FundSecurityInput): Promise<number> {
   const existing = await db.select<{ id: number }>("SELECT id FROM securities WHERE isin = ?", [f.isin]);
   if (existing[0]) {
     await db.execute(
-      "UPDATE securities SET ticker = ?, name = ?, exchange = ?, currency = ?, figi = ?, kind = ?, market = 'EU', updated_at = ? WHERE id = ?",
-      [f.ticker, f.name, f.exchange, f.currency, f.figi, f.kind, new Date().toISOString(), existing[0].id],
+      "UPDATE securities SET ticker = ?, name = ?, exchange = ?, currency = ?, figi = ?, kind = ?, market = 'EU', in_watchlist = MAX(in_watchlist, ?), updated_at = ? WHERE id = ?",
+      [f.ticker, f.name, f.exchange, f.currency, f.figi, f.kind, f.watchlist ? 1 : 0, new Date().toISOString(), existing[0].id],
     );
     return existing[0].id;
   }
   await db.execute(
-    "INSERT INTO securities (isin, figi, ticker, name, exchange, currency, kind, market, in_watchlist) VALUES (?, ?, ?, ?, ?, ?, ?, 'EU', 0)",
-    [f.isin, f.figi, f.ticker, f.name, f.exchange, f.currency, f.kind],
+    "INSERT INTO securities (isin, figi, ticker, name, exchange, currency, kind, market, in_watchlist) VALUES (?, ?, ?, ?, ?, ?, ?, 'EU', ?)",
+    [f.isin, f.figi, f.ticker, f.name, f.exchange, f.currency, f.kind, f.watchlist ? 1 : 0],
   );
   return (await db.select<{ id: number }>("SELECT id FROM securities WHERE isin = ?", [f.isin]))[0]!.id;
 }

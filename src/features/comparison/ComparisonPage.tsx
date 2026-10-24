@@ -22,7 +22,8 @@ import { VerdictBadge, yearsText } from "@/features/watchlist/ficha/Indicators";
 import { signedPercent } from "@/features/watchlist/ficha/format";
 import { formatCurrency, formatNumber, formatPercent, SIN_DATO } from "@/lib/format";
 import { cn } from "@/lib/cn";
-import { FundsTable } from "@/features/portfolio/FundsTable";
+import { fundLineOf, FundsTable, type FundLine } from "@/features/portfolio/FundsTable";
+import { useWatchlistFunds } from "@/features/watchlist/queries";
 import { PortfolioSummary, VisionBoard } from "@/features/portfolio/PortfolioPage";
 import { usePortfolio } from "@/features/portfolio/queries";
 import { appDb } from "@/platform/database";
@@ -35,7 +36,8 @@ function useComparison() {
     queryKey: comparisonKey,
     queryFn: async () => {
       const db = await appDb();
-      const [list, analyses] = await Promise.all([listWatchlist(db), listLatestAnalyses(db)]);
+      const [all, analyses] = await Promise.all([listWatchlist(db), listLatestAnalyses(db)]);
+      const list = all.filter((w) => w.kind === "stock");
       const ai = new Map(analyses.map((r) => [r.security_id, { stored: parseStored(r), createdAt: r.created_at }]));
       const rows = await Promise.all(
         list.map(async (w) => {
@@ -321,7 +323,10 @@ function ComparisonTable({ rows }: { rows: ComparisonRow[] }) {
 export function ComparisonPage() {
   const { data: rows, isLoading } = useComparison();
   const portfolio = usePortfolio();
+  const watchFunds = useWatchlistFunds();
   const navigate = useNavigate();
+  const heldFunds = portfolio.data?.holdings.filter((h) => h.row.kind !== "stock").map(fundLineOf) ?? [];
+  const funds: FundLine[] = [...heldFunds, ...(watchFunds.data ?? []).filter((f) => !heldFunds.some((h) => h.id === f.id))];
   const [tab, setTab] = useState<Tab>("watchlist");
   const [sort, setSort] = useState<SortKey>("cheapest");
   const sorted = rows ? sortRows(rows, sort) : [];
@@ -346,7 +351,7 @@ export function ComparisonPage() {
             onChange={setTab}
             counts={{
               watchlist: rows?.length ?? 0,
-              funds: portfolio.data?.holdings.filter((h) => h.row.kind !== "stock").length ?? 0,
+              funds: funds.length,
               portfolio: portfolio.data?.holdings.length ?? 0,
             }}
           />
@@ -391,9 +396,9 @@ export function ComparisonPage() {
         </>
       )}
       {tab === "etf" && (
-        portfolio.data && portfolio.data.holdings.some((h) => h.row.kind !== "stock") ? (
+        funds.length > 0 ? (
           <>
-            <FundsTable holdings={portfolio.data.holdings.filter((h) => h.row.kind !== "stock")} />
+            <FundsTable holdings={funds} />
             <p className="mt-3 text-[11.5px] text-muted">
               Los ETFs y ETCs no tienen estados financieros: se miran su coste, qué siguen, su tendencia de fondo (precio frente a su media de 10 meses) y el equilibrio de tu cartera. {DISCLAIMER}
             </p>
@@ -402,7 +407,7 @@ export function ComparisonPage() {
           <EmptyState
             icon={Layers}
             title="ETFs y ETCs"
-            description="Cuando registres un ETF o un ETC en tu cartera, aquí los verás comparados por coste (TER), qué índice o materia prima siguen, tendencia de largo plazo y peso."
+            description="Cuando añadas un ETF o un ETC a tu watchlist (por su ISIN) o a tu cartera, aquí los verás comparados por coste (TER), qué índice o materia prima siguen, tendencia de largo plazo y peso."
           >
             <Button asChild><Link to="/portfolio">Ir a Mi Portfolio</Link></Button>
           </EmptyState>

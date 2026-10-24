@@ -26,7 +26,7 @@ export const providersLabel = (p: PriceProviders) => [p.US?.label, p.EU?.label].
 /** Días que vale la cotización de un competidor: para compararlo no hace falta el precio de cada día, y así se ahorran consultas del plan gratuito. */
 export const PEER_QUOTE_MAX_AGE_DAYS = 7;
 /** Si un proveedor no cubre un valor, no se vuelve a buscar hasta pasado este tiempo. */
-export const SYMBOL_RETRY_DAYS = 30;
+export const SYMBOL_RETRY_DAYS = 7;
 
 function peerQuoteFresh(t: PriceTarget, now: Date): boolean {
   if (!t.peer_only || !t.quote_fetched_at) return false;

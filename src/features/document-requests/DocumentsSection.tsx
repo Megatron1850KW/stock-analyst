@@ -1,4 +1,5 @@
-import { ExternalLink, FileText, FolderOpen, Inbox, Sparkles, Trash2, Upload } from "lucide-react";
+import { ExternalLink as ExternalIcon, FileText, FolderOpen, Inbox, Sparkles, Trash2, Upload } from "lucide-react";
+import { ExternalLink } from "@/components/ui/external-link";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,6 +12,13 @@ import { monthText } from "./missing";
 import { useDeleteUpload, useDismissRequest, useReadUpload } from "./queries";
 import { UploadPanel } from "./UploadPanel";
 
+/** Las direcciones web de la solicitud se pueden pulsar (se abren en tu navegador). */
+function Linkified({ text }: { text: string }) {
+  return text.split(/(https:\/\/[^\s)]+)/).map((part, i) =>
+    i % 2 ? <ExternalLink key={i} href={part} className="underline underline-offset-2 hover:text-accent-text">{part}</ExternalLink> : part,
+  );
+}
+
 function RequestCard({ r, name, onUpload, onDismiss }: { r: DocumentRequestRow; name: string; onUpload: () => void; onDismiss: () => void }) {
   return (
     <li className="rounded-xl border border-warning/40 bg-warning/6 p-4">
@@ -18,7 +26,7 @@ function RequestCard({ r, name, onUpload, onDismiss }: { r: DocumentRequestRow; 
         Necesito el <strong>{r.document_type}</strong> de <strong>{name}</strong>
         {r.expected_date && <>, publicado aprox. en <strong>{monthText(r.expected_date)}</strong></>}. Formato preferido: <strong>{r.preferred_format ?? "PDF"}</strong>.
       </p>
-      {r.where_to_find && <p className="mt-1 text-[12.5px] break-words text-muted" data-selectable>Dónde suele estar: {r.where_to_find}</p>}
+      {r.where_to_find && <p className="mt-1 text-[12.5px] break-words text-muted" data-selectable>Dónde suele estar: <Linkified text={r.where_to_find} /></p>}
       <div className="mt-3 flex gap-2">
         <Button size="sm" onClick={onUpload}>
           <Upload aria-hidden /> Subir este informe
@@ -155,9 +163,9 @@ export function DocumentsSection({
         <ul className="mt-2 grid gap-x-6 gap-y-1 sm:grid-cols-2">
           {[...core, ...history].map((f) => (
             <li key={f.id} className="flex items-center gap-2">
-              <a href={f.url ?? undefined} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-accent-text">
-                {formLabel(f.form_type)} · cierre {formatDate(f.period_end)} <ExternalLink className="size-3" aria-hidden />
-              </a>
+              <ExternalLink href={f.url ?? undefined} className="inline-flex items-center gap-1 hover:text-accent-text">
+                {formLabel(f.form_type)} · cierre {formatDate(f.period_end)} <ExternalIcon className="size-3" aria-hidden />
+              </ExternalLink>
               {f.role === "history" && <Badge>historia</Badge>}
             </li>
           ))}

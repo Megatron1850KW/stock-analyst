@@ -9,14 +9,21 @@ import { providersFor, refreshPrices } from "@/features/prices/refresh";
 import { secUserAgent } from "@/features/settings/schema";
 import { loadSettings } from "@/platform/settings-store";
 import { appDb } from "@/platform/database";
-import { importEuIsin } from "./import-eu";
-import { importUsTicker, ImportError, looksLikeIsin, type ImportStep } from "./import-us";
+import { addToWatchlist, type AddDeps, type AddOutcome } from "./add";
+import { ImportError, type ImportStep } from "./import-us";
 import { loadSecurityDetail } from "./load";
+import { loadWatchlistFunds } from "./load-funds";
 
 export const watchlistKey = ["watchlist"] as const;
 
 export function useWatchlist() {
   return useQuery({ queryKey: watchlistKey, queryFn: async () => listWatchlist(await appDb()) });
+}
+
+export const watchlistFundsKey = ["watchlist-funds"] as const;
+
+export function useWatchlistFunds(only?: number) {
+  return useQuery({ queryKey: [...watchlistFundsKey, only ?? "all"], queryFn: async () => loadWatchlistFunds(await appDb(), only) });
 }
 
 export function useSecurityDetail(id: number) {
@@ -37,45 +44,46 @@ export function useAddTicker() {
   const qc = useQueryClient();
   const [step, setStep] = useState<ImportStep | null>(null);
   const [market, setMarket] = useState<"US" | "EU">("US");
+  const [current, setCurrent] = useState<string | null>(null);
+  const [done, setDone] = useState<AddOutcome[]>([]);
+  const refreshLists = () => {
+    void qc.invalidateQueries({ queryKey: watchlistKey });
+    void qc.invalidateQueries({ queryKey: watchlistFundsKey });
+    void qc.invalidateQueries({ queryKey: ["technical-risk"] });
+    void qc.invalidateQueries({ queryKey: ["comparison"] });
+  };
   const mutation = useMutation({
-    mutationFn: async (input: string) => {
+    mutationFn: async (text: string) => {
+      setDone([]);
       const settings = await loadSettings();
       const db = await appDb();
-      const eu = tauriEuClient();
-      let ticker = input.trim().toUpperCase();
-      // ISIN: europeo → ESEF; de EE. UU. → su ticker y la SEC
-      if (looksLikeIsin(ticker)) {
-        if (!ticker.startsWith("US")) {
-          setMarket("EU");
-          const result = await importEuIsin(eu, db, ticker, setStep);
-          const prices = await refreshPrices(db, providersFor(settings), result.securityId).catch(() => null);
-          return { ...result, priceErrors: prices?.failed.map((f) => f.message) ?? [] };
-        }
-        setStep("ticker");
-        const us = (await eu.figi(ticker)).find((r) => r.exchCode === "US" && r.ticker);
-        if (!us?.ticker) throw new ImportError(`No encuentro qué ticker de EE. UU. corresponde al ISIN ${ticker}.`);
-        ticker = us.ticker.replace(/\//g, ".");
-      }
-      setMarket("US");
       const ua = secUserAgent(settings);
-      if (!ua) throw new ImportError("Antes de consultar la SEC, añade tu nombre y email en Ajustes (la SEC lo exige).");
-      const result = await importUsTicker(tauriSecClient(ua), db, ticker, setStep);
-      // Precio e histórico del valor recién añadido (si hay proveedor); un fallo aquí no anula el alta
-      const prices = await refreshPrices(db, providersFor(settings), result.securityId).catch(() => null);
-      return { ...result, priceErrors: prices?.failed.map((f) => f.message) ?? [] };
+      const deps: AddDeps = {
+        db,
+        eu: tauriEuClient(),
+        sec: ua ? tauriSecClient(ua) : null,
+        refreshPrices: async (id) => (await refreshPrices(db, providersFor(settings), id)).failed.map((f) => f.message),
+        onEntry: (e) => setCurrent(e.kind === "isin" ? e.isin : e.ticker),
+        onStep: setStep,
+        onMarket: setMarket,
+      };
+      return addToWatchlist(deps, text, (o) => {
+        setStep(null);
+        setDone((d) => [...d, o]);
+        refreshLists();
+        if (!o.ok) return;
+        void qc.invalidateQueries({ queryKey: ["security", o.result.securityId] });
+        // Solo las acciones tienen informes que analizar (una vez, al darlas de alta)
+        if (o.type === "stock") startInitialAnalysis(qc, o.result.securityId, () => startInitialPeers(qc, o.result.securityId));
+      });
     },
     onSettled: () => {
       setStep(null);
-      void qc.invalidateQueries({ queryKey: watchlistKey });
-      void qc.invalidateQueries({ queryKey: ["technical-risk"] });
-      void qc.invalidateQueries({ queryKey: ["comparison"] });
-    },
-    onSuccess: (r) => {
-      void qc.invalidateQueries({ queryKey: ["security", r.securityId] });
-      startInitialAnalysis(qc, r.securityId, () => startInitialPeers(qc, r.securityId));
+      setCurrent(null);
+      refreshLists();
     },
   });
-  return { ...mutation, step, market };
+  return { ...mutation, step, market, current, done };
 }
 
 export function useRemoveSecurity() {
@@ -85,6 +93,7 @@ export function useRemoveSecurity() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["peers"] });
       void qc.invalidateQueries({ queryKey: watchlistKey });
+      void qc.invalidateQueries({ queryKey: watchlistFundsKey });
       void qc.invalidateQueries({ queryKey: ["technical-risk"] });
       void qc.invalidateQueries({ queryKey: ["comparison"] });
     },

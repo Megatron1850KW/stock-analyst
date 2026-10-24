@@ -1,4 +1,5 @@
 import { AlertTriangle, FileUp, Loader2, Sparkles } from "lucide-react";
+import { ExternalLink } from "@/components/ui/external-link";
 import { useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,7 +11,8 @@ import { BudgetExceededError } from "@/features/ai/budget";
 import { describeError } from "@/features/watchlist/queries";
 import { formatDate, formatNumber, formatPercent, parseDecimal, SIN_DATO } from "@/lib/format";
 import { REPLICATION, type FundProfile } from "./fund-profile";
-import type { Holding } from "./load";
+import { justEtfUrl } from "@/features/watchlist/import-fund";
+import type { FundProfileRow } from "./fund-profile";
 import { useSaveFundProfile, useUploadFundSheet } from "./queries";
 
 const EMPTY: FundProfile = {
@@ -37,8 +39,14 @@ function Bars({ title, items }: { title: string; items: { key: string; weight: n
   );
 }
 
+/** Lo que necesita la ficha: vale una posición de la cartera o un fondo de la watchlist. */
+export interface FundSheetSubject {
+  row: { id: number; ticker: string; name: string; kind: string; isin: string | null };
+  fund: FundProfileRow | null;
+}
+
 /** Ficha de un ETF/ETC: la subes en PDF, Haiku la lee y puedes corregirla. */
-export function FundSheetDialog({ h, onClose }: { h: Holding | null; onClose: () => void }) {
+export function FundSheetDialog({ h, onClose }: { h: FundSheetSubject | null; onClose: () => void }) {
   const id = h?.row.id ?? 0;
   const upload = useUploadFundSheet(id);
   const save = useSaveFundProfile(id);
@@ -90,7 +98,8 @@ export function FundSheetDialog({ h, onClose }: { h: Holding | null; onClose: ()
       title={h ? `Ficha de ${h.row.ticker}` : ""}
       description={
         <>
-          {h?.row.name}. Los {h?.row.kind === "etc" ? "ETC" : "ETF"} no tienen informes de empresa: sus datos salen de su ficha mensual o de su KID (documento de datos fundamentales), que encontrarás en la web de la gestora.
+          {h?.row.name}. Los {h?.row.kind === "etc" ? "ETC" : "ETF"} no tienen informes de empresa: sus datos salen de su ficha mensual o de su KID (documento de datos fundamentales), que encontrarás en{" "}
+          {h?.row.isin ? <ExternalLink href={justEtfUrl(h.row.isin)} className="underline underline-offset-2">su página de justETF</ExternalLink> : "justETF"} o en la web de la gestora.
         </>
       }
     >

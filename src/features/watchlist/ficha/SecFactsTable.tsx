@@ -1,4 +1,5 @@
-import { ExternalLink } from "lucide-react";
+import { ExternalLink as ExternalIcon } from "lucide-react";
+import { ExternalLink } from "@/components/ui/external-link";
 import { SourceValue } from "@/components/ui/source-value";
 import { Tooltip } from "@/components/ui/tooltip";
 import type { FactRow, FilingRow } from "@/db/repo";
@@ -52,10 +53,10 @@ export function SecFactsTable({ filings, facts }: { filings: FilingRow[]; facts:
                     </span>
                   }
                 >
-                  <a href={f.url ?? undefined} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-accent-text">
+                  <ExternalLink href={f.url ?? undefined} className="inline-flex items-center gap-1 hover:text-accent-text">
                     <span className="text-text">{f.form_type}</span> {formatMonthYear(f.period_end)}
-                    <ExternalLink className="size-3" aria-hidden />
-                  </a>
+                    <ExternalIcon className="size-3" aria-hidden />
+                  </ExternalLink>
                 </Tooltip>
               </th>
             ))}

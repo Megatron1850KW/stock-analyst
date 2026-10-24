@@ -68,8 +68,8 @@ const fakeEuReportHtml = ["Modelo de negocio", "Principales riesgos", "Evolució
 /** ETF FICTICIO para la cartera: ISIN y cotizaciones inventados. */
 export const FAKE_ETF_ISIN = "IE000FICTET1";
 const FAKE_ETF_FIGI = [
-  { figi: "BBG000ETF0LN", name: "FICTICIO MSCI WORLD", ticker: "FWLD", exchCode: "LN", marketSector: "Equity" },
-  { figi: "BBG000ETF0GY", name: "FICTICIO MSCI WORLD", ticker: "FWRL", exchCode: "GY", marketSector: "Equity" },
+  { figi: "BBG000ETF0LN", name: "FICTICIO MSCI WORLD", ticker: "FWLD", exchCode: "LN", marketSector: "Equity", securityType: "ETP", securityType2: "Mutual Fund" },
+  { figi: "BBG000ETF0GY", name: "FICTICIO MSCI WORLD", ticker: "FWRL", exchCode: "GY", marketSector: "Equity", securityType: "ETP", securityType2: "Mutual Fund" },
 ];
 /** Ficha FICTICIA de ese ETF, como la devolvería Haiku. */
 const FAKE_ETF_SHEET = {

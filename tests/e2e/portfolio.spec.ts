@@ -112,6 +112,6 @@ test("cartera (datos ficticios): operaciones, vision board, ficha de ETF y porta
   await expect(page.getByText("Valor de tu cartera")).toBeVisible();
   await shot(page, "13-portada-cartera");
   await page.getByRole("tab", { name: /ETFs y ETCs/ }).click();
-  await expect(page.getByRole("table", { name: "ETFs y ETCs de tu cartera" })).toContainText("MSCI World (ficticio)");
+  await expect(page.getByRole("table", { name: "ETFs y ETCs que sigues" })).toContainText("MSCI World (ficticio)");
   await shot(page, "14-portada-etfs");
 });

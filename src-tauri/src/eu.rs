@@ -13,6 +13,8 @@ use std::time::Duration;
 const GLEIF_HOST: &str = "api.gleif.org";
 const FIGI_HOST: &str = "api.openfigi.com";
 const XBRL_HOST: &str = "filings.xbrl.org";
+/// Respuesta equivalente a «sin informes» de filings.xbrl.org.
+const NO_ESEF_FILINGS: &str = r#"{"data": []}"#;
 static GLEIF_THROTTLE: Throttle = Throttle::new(Duration::from_millis(250));
 /// OpenFIGI sin clave: 25 peticiones por minuto.
 static FIGI_THROTTLE: Throttle = Throttle::new(Duration::from_millis(2500));
@@ -112,7 +114,11 @@ pub async fn eu_fetch(resource: EuResource, id: String) -> Result<String, NetErr
                 .get(format!("https://filings.xbrl.org/api/entities/{lei}/filings"))
                 .query(&[("page[size]", "100")])
                 .header(reqwest::header::ACCEPT, "application/vnd.api+json");
-            get_text(XBRL_HOST, req).await
+            // 404 = la entidad no tiene ningún informe ESEF ahí (p. ej. muchas alemanas): lista vacía, no error
+            match get_text(XBRL_HOST, req).await {
+                Err(NetError::Status { status: 404, .. }) => Ok(NO_ESEF_FILINGS.to_string()),
+                other => other,
+            }
         }
     }
 }

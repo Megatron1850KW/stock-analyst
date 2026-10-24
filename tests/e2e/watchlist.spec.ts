@@ -205,3 +205,36 @@ test("sin clave de Claude no se llama a la IA y se ofrece el botón", async ({ p
   await expect(ia.getByRole("alert")).toContainText("Falta la clave de Claude. Añádela en Ajustes.");
   expect(calls).not.toContain("claude_request");
 });
+
+test("añade una lista pegada de golpe (ficticia): acción de EE. UU., ETF por ISIN y una europea sin ISIN", async ({ page }) => {
+  await installTauriMock(page, { settings: SETTINGS, secrets: ["prices_api_key"] });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/#/watchlist");
+  await page.getByLabel("Ticker o ISIN").fill("NYSE: FICT (Ficticia Corp) ; IE000FICTET1 ; ETR: FTX");
+  await page.getByRole("button", { name: "Añadir" }).click();
+
+  const ok = page.getByRole("status").filter({ hasText: "añadida" });
+  await expect(ok).toContainText(/FICTICIA CORP.*añadida: 3 informes anuales y 3 trimestrales/);
+  await expect(ok).toContainText(/FICTICIO MSCI WORLD.*añadido como ETF \(cotiza en Xetra\)/);
+  await expect(ok).toContainText("Te pido su ficha en «Documentos pendientes».");
+  // La europea por ticker no se adivina: se pide su ISIN y queda en la casilla para corregirla
+  await expect(page.getByRole("alert")).toContainText("ETR: FTX: FTX (Xetra): las acciones europeas las identifico por su ISIN");
+  await expect(page.getByLabel("Ticker o ISIN")).toHaveValue("ETR: FTX");
+
+  const etfRow = page.getByRole("row", { name: /FWRL/ });
+  await expect(etfRow).toContainText("ETF: sin informes, se mira su ficha");
+  await expect(etfRow).toContainText("Ficha pendiente");
+  await shot(page, "17-watchlist-lista");
+
+  await page.getByRole("link", { name: "FWRL" }).click();
+  const sheet = page.getByRole("region", { name: "Ficha del fondo" });
+  await expect(sheet).toContainText("Me falta su ficha mensual o su KID");
+  await expect(sheet.getByRole("link", { name: "su página de justETF" })).toHaveAttribute("href", "https://www.justetf.com/es/etf-profile.html?isin=IE000FICTET1");
+  await expect(page.getByText("Herramienta informativa, no constituye asesoramiento financiero.").first()).toBeVisible();
+  await shot(page, "18-ficha-etf-watchlist");
+
+  // La portada lo compara con los demás fondos aunque no esté en la cartera
+  await page.goto("/#/");
+  await page.getByRole("tab", { name: /ETFs y ETCs/ }).click();
+  await expect(page.getByRole("table", { name: "ETFs y ETCs que sigues" }).getByRole("row", { name: /FWRL/ })).toContainText("En tu watchlist");
+});

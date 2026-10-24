@@ -49,6 +49,16 @@ describe("Alpha Vantage (respuestas FICTICIAS con su formato)", () => {
     expect(pickAvSymbol(matches, { ticker: "FIDX", name: "Ficticio Index Fund", exchange: null, currency: "USD" })).toBeNull();
   });
 
+  it("si su bolsa no está, acepta otra con la misma divisa y exactamente el mismo nombre (datos FICTICIOS)", () => {
+    const m = (symbol: string, name: string, region: string, currency: string) => ({ symbol, name, type: "Equity", region, currency });
+    const target = { ticker: "FBK", name: "FICTIBANCA S.p.A.", exchange: "IM", currency: "EUR" };
+    // Milán no aparece; en Xetra cotiza con otro ticker
+    expect(pickAvSymbol([m("CRFB.DEX", "FictiBanca S.p.A.", "XETRA", "EUR")], target)).toBe("CRFB.DEX");
+    // Nombre parecido pero de otra entidad, o misma empresa en otra divisa: no
+    expect(pickAvSymbol([m("FBKA.DEX", "FictiBanca Austria AG", "XETRA", "EUR")], target)).toBeNull();
+    expect(pickAvSymbol([m("FBK.LON", "FictiBanca S.p.A.", "United Kingdom", "GBX")], target)).toBeNull();
+  });
+
   it("sabe sin consultar que no cubre la Bolsa de Madrid", () => {
     expect(alphaVantageProvider.unsupported?.({ ticker: "ITX", name: "Inditex", exchange: "SM", currency: "EUR" })).toMatch(/Madrid/);
     expect(alphaVantageProvider.unsupported?.({ ticker: "MC", name: "LVMH", exchange: "FP", currency: "EUR" })).toBeNull();
