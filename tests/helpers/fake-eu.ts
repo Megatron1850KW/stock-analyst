@@ -50,6 +50,7 @@ export function fakeXbrlJson(fyEndYear: number): XbrlJson {
 }
 
 const jsonUrl = (y: number) => `/${FAKE_LEI}/${iso(y, 1, 31)}/ESEF/ES/0/${FAKE_LEI}-${iso(y, 1, 31)}.json`;
+const reportUrl = (y: number) => `/${FAKE_LEI}/${iso(y, 1, 31)}/ESEF/ES/0/${FAKE_LEI}-${iso(y, 1, 31)}/reports/informe-${y}.xhtml`;
 
 export function fakeEu(opts: { years?: number[]; figi?: FigiRow[] } = {}) {
   const years = opts.years ?? FAKE_YEARS;
@@ -72,7 +73,7 @@ export function fakeEu(opts: { years?: number[]; figi?: FigiRow[] } = {}) {
       calls.push(`esef:${lei}`);
       return years.map((y) => ({
         id: String(y),
-        attributes: { period_end: iso(y, 1, 31), fxo_id: `${FAKE_LEI}-${iso(y, 1, 31)}-ESEF-ES-0`, date_added: `${iso(y, 3, 20)} 00:00:00`, json_url: jsonUrl(y), country: "ES" },
+        attributes: { period_end: iso(y, 1, 31), fxo_id: `${FAKE_LEI}-${iso(y, 1, 31)}-ESEF-ES-0`, date_added: `${iso(y, 3, 20)} 00:00:00`, json_url: jsonUrl(y), report_url: reportUrl(y), country: "ES" },
       }));
     },
     esefDocument: async (path) => {

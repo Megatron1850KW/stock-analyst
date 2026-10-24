@@ -6,12 +6,13 @@ import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import type { Page } from "@playwright/test";
 import { FAKE_ANALYSIS, fakeReportHtml } from "../helpers/fake-claude";
 import { fakeDaily } from "../helpers/fake-prices";
+import { fakeEu } from "../helpers/fake-eu";
 
 /**
  * Simula el lado Rust de Tauri para los tests de UI en el navegador:
  * SQLite real (node:sqlite con las migraciones de la app), ajustes y llavero
- * en memoria y respuestas de la SEC y de FMP con los datos FICTICIOS de
- * tests/fixtures/ficticio. Nada de esto se usa en la app.
+ * en memoria y respuestas de la SEC, de FMP y de las fuentes europeas con
+ * los datos FICTICIOS de tests/fixtures/ficticio y tests/helpers/fake-eu. Nada de esto se usa en la app.
  */
 const root = process.cwd();
 const fixture = (name: string) => readFileSync(join(root, "tests/fixtures/ficticio", `${name}.json`), "utf8");
@@ -59,6 +60,10 @@ const realTickers = JSON.stringify({ fields: ["cik", "name", "ticker", "exchange
 function realPrices(symbol: string, kind: "history" | "splits" | "quote" = "history"): string | null {
   return readReal(join(root, "tests/fixtures/prices", `${symbol}-${kind}.json`));
 }
+/** Informe de gestión FICTICIO en español para los extractos europeos. */
+const fakeEuReportHtml = ["Modelo de negocio", "Principales riesgos", "Evolución previsible"]
+  .map((h) => `<h2>${h}</h2>` + Array.from({ length: 10 }, (_, k) => `<p>${h} ${k}: texto ficticio de Ficticia Textil para la prueba.</p>`).join(""))
+  .join("");
 const realFile = (ticker: string, kind: string) => readReal(join(secDir, `${ticker}-${kind}.json`))!;
 
 export async function installTauriMock(page: Page, opts: MockOptions = {}) {
@@ -78,7 +83,8 @@ export async function installTauriMock(page: Page, opts: MockOptions = {}) {
   /** Qué se pidió a la IA en cada llamada: "analysis" o "peers". */
   const ai: string[] = [];
 
-  await page.exposeFunction("__pwInvoke", (cmd: string, args: Record<string, unknown>) => {
+  const eu = fakeEu().client;
+  await page.exposeFunction("__pwInvoke", async (cmd: string, args: Record<string, unknown>) => {
     calls.push(cmd);
     const values = (args.values as SQLInputValue[] | undefined) ?? [];
     switch (cmd) {
@@ -193,6 +199,21 @@ export async function installTauriMock(page: Page, opts: MockOptions = {}) {
         };
         return { status: 200, headers: { "content-type": "application/json" }, body: JSON.stringify(message) };
       }
+      case "eu_fetch": {
+        // Europa FICTICIA: «Ficticia Textil» (tests/helpers/fake-eu)
+        const id = args.id as string;
+        if (args.resource === "lei_by_isin") {
+          const r = await eu.leiByIsin(id);
+          return JSON.stringify({ data: r ? [{ attributes: { lei: r.lei, entity: { legalName: { name: r.name }, legalAddress: { country: r.country } } } }] : [] });
+        }
+        if (args.resource === "figi") return JSON.stringify([{ data: await eu.figi(id) }]);
+        if (args.resource === "esef_filings") return JSON.stringify({ data: await eu.esefFilings(id) });
+        throw new Error("recurso no simulado");
+      }
+      case "esef_document":
+        return { text: JSON.stringify(await eu.esefDocument(args.path as string)), path: `/simulado/documents/esef${args.path as string}`, cached: false };
+      case "esef_report":
+        return { text: fakeEuReportHtml, path: "/simulado/documents/esef/informe.xhtml", cached: false };
       case "price_splits":
         if (!secrets.has("prices_api_key")) throw "Falta la clave del proveedor de precios. Añádela en Ajustes.";
         return realPrices(args.symbol as string, "splits") ?? "[]";
