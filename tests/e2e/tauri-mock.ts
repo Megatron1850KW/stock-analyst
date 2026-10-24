@@ -303,6 +303,7 @@ export async function installTauriMock(page: Page, opts: MockOptions = {}) {
   await page.addInitScript(() => {
     const w = window as unknown as Record<string, unknown>;
     w.isTauri = true;
+    w.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => {} };
     // Notificaciones de macOS: se apuntan en vez de mostrarse
     const sent: { title: string; body?: string }[] = [];
     w.__notifications = sent;
