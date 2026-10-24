@@ -9,9 +9,9 @@ async function shot(page: import("@playwright/test").Page, name: string, fullPag
   await page.screenshot({ path: `${SCREENSHOTS}/${name}.png`, fullPage });
 }
 
-test("portada con logo animado y columnas que se despliegan", async ({ page }) => {
+test("portada con la comparativa y columnas que se despliegan", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { level: 1, name: "Agente Financiero" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Comparativa" })).toBeVisible();
   await expect(page.getByText("Herramienta informativa, no constituye asesoramiento financiero.")).toBeVisible();
   // El logo es un SVG local: no debe pedir nada a la red
   const logo = page.locator("main img").first();

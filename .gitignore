@@ -8,3 +8,4 @@ playwright-report/
 .env.*
 *.log
 .DS_Store
+dist-real/

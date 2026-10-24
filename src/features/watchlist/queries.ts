@@ -49,6 +49,7 @@ export function useAddTicker() {
     onSettled: () => {
       setStep(null);
       void qc.invalidateQueries({ queryKey: watchlistKey });
+      void qc.invalidateQueries({ queryKey: ["comparison"] });
     },
     onSuccess: (r) => {
       void qc.invalidateQueries({ queryKey: ["security", r.securityId] });
@@ -62,6 +63,9 @@ export function useRemoveSecurity() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: number) => removeFromWatchlist(await appDb(), id),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: watchlistKey }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: watchlistKey });
+      void qc.invalidateQueries({ queryKey: ["comparison"] });
+    },
   });
 }

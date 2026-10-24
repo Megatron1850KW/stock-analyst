@@ -20,6 +20,14 @@ test("MU y GOOG con datos reales de la SEC", async ({ page }) => {
   await expect(page.getByRole("row", { name: /MICRON/ })).toBeVisible();
   if (SCREENSHOTS) await page.mouse.move(5, 500), await page.waitForTimeout(300), await page.screenshot({ path: `${SCREENSHOTS}/3-real-watchlist.png` });
 
+  // Portada: las dos frente a frente
+  await page.goto("/#/");
+  await expect(page.getByRole("row", { name: /^MU/ })).toContainText("Barata");
+  await expect(page.getByRole("row", { name: /^GOOG/ })).toContainText("Justa");
+  await expect(page.getByLabel("Destacados")).toContainText("La más barata frente a su historia");
+  if (SCREENSHOTS) await page.mouse.move(5, 900), await page.waitForTimeout(300), await page.screenshot({ path: `${SCREENSHOTS}/9-real-comparativa.png` });
+
+  await page.goto("/#/watchlist");
   await page.getByRole("link", { name: "GOOG" }).click();
   const fin = page.locator("#financieros ~ div");
   // Últimos doce meses: ventas 2025 + 1S 2026 − 1S 2025

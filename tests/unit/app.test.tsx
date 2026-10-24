@@ -21,12 +21,13 @@ function renderApp(path = "/") {
 }
 
 describe("esqueleto de la app", () => {
-  it("abre en la portada con el logo, las 4 columnas y el aviso legal", async () => {
+  it("abre en la comparativa con el logo, las 4 secciones y el aviso legal", async () => {
     renderApp();
-    expect(await screen.findByRole("heading", { level: 1, name: "Agente Financiero" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Comparativa" })).toBeInTheDocument();
     expect(screen.getAllByAltText("Agente Financiero").length).toBeGreaterThan(0);
+    expect(screen.getByRole("tablist", { name: "Qué comparar" })).toBeInTheDocument();
     const nav = screen.getByRole("navigation", { name: "Secciones" });
-    const titles = within(nav).getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
+    const titles = within(nav).getAllByRole("link").map((a) => a.querySelector("span span")?.textContent);
     expect(titles).toEqual(["Watchlist", "Mi Portfolio", "Riesgo técnico", "Estrellas"]);
     expect(screen.getByRole("link", { name: /Ajustes/ })).toBeInTheDocument();
     expect(screen.getByText(DISCLAIMER)).toBeInTheDocument();

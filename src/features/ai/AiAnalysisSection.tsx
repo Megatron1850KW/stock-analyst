@@ -19,6 +19,7 @@ const POSTURA = {
 } as const;
 const GRAVEDAD = { alta: "negative", media: "warning", baja: "neutral" } as const;
 
+const lowerFirst = (t: string) => t.charAt(0).toLowerCase() + t.slice(1);
 const modelLabel = (id: string) => AI_MODELS.find((m) => m.id === id)?.label ?? id;
 
 /** «10-K 2025» / «10-Q jun 2026» para nombrar un informe. */
@@ -169,7 +170,7 @@ function SourcesNote({ stored }: { stored: StoredAnalysis }) {
           {docLabel(d, d.id)} (nº {d.id}):{" "}
           {d.error
             ? `no se pudo leer (${d.error})`
-            : d.sections.map((s) => `${SECTION_LABELS[s.section].toLowerCase()}${s.truncated ? " (recortado)" : ""}`).join(", ")}
+            : d.sections.map((s) => `${lowerFirst(SECTION_LABELS[s.section])}${s.truncated ? " (recortado)" : ""}`).join(", ")}
         </li>
       ))}
     </ul>
@@ -206,7 +207,7 @@ export function AiAnalysisSection({ securityId }: { securityId: number }) {
           </div>
           <p className="mt-1 max-w-[70ch] text-[12.5px] text-muted">
             {data?.row
-              ? `Redactado por ${modelLabel(stored?.servedModel ?? data.row.model)} el ${formatDate(data.row.created_at)} a partir de los informes oficiales y de las cifras calculadas arriba. Coste: ${formatCurrency(data.row.cost_eur ?? 0, "EUR", 3)}${stored?.costApprox ? " (aprox.)" : ""}.`
+              ? `Redactado por ${modelLabel(stored?.servedModel ?? data.row.model)} el ${formatDate(data.row.created_at)} a partir de los informes oficiales y de las cifras calculadas arriba. Coste: ${formatCurrency(data.row.cost_eur ?? 0, "EUR", (data.row.cost_eur ?? 0) < 0.01 ? 3 : 2)}${stored?.costApprox ? " (aprox.)" : ""}.`
               : "La IA lee el último informe anual y el último trimestral y redacta el negocio, lo que espera la empresa, catalizadores, riesgos y un veredicto. Solo se ejecuta cuando tú lo pides o sale un informe nuevo."}
           </p>
         </div>

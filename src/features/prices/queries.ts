@@ -25,6 +25,7 @@ export function useRefreshPrices() {
     onSuccess: (r) => {
       qc.setQueryData(lastRefreshKey, r);
       void qc.invalidateQueries({ queryKey: ["watchlist"] });
+      void qc.invalidateQueries({ queryKey: ["comparison"] });
     },
   });
 }

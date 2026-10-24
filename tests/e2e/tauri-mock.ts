@@ -3,6 +3,7 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import type { Page } from "@playwright/test";
+import { FAKE_ANALYSIS, fakeReportHtml } from "../helpers/fake-claude";
 import { fakeDaily } from "../helpers/fake-prices";
 
 /**
@@ -21,6 +22,8 @@ export interface MockOptions {
   price?: number;
   /** Servir los datos REALES guardados de la SEC (MU y GOOG) en vez de los ficticios. */
   realSec?: boolean;
+  /** Respuesta de la IA (por defecto, el análisis FICTICIO de tests/helpers/fake-claude). */
+  analysis?: unknown;
 }
 
 const REAL_CIKS: Record<string, string> = { "723125": "MU", "1652044": "GOOG" };
@@ -128,6 +131,24 @@ export async function installTauriMock(page: Page, opts: MockOptions = {}) {
       case "document_open":
       case "document_delete":
         return null;
+      case "sec_document":
+        // FICTICIO: el mismo 10-K inventado para cualquier informe
+        return fakeReportHtml("10-K");
+      case "claude_request": {
+        if (!secrets.has("anthropic_api_key")) throw "Falta la clave de Claude. Añádela en Ajustes.";
+        const body = JSON.parse(args.body as string) as { model: string };
+        const message = {
+          id: "msg_ficticio",
+          type: "message",
+          role: "assistant",
+          model: body.model,
+          content: [{ type: "text", text: JSON.stringify(opts.analysis ?? FAKE_ANALYSIS) }],
+          stop_reason: "end_turn",
+          stop_sequence: null,
+          usage: { input_tokens: 30_000, output_tokens: 4_000, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
+        };
+        return { status: 200, headers: { "content-type": "application/json" }, body: JSON.stringify(message) };
+      }
       case "price_splits":
         if (!secrets.has("prices_api_key")) throw "Falta la clave del proveedor de precios. Añádela en Ajustes.";
         return realPrices(args.symbol as string, "splits") ?? "[]";
