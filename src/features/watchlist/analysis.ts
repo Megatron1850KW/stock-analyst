@@ -11,6 +11,8 @@ import {
 import { lastQuarterGrowth, latestReports, type Sourced } from "@/domain/fundamentals/statements";
 import { debtLevel, type DebtLevel } from "@/domain/scoring/debt-level";
 import { valuationScore, type ValuationScore } from "@/domain/scoring/valuation-score";
+import { qualityScore, type QualityScore } from "@/domain/scoring/quality-score";
+import { currencySymbol } from "./ficha/format";
 import {
   currentMultiples,
   historicalMultiples,
@@ -42,6 +44,8 @@ export interface Analysis {
   monthly: PricePoint[];
   valuation: ValuationScore | null;
   debt: DebtLevel | null;
+  /** Calidad / salud financiera (§8.2) y señales de trampa de valor (§8.3). */
+  quality: QualityScore;
   growth: GrowthHeadline;
   /** Avisos que la UI debe mostrar (nunca se ocultan). */
   warnings: string[];
@@ -121,6 +125,7 @@ export function buildAnalysis(input: {
           netIncome: lastYear?.netIncomeGrowth ?? { label: "Crecimiento del beneficio", kind: "percent", value: null, formula: "", inputs: [], note: "Sin dato" },
         };
 
+  const debt = debtLevel(current.debtYears, current.netDebt, current.freeCashFlow);
   return {
     current,
     years,
@@ -129,7 +134,8 @@ export function buildAnalysis(input: {
     history,
     monthly,
     valuation,
-    debt: debtLevel(current.debtYears, current.netDebt, current.freeCashFlow),
+    debt,
+    quality: qualityScore(current, years, debt, currencySymbol(current.revenue?.unit ?? input.security.currency)),
     growth,
     warnings,
   };

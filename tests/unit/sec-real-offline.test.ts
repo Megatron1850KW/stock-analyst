@@ -12,6 +12,7 @@ import { companyFactsSchema, submissionsSchema } from "@/data/sec-edgar/schemas"
 import { getFacts, getFilings } from "@/db/repo";
 import { currentGetter, fundamentals, yearlyFundamentals } from "@/domain/fundamentals/metrics";
 import { ownPeriodFact } from "@/domain/fundamentals/period-value";
+import { qualityScore } from "@/domain/scoring/quality-score";
 import { importUsTicker } from "@/features/watchlist/import-us";
 import { memoryDb } from "../helpers/sqlite-db";
 
@@ -111,5 +112,22 @@ describe("datos reales de la SEC (sin conexión)", () => {
     // Base anterior al split 20×1 de julio de 2022 (≈ 680 M de acciones)
     expect(y2021.shares!.value / 1e6).toBeGreaterThan(600);
     expect(y2021.shares!.value / 1e6).toBeLessThan(720);
+  });
+});
+
+describe("calidad con datos reales (sin conexión)", () => {
+  it("MU (cíclica en máximos) y GOOG: buena nota; a GOOG le cae la caja libre por la inversión", async () => {
+    const mu = await importReal("MU");
+    const qMu = qualityScore(mu.current, mu.years, "Baja", "$");
+    expect(qMu.score).toBeGreaterThan(70);
+    expect(qMu.parts.find((p) => p.id === "margins")?.explanation).toMatch(/^De cada 100 \$ que vende/);
+    expect(qMu.activeSignals).toBe(0);
+
+    const goog = await importReal("GOOG");
+    const qGoog = qualityScore(goog.current, goog.years, "Baja", "$");
+    expect(qGoog.score).toBeGreaterThan(80);
+    expect(qGoog.parts.find((p) => p.id === "dilution")?.explanation).toMatch(/Recompra acciones/);
+    // Capex récord en 2026: la caja libre de los últimos 12 meses cae más de un 25 %
+    expect(qGoog.signals.filter((s) => s.active).map((s) => s.id)).toEqual(["fcfWeak"]);
   });
 });
