@@ -4,6 +4,7 @@ import { PortfolioPage } from "@/features/portfolio/PortfolioPage";
 import { SettingsPage } from "@/features/settings/SettingsPage";
 import { StarsPage } from "@/features/stars/StarsPage";
 import { TechnicalRiskPage } from "@/features/technical-risk/TechnicalRiskPage";
+import { FundDetailPage } from "@/features/watchlist/FundDetailPage";
 import { SecurityDetailPage } from "@/features/watchlist/SecurityDetailPage";
 import { WatchlistPage } from "@/features/watchlist/WatchlistPage";
 import { AppLayout } from "./AppLayout";
@@ -20,6 +21,7 @@ export const routes: RouteObject[] = [
         children: [
           { path: "watchlist", element: <WatchlistPage /> },
           { path: "watchlist/:id", element: <SecurityDetailPage /> },
+          { path: "watchlist/fondo/:id", element: <FundDetailPage /> },
           { path: "portfolio", element: <PortfolioPage /> },
           { path: "riesgo-tecnico", element: <TechnicalRiskPage /> },
           { path: "estrellas", element: <StarsPage /> },

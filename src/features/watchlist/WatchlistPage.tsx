@@ -18,7 +18,9 @@ import { useSettings } from "@/features/settings/queries";
 import { formatCurrency, SIN_DATO } from "@/lib/format";
 import { inDesktopApp } from "@/platform/runtime";
 import { EU_STEP_LABELS, EXCHANGE_NAMES } from "./import-eu";
-import { IMPORT_STEP_LABELS, looksLikeIsin, type ImportStep } from "./import-us";
+import type { AddOutcome } from "./add";
+import { IMPORT_STEP_LABELS, type ImportStep } from "./import-us";
+import { parseWatchlistEntry, splitWatchlistInput } from "./parse-input";
 import { describeError, useAddTicker, useWatchlist } from "./queries";
 
 const section = SECTIONS[0]!;
@@ -78,6 +80,64 @@ function PriceStatus() {
   );
 }
 
+const detailPath = (r: WatchlistRow) => (r.kind === "stock" ? `/watchlist/${r.id}` : `/watchlist/fondo/${r.id}`);
+
+function outcomeName(o: AddOutcome & { ok: true }): string {
+  return o.result.name;
+}
+
+/** Resultado del alta, valor a valor (aparece según se van añadiendo). */
+function AddOutcomes({ outcomes, pending }: { outcomes: AddOutcome[]; pending: boolean }) {
+  const ok = outcomes.filter((o): o is AddOutcome & { ok: true } => o.ok);
+  const failed = outcomes.filter((o): o is AddOutcome & { ok: false } => !o.ok);
+  if (!outcomes.length) return null;
+  return (
+    <div className="mb-6 space-y-2">
+      {ok.length > 0 && (
+        <div role="status" className="rounded-lg bg-positive/10 px-4 py-2.5 text-[13px] text-positive-text">
+          {ok.map((o) => (
+            <div key={o.input} className="py-0.5">
+              <p className="flex items-start gap-2">
+                <Check className="mt-0.5 size-4 shrink-0" aria-hidden />
+                <span>
+                  {o.type === "stock" ? (
+                    <>
+                      <b>{outcomeName(o)}</b> añadida: {o.result.annual} informes anuales y {o.result.interim} {o.market === "EU" ? "intermedios" : "trimestrales"},{" "}
+                      {o.result.facts.toLocaleString("es-ES")} cifras guardadas.
+                    </>
+                  ) : (
+                    <>
+                      <b>{outcomeName(o)}</b> añadido como {o.result.kind.toUpperCase()}
+                      {o.result.exchange && EXCHANGE_NAMES[o.result.exchange] ? <> (cotiza en {EXCHANGE_NAMES[o.result.exchange]})</> : null}. No tiene informes de empresa.
+                    </>
+                  )}
+                  {o.result.requests > 0 && (
+                    <> Te pido {o.type === "fund" ? "su ficha" : o.result.requests === 1 ? "1 informe" : `${o.result.requests} informes`} en «Documentos pendientes».</>
+                  )}
+                </span>
+              </p>
+              {[...(o.type === "stock" ? o.result.notes : []), ...o.priceErrors.map((m) => `Precio: ${m}`)].map((n) => (
+                <p key={n} className="mt-1 pl-6 text-muted">{n}</p>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+      {failed.length > 0 && (
+        <div role="alert" className="rounded-lg bg-negative/10 px-4 py-2.5 text-[13px] text-negative-text">
+          {failed.map((o) => (
+            <p key={o.input} className="flex items-start gap-2 py-0.5">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
+              <span>{outcomes.length > 1 && <b>{o.input}: </b>}{o.message}</span>
+            </p>
+          ))}
+          {!pending && outcomes.length > 1 && <p className="mt-1 pl-6 text-muted">Los que no he podido añadir siguen en la casilla para que los corrijas.</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function WatchlistTable({ rows }: { rows: WatchlistRow[] }) {
   const navigate = useNavigate();
   return (
@@ -97,13 +157,14 @@ function WatchlistTable({ rows }: { rows: WatchlistRow[] }) {
           {rows.map((r) => (
             <tr
               key={r.id}
-              onClick={() => navigate(`/watchlist/${r.id}`)}
+              onClick={() => navigate(detailPath(r))}
               className="cursor-pointer border-t border-border transition-colors duration-150 hover:bg-sand/25"
             >
               <td className="px-5 py-3">
-                <Link to={`/watchlist/${r.id}`} onClick={(e) => e.stopPropagation()} className="font-semibold hover:text-accent-text">
+                <Link to={detailPath(r)} onClick={(e) => e.stopPropagation()} className="font-semibold hover:text-accent-text">
                   {r.ticker}
                 </Link>
+                {r.kind !== "stock" && <Badge className="ml-2">{r.kind.toUpperCase()}</Badge>}
                 <div className="text-[12px] text-muted">{r.name}</div>
               </td>
               <td className="px-3 py-3 text-muted">{(r.market === "EU" && r.exchange && EXCHANGE_NAMES[r.exchange]) || r.exchange || SIN_DATO}</td>
@@ -123,10 +184,16 @@ function WatchlistTable({ rows }: { rows: WatchlistRow[] }) {
                 )}
               </td>
               <td className="px-3 py-3 text-muted">
-                {r.annual_count} anuales · {r.interim_count} {r.market === "EU" ? "intermedios" : "trimestrales"}
+                {r.kind === "stock" ? (
+                  <>{r.annual_count} anuales · {r.interim_count} {r.market === "EU" ? "intermedios" : "trimestrales"}</>
+                ) : (
+                  <>{r.kind.toUpperCase()}: sin informes, se mira su ficha</>
+                )}
               </td>
               <td className="px-3 py-3">
-                {r.gap_count > 0 ? (
+                {r.kind !== "stock" ? (
+                  r.has_profile ? <Badge tone="positive"><Check aria-hidden /> Ficha leída</Badge> : <Badge tone="warning">Ficha pendiente</Badge>
+                ) : r.gap_count > 0 ? (
                   <Badge tone="warning">{r.gap_count} sin dato</Badge>
                 ) : (
                   <Badge tone="positive"><Check aria-hidden /> Completos</Badge>
@@ -148,7 +215,6 @@ export function WatchlistPage() {
   const list = useWatchlist();
   const add = useAddTicker();
   const [value, setValue] = useState("");
-  const [submitted, setSubmitted] = useState("");
   const [hint, setHint] = useState<string>();
   const inputRef = useRef<HTMLInputElement>(null);
   const missingUa = settings ? !secUserAgent(settings) : false;
@@ -167,15 +233,14 @@ export function WatchlistPage() {
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
-    const t = value.trim().toUpperCase();
-    if (!t) return;
-    if (missingUa && !(looksLikeIsin(t) && !t.startsWith("US"))) {
+    const entries = splitWatchlistInput(value).map(parseWatchlistEntry);
+    if (!entries.length) return;
+    if (missingUa && entries.every((x) => x.kind === "us")) {
       setHint("Para las acciones de EE. UU. la SEC exige tu nombre y email (Ajustes). Las europeas puedes añadirlas ya por su ISIN.");
       return;
     }
     setHint(undefined);
-    setSubmitted(t);
-    add.mutate(t, { onSuccess: () => setValue("") });
+    add.mutate(value, { onSuccess: (out) => setValue(out.filter((o) => !o.ok).map((o) => o.input).join(" ; ")) });
   }
 
   const rows = list.data ?? [];
@@ -192,7 +257,7 @@ export function WatchlistPage() {
               <Input
                 ref={inputRef}
                 aria-label="Ticker o ISIN"
-                placeholder="Ticker (AAPL) o ISIN (ES0148396007)"
+                placeholder="AAPL, ES0148396007… (varios con ;)"
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
                 disabled={add.isPending || !inDesktopApp}
@@ -217,27 +282,13 @@ export function WatchlistPage() {
         </p>
       )}
       {hint && <p className="mb-6 rounded-lg bg-surface px-4 py-2.5 text-[13px] text-muted">{hint}</p>}
-      {add.step && <ImportProgress step={add.step} ticker={submitted} market={add.market} />}
+      {add.step && add.current && <ImportProgress step={add.step} ticker={add.current} market={add.market} />}
       {add.error && (
         <p role="alert" className="mb-6 flex items-start gap-2 rounded-lg bg-negative/10 px-4 py-2.5 text-[13px] text-negative-text">
           <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden /> {describeError(add.error)}
         </p>
       )}
-      {add.data && !add.isPending && (
-        <div role="status" className="mb-6 rounded-lg bg-positive/10 px-4 py-2.5 text-[13px] text-positive-text">
-          <p className="flex items-center gap-2">
-            <Check className="size-4" aria-hidden />
-            <span>
-              <b>{add.data.name}</b> añadida: {add.data.annual} informes anuales y {add.data.interim} {add.market === "EU" ? "intermedios" : "trimestrales"},{" "}
-              {add.data.facts.toLocaleString("es-ES")} cifras guardadas.
-              {add.data.requests > 0 && <> Te pido {add.data.requests === 1 ? "1 informe" : `${add.data.requests} informes`} en «Documentos pendientes».</>}
-            </span>
-          </p>
-          {[...add.data.notes, ...add.data.priceErrors.map((m) => `Precio: ${m}`)].map((n) => (
-            <p key={n} className="mt-1 pl-6 text-muted">{n}</p>
-          ))}
-        </div>
-      )}
+      <AddOutcomes outcomes={add.done} pending={add.isPending} />
 
       {rows.length > 0 ? (
         <>

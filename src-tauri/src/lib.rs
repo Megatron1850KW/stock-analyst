@@ -71,6 +71,7 @@ pub fn run() {
         )
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))
+        .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             secrets::secret_set,
             secrets::secret_exists,

@@ -157,10 +157,15 @@ export interface WatchlistRow {
   exchange: string | null;
   currency: string;
   market: string | null;
+  kind: "stock" | "etf" | "etc";
+  isin: string | null;
   filer_type: string | null;
   annual_count: number;
   interim_count: number;
   gap_count: number;
+  /** ETF/ETC: 1 si ya tiene ficha (TER, índice…). */
+  has_profile: number;
+  pending_requests: number;
   price: number | null;
   price_date: string | null;
   price_source: string | null;
@@ -170,12 +175,14 @@ export interface WatchlistRow {
 
 export function listWatchlist(db: Db): Promise<WatchlistRow[]> {
   return db.select<WatchlistRow>(
-    `SELECT s.id, s.ticker, s.name, s.exchange, s.currency, s.market, s.filer_type, s.updated_at,
+    `SELECT s.id, s.ticker, s.name, s.exchange, s.currency, s.market, s.kind, s.isin, s.filer_type, s.updated_at,
        (SELECT COUNT(*) FROM filings f WHERE f.security_id = s.id AND f.role = 'core' AND f.period_type = 'annual') AS annual_count,
        (SELECT COUNT(*) FROM filings f WHERE f.security_id = s.id AND f.role = 'core' AND f.period_type = 'interim') AS interim_count,
        (SELECT COUNT(DISTINCT g.concept) FROM concept_gaps g
           JOIN filings f ON f.id = g.filing_id
           WHERE g.security_id = s.id AND f.period_end = (SELECT MAX(period_end) FROM filings WHERE security_id = s.id AND role = 'core' AND period_type = 'annual')) AS gap_count,
+       (SELECT COUNT(*) FROM fund_profiles fp WHERE fp.security_id = s.id) AS has_profile,
+       (SELECT COUNT(*) FROM document_requests d WHERE d.security_id = s.id AND d.status = 'pending') AS pending_requests,
        p.close AS price, p.date AS price_date, p.source AS price_source, p.fetched_at AS price_fetched_at
      FROM securities s
      LEFT JOIN prices p ON p.security_id = s.id AND p.interval = '1d'
