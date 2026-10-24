@@ -111,6 +111,8 @@ export const CONCEPTS: ConceptDef[] = [
     tags: [g("NetIncomeLoss"), g("NetIncomeLossAvailableToCommonStockholdersBasic"), g("ProfitLoss"), i("ProfitLossAttributableToOwnersOfParent"), i("ProfitLoss")],
   },
   { id: "eps_diluted", label: "Beneficio por acción (diluido)", kind: "perShare", period: "duration", tags: [g("EarningsPerShareDiluted"), i("DilutedEarningsLossPerShare")] },
+  // Algunas europeas sin instrumentos dilutivos (p. ej. Inditex) solo publican el básico
+  { id: "eps_basic", label: "Beneficio por acción (básico)", kind: "perShare", period: "duration", tags: [g("EarningsPerShareBasic"), i("BasicEarningsLossPerShare")] },
   {
     id: "depreciation",
     label: "Amortizaciones",

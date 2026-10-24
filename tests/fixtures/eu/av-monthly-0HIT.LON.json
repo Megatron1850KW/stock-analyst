@@ -1,0 +1,118 @@
+{
+ "Meta Data": {
+  "1. Information": "Monthly Adjusted Prices and Volumes",
+  "2. Symbol": "0HIT.LON",
+  "3. Last Refreshed": "2026-10-23",
+  "4. Time Zone": "US/Eastern"
+ },
+ "Monthly Adjusted Time Series": {
+  "2026-10-23": {
+   "1. open": "20.3775",
+   "2. high": "21.9600",
+   "3. low": "20.2200",
+   "4. close": "21.5800",
+   "5. adjusted close": "21.5800",
+   "6. volume": "20634898",
+   "7. dividend amount": "0.0000"
+  },
+  "2026-09-30": {
+   "1. open": "19.7975",
+   "2. high": "20.8800",
+   "3. low": "18.8000",
+   "4. close": "20.6100",
+   "5. adjusted close": "20.6100",
+   "6. volume": "31962659",
+   "7. dividend amount": "0.0000"
+  },
+  "2026-08-28": {
+   "1. open": "20.4800",
+   "2. high": "21.6000",
+   "3. low": "19.8000",
+   "4. close": "20.3400",
+   "5. adjusted close": "20.3400",
+   "6. volume": "10348741",
+   "7. dividend amount": "0.0000"
+  },
+  "2026-07-31": {
+   "1. open": "21.8750",
+   "2. high": "22.4100",
+   "3. low": "20.1442",
+   "4. close": "20.6500",
+   "5. adjusted close": "20.6500",
+   "6. volume": "38842965",
+   "7. dividend amount": "0.3459"
+  },
+  "2026-06-30": {
+   "1. open": "19.2075",
+   "2. high": "22.3200",
+   "3. low": "19.0350",
+   "4. close": "21.8400",
+   "5. adjusted close": "21.4941",
+   "6. volume": "31706696",
+   "7. dividend amount": "0.0000"
+  },
+  "2026-05-29": {
+   "1. open": "19.1850",
+   "2. high": "20.3200",
+   "3. low": "18.9016",
+   "4. close": "19.5010",
+   "5. adjusted close": "19.1921",
+   "6. volume": "50568136",
+   "7. dividend amount": "0.0040"
+  },
+  "2026-04-30": {
+   "1. open": "19.6125",
+   "2. high": "21.0700",
+   "3. low": "17.0100",
+   "4. close": "20.0000",
+   "5. adjusted close": "19.6792",
+   "6. volume": "45541541",
+   "7. dividend amount": "0.0000"
+  },
+  "2026-03-31": {
+   "1. open": "19.9150",
+   "2. high": "20.5000",
+   "3. low": "18.3450",
+   "4. close": "19.8230",
+   "5. adjusted close": "19.5051",
+   "6. volume": "48009681",
+   "7. dividend amount": "0.0000"
+  },
+  "2026-02-27": {
+   "1. open": "18.7000",
+   "2. high": "21.0700",
+   "3. low": "17.8502",
+   "4. close": "20.0900",
+   "5. adjusted close": "19.7678",
+   "6. volume": "48929005",
+   "7. dividend amount": "0.0000"
+  },
+  "2026-01-30": {
+   "1. open": "18.3550",
+   "2. high": "19.1950",
+   "3. low": "17.8350",
+   "4. close": "18.9250",
+   "5. adjusted close": "18.6214",
+   "6. volume": "64520598",
+   "7. dividend amount": "0.2049"
+  },
+  "2025-12-31": {
+   "1. open": "17.9450",
+   "2. high": "18.5750",
+   "3. low": "17.3000",
+   "4. close": "18.4950",
+   "5. adjusted close": "18.0014",
+   "6. volume": "20557939",
+   "7. dividend amount": "0.0000"
+  },
+  "2025-11-28": {
+   "1. open": "17.3400",
+   "2. high": "18.3600",
+   "3. low": "17.2100",
+   "4. close": "18.1850",
+   "5. adjusted close": "17.6997",
+   "6. volume": "40025869",
+   "7. dividend amount": "0.0000"
+  }
+ }
+}

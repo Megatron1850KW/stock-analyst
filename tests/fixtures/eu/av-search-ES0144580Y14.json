@@ -1,0 +1,103 @@
+{
+ "bestMatches": [
+  {
+   "1. symbol": "0HIT.LON",
+   "2. name": "Iberdrola S.A.",
+   "3. type": "Equity",
+   "4. region": "United Kingdom",
+   "5. marketOpen": "08:00",
+   "6. marketClose": "16:30",
+   "7. timezone": "UTC+01",
+   "8. currency": "EUR",
+   "9. matchScore": "0.7826"
+  },
+  {
+   "1. symbol": "IBBRF",
+   "2. name": "Iberdrola S.A.",
+   "3. type": "Equity",
+   "4. region": "United States",
+   "5. marketOpen": "09:30",
+   "6. marketClose": "16:00",
+   "7. timezone": "UTC-04",
+   "8. currency": "USD",
+   "9. matchScore": "0.7826"
+  },
+  {
+   "1. symbol": "IBDRY",
+   "2. name": "Iberdrola S.A.",
+   "3. type": "Equity",
+   "4. region": "United States",
+   "5. marketOpen": "09:30",
+   "6. marketClose": "16:00",
+   "7. timezone": "UTC-04",
+   "8. currency": "USD",
+   "9. matchScore": "0.7826"
+  },
+  {
+   "1. symbol": "IBDSF",
+   "2. name": "Iberdrola S.A.",
+   "3. type": "Equity",
+   "4. region": "United States",
+   "5. marketOpen": "09:30",
+   "6. marketClose": "16:00",
+   "7. timezone": "UTC-04",
+   "8. currency": "USD",
+   "9. matchScore": "0.7826"
+  },
+  {
+   "1. symbol": "IBE1.DEX",
+   "2. name": "Iberdrola S.A.",
+   "3. type": "Equity",
+   "4. region": "XETRA",
+   "5. marketOpen": "08:00",
+   "6. marketClose": "20:00",
+   "7. timezone": "UTC+02",
+   "8. currency": "EUR",
+   "9. matchScore": "0.7826"
+  },
+  {
+   "1. symbol": "IBE1.FRK",
+   "2. name": "Iberdrola S.A.",
+   "3. type": "Equity",
+   "4. region": "Frankfurt",
+   "5. marketOpen": "08:00",
+   "6. marketClose": "20:00",
+   "7. timezone": "UTC+02",
+   "8. currency": "EUR",
+   "9. matchScore": "0.7826"
+  },
+  {
+   "1. symbol": "IBRRF",
+   "2. name": "Iberdrola S.A.",
+   "3. type": "Equity",
+   "4. region": "United States",
+   "5. marketOpen": "09:30",
+   "6. marketClose": "16:00",
+   "7. timezone": "UTC-04",
+   "8. currency": "USD",
+   "9. matchScore": "0.7826"
+  },
+  {
+   "1. symbol": "IDRRF",
+   "2. name": "Iberdrola S.A.",
+   "3. type": "Equity",
+   "4. region": "United States",
+   "5. marketOpen": "09:30",
+   "6. marketClose": "16:00",
+   "7. timezone": "UTC-04",
+   "8. currency": "USD",
+   "9. matchScore": "0.7826"
+  },
+  {
+   "1. symbol": "IBE5.FRK",
+   "2. name": "IBERDROLA ADR/1 EO 3",
+   "3. type": "Equity",
+   "4. region": "Frankfurt",
+   "5. marketOpen": "08:00",
+   "6. marketClose": "20:00",
+   "7. timezone": "UTC+02",
+   "8. currency": "EUR",
+   "9. matchScore": "0.6207"
+  }
+ ]
+}
