@@ -139,3 +139,17 @@ export async function importUsTicker(
 export function looksLikeIsin(input: string): boolean {
   return /^[A-Z]{2}[A-Z0-9]{9}\d$/.test(input.trim().toUpperCase());
 }
+
+/** Dígito de control de un ISIN (Luhn sobre letras convertidas a números): descarta ISIN inventados o mal copiados. */
+export function isinChecksumOk(input: string): boolean {
+  const isin = input.trim().toUpperCase();
+  if (!looksLikeIsin(isin)) return false;
+  const digits = [...isin].map((c) => (c >= "A" ? String(c.charCodeAt(0) - 55) : c)).join("");
+  let sum = 0;
+  for (let k = 0; k < digits.length; k++) {
+    let d = Number(digits[digits.length - 1 - k]);
+    if (k % 2 === 1) d = d * 2 > 9 ? d * 2 - 9 : d * 2;
+    sum += d;
+  }
+  return sum % 10 === 0;
+}

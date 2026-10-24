@@ -17,7 +17,7 @@ test("añade un ticker (empresa ficticia), muestra la ficha y el origen de cada 
   await page.goto("/#/watchlist");
 
   await expect(page.getByText("Añade tu primer ticker")).toBeVisible();
-  await page.getByLabel("Ticker de EE. UU.").fill("fict");
+  await page.getByLabel("Ticker o ISIN").fill("fict");
   await page.getByRole("button", { name: "Añadir" }).click();
 
   await expect(page.getByText(/FICTICIA CORP.*añadida: 3 informes anuales y 3 trimestrales/)).toBeVisible();
@@ -57,7 +57,7 @@ test("añade un ticker (empresa ficticia), muestra la ficha y el origen de cada 
 test("sube un informe en PDF y lo lista", async ({ page }) => {
   const { uploads } = await installTauriMock(page, { settings: SETTINGS, secrets: ["prices_api_key"] });
   await page.goto("/#/watchlist");
-  await page.getByLabel("Ticker de EE. UU.").fill("FICT");
+  await page.getByLabel("Ticker o ISIN").fill("FICT");
   await page.getByRole("button", { name: "Añadir" }).click();
   await page.getByRole("link", { name: "FICT" }).click();
 
@@ -80,27 +80,63 @@ test("sube un informe en PDF y lo lista", async ({ page }) => {
   await expect(page.getByRole("alert")).toContainText("Solo PDF o ZIP");
 });
 
-test("sin nombre y email para la SEC no deja buscar y lo explica", async ({ page }) => {
+test("sin nombre y email para la SEC no busca acciones de EE. UU. y lo explica", async ({ page }) => {
   await installTauriMock(page);
   await page.goto("/#/watchlist");
   await expect(page.getByText("La SEC exige identificarse con nombre y email.")).toBeVisible();
-  await page.getByLabel("Ticker de EE. UU.").fill("FICT");
-  await expect(page.getByRole("button", { name: "Añadir" })).toBeDisabled();
+  await page.getByLabel("Ticker o ISIN").fill("FICT");
+  await page.getByRole("button", { name: "Añadir" }).click();
+  await expect(page.getByText(/la SEC exige tu nombre y email/)).toBeVisible();
 });
 
-test("un ISIN se explica en vez de buscarse en la SEC", async ({ page }) => {
-  const { calls } = await installTauriMock(page, { settings: SETTINGS });
+test("una acción europea (ficticia) se añade por su ISIN con sus informes ESEF, sin pedir datos para la SEC", async ({ page }) => {
+  const { calls } = await installTauriMock(page, { secrets: ["prices_api_key", "alphavantage_api_key"] });
   await page.goto("/#/watchlist");
-  await page.getByLabel("Ticker de EE. UU.").fill("ES0148396007");
+  await page.getByLabel("Ticker o ISIN").fill("ES0000000010");
   await page.getByRole("button", { name: "Añadir" }).click();
-  await expect(page.getByText(/ISIN .* fase 6/)).toBeVisible();
+  await expect(page.getByText(/Ficticia Textil.*añadida: 3 informes anuales y 0 intermedios/i)).toBeVisible();
+  // Faltan los semestrales: se piden en «Documentos pendientes»
+  await expect(page.getByText(/en «Documentos pendientes»/)).toBeVisible();
   expect(calls).not.toContain("sec_fetch");
+  // Alpha Vantage no cubre Madrid: se dice sin gastar consultas
+  await expect(page.getByText("Precio: Alpha Vantage no cubre la Bolsa de Madrid: por ahora va sin precio.")).toBeVisible();
+  expect(calls.filter((c) => c.startsWith("price_"))).toEqual([]);
+  await shot(page, "6-europa-watchlist");
+
+  await page.getByRole("row", { name: /FTX/ }).getByRole("link").first().click();
+  await expect(page.getByRole("heading", { level: 1, name: /Ficticia Textil/i })).toBeVisible();
+  await expect(page.getByText("ES0000000010").first()).toBeVisible();
+  await expect(page.locator("#financieros ~ div").getByRole("row", { name: /^Ventas/ })).toContainText("1.331 M€");
+  await shot(page, "7-europa-ficha");
+});
+
+test("una europea (ficticia) se analiza con su informe ESEF y se compara con una competidora europea", async ({ page }) => {
+  const peers = {
+    competidores: [{ ticker: "FMD", nombre: "Ficticia Moda", mercado: "Europa", isin: "FR0000000010", motivo: "También vende ropa (ficticio)." }],
+    nota: "",
+  };
+  const { ai, calls } = await installTauriMock(page, { secrets: ["prices_api_key", "alphavantage_api_key", "anthropic_api_key"], peers });
+  await page.goto("/#/watchlist");
+  await page.getByLabel("Ticker o ISIN").fill("ES0000000010");
+  await page.getByRole("button", { name: "Añadir" }).click();
+  await page.getByRole("row", { name: /FTX/ }).getByRole("link").first().click();
+
+  const ia = page.getByRole("region", { name: /Qué opina el analista/ });
+  await expect(ia.getByText("Análisis IA")).toBeVisible();
+  await expect.poll(() => ai.join(",")).toBe("analysis,peers");
+  // El texto para la IA sale del informe ESEF guardado, nunca de la SEC
+  expect(calls).toContain("esef_report");
+  expect(calls).not.toContain("sec_fetch");
+  const comp = page.getByRole("region", { name: "Frente a la competencia" });
+  await expect(comp.getByRole("row", { name: /FMD/ })).toBeVisible();
+  await comp.scrollIntoViewIfNeeded();
+  await shot(page, "8-europa-competidores");
 });
 
 test("sin clave de precios avisa en llano", async ({ page }) => {
   await installTauriMock(page, { settings: SETTINGS });
   await page.goto("/#/watchlist");
-  await page.getByLabel("Ticker de EE. UU.").fill("FICT");
+  await page.getByLabel("Ticker o ISIN").fill("FICT");
   await page.getByRole("button", { name: "Añadir" }).click();
   await expect(page.getByRole("row", { name: /FICT/ })).toBeVisible();
   await page.getByRole("button", { name: /Actualizar precios/ }).click();
@@ -110,7 +146,7 @@ test("sin clave de precios avisa en llano", async ({ page }) => {
 test("al añadir un valor la IA lo analiza y busca sus competidores una vez, y la portada lo compara", async ({ page }) => {
   const { ai } = await installTauriMock(page, { settings: SETTINGS, secrets: ["prices_api_key", "anthropic_api_key"] });
   await page.goto("/#/watchlist");
-  await page.getByLabel("Ticker de EE. UU.").fill("FICT");
+  await page.getByLabel("Ticker o ISIN").fill("FICT");
   await page.getByRole("button", { name: "Añadir" }).click();
   await page.getByRole("link", { name: "FICT" }).click();
 
@@ -161,7 +197,7 @@ test("al añadir un valor la IA lo analiza y busca sus competidores una vez, y l
 test("sin clave de Claude no se llama a la IA y se ofrece el botón", async ({ page }) => {
   const { calls } = await installTauriMock(page, { settings: SETTINGS, secrets: ["prices_api_key"] });
   await page.goto("/#/watchlist");
-  await page.getByLabel("Ticker de EE. UU.").fill("FICT");
+  await page.getByLabel("Ticker o ISIN").fill("FICT");
   await page.getByRole("button", { name: "Añadir" }).click();
   await page.getByRole("link", { name: "FICT" }).click();
   const ia = page.getByRole("region", { name: /Qué opina el analista/ });

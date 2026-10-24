@@ -1,12 +1,14 @@
-import { ExternalLink, FileText, FolderOpen, Inbox, Trash2, Upload } from "lucide-react";
+import { ExternalLink, FileText, FolderOpen, Inbox, Sparkles, Trash2, Upload } from "lucide-react";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import type { DocumentRequestRow, FilingRow } from "@/db/repo";
+import type { DocumentRequestRow, FactRow, FilingRow } from "@/db/repo";
+import { BudgetExceededError } from "@/features/ai/budget";
 import { formatDate, formatNumber } from "@/lib/format";
+import { formLabel } from "@/features/watchlist/ficha/format";
 import { openDocument } from "@/platform/documents";
 import { monthText } from "./missing";
-import { useDeleteUpload, useDismissRequest } from "./queries";
+import { useDeleteUpload, useDismissRequest, useReadUpload } from "./queries";
 import { UploadPanel } from "./UploadPanel";
 
 function RequestCard({ r, name, onUpload, onDismiss }: { r: DocumentRequestRow; name: string; onUpload: () => void; onDismiss: () => void }) {
@@ -35,12 +37,32 @@ export function DocumentsSection({
   name,
   filings,
   requests,
+  facts = [],
 }: {
   securityId: number;
   name: string;
   filings: FilingRow[];
   requests: DocumentRequestRow[];
+  facts?: FactRow[];
 }) {
+  const read = useReadUpload(securityId);
+  const factsBy = new Map<number, { n: number; pdf: boolean }>();
+  for (const f of facts) {
+    const prev = factsBy.get(f.filing_id) ?? { n: 0, pdf: false };
+    factsBy.set(f.filing_id, { n: prev.n + 1, pdf: prev.pdf || f.origin === "pdf-extraction" });
+  }
+  function readFiling(f: FilingRow, force = false) {
+    read.mutate(
+      { filing: f, force },
+      {
+        onError: (e) => {
+          if (e instanceof BudgetExceededError && window.confirm(`${e.message} ¿Quieres leerlo de todos modos?`)) {
+            read.mutate({ filing: f, force, allowOverBudget: true });
+          }
+        },
+      },
+    );
+  }
   const [uploading, setUploading] = useState<{ request: DocumentRequestRow | null } | null>(null);
   const del = useDeleteUpload(securityId);
   const dismiss = useDismissRequest(securityId);
@@ -53,7 +75,7 @@ export function DocumentsSection({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="max-w-[70ch] text-[13px] text-muted">
-          La ficha usa {core.length} informes recientes de la SEC y {history.length} anuales anteriores para la historia. Si falta alguno o no encuentra sus cifras,
+          La ficha usa {core.length} informes oficiales recientes ({core.some((f) => f.source === "filings.xbrl.org") ? "ESEF" : "SEC"}) y {history.length} anuales anteriores para la historia. Si falta alguno o no encuentra sus cifras,
           puedes subirlo tú.
         </p>
         {!uploading && (
@@ -78,6 +100,12 @@ export function DocumentsSection({
         </section>
       )}
 
+      {read.error && !(read.error instanceof BudgetExceededError) && (
+        <p role="alert" className="text-[12.5px] text-negative-text">{read.error.message}</p>
+      )}
+      {read.data?.notes.map((n) => (
+        <p key={n} className="text-[12.5px] text-muted">{n}</p>
+      ))}
       {uploads.length > 0 && (
         <section aria-label="Informes subidos">
           <h3 className="mb-2 text-[13px] font-semibold">Informes subidos por ti</h3>
@@ -88,10 +116,19 @@ export function DocumentsSection({
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{f.original_name ?? f.form_type}</p>
                   <p className="text-[11.5px] text-muted">
-                    {f.form_type} · cierre {formatDate(f.period_end)}
-                    {f.bytes ? ` · ${formatNumber(f.bytes / 1024 / 1024, 1)} MB` : ""} · pendiente de leer con IA
+                    {formLabel(f.form_type)} · cierre {formatDate(f.period_end)}
+                    {f.bytes ? ` · ${formatNumber(f.bytes / 1024 / 1024, 1)} MB` : ""} ·{" "}
+                    {factsBy.get(f.id)
+                      ? `${factsBy.get(f.id)!.n} cifras leídas${factsBy.get(f.id)!.pdf ? " por la IA (con su página)" : " del ESEF"}`
+                      : "cifras sin leer"}
                   </p>
                 </div>
+                {!factsBy.get(f.id) && f.local_path && (
+                  <Button size="sm" variant="secondary" disabled={read.isPending} onClick={() => readFiling(f)}>
+                    <Sparkles aria-hidden />
+                    {read.isPending && read.variables?.filing.id === f.id ? "Leyendo…" : f.local_path.toLowerCase().endsWith(".zip") ? "Leer cifras" : "Leer cifras con IA"}
+                  </Button>
+                )}
                 {f.local_path && (
                   <Button size="sm" variant="ghost" onClick={() => void openDocument(f.local_path!)}>
                     <FolderOpen aria-hidden /> Abrir
@@ -114,12 +151,12 @@ export function DocumentsSection({
       )}
 
       <details className="text-[12.5px]">
-        <summary className="cursor-pointer text-muted hover:text-text">Ver los informes de la SEC que se usan ({core.length + history.length})</summary>
+        <summary className="cursor-pointer text-muted hover:text-text">Ver los informes oficiales que se usan ({core.length + history.length})</summary>
         <ul className="mt-2 grid gap-x-6 gap-y-1 sm:grid-cols-2">
           {[...core, ...history].map((f) => (
             <li key={f.id} className="flex items-center gap-2">
               <a href={f.url ?? undefined} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-accent-text">
-                {f.form_type} · cierre {formatDate(f.period_end)} <ExternalLink className="size-3" aria-hidden />
+                {formLabel(f.form_type)} · cierre {formatDate(f.period_end)} <ExternalLink className="size-3" aria-hidden />
               </a>
               {f.role === "history" && <Badge>historia</Badge>}
             </li>

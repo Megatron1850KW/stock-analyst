@@ -74,8 +74,10 @@ export function buildAnalysis(input: {
   quote: LatestQuoteRow | null;
   priceMeta: PriceHistoryMeta | null;
 }): Analysis {
-  const sec = input.filings.filter((f) => f.role !== "upload");
-  const core = sec.filter((f) => f.role === "core");
+  // Los informes que subiste cuentan en cuanto tienen cifras (extraídas del PDF)
+  const withFacts = new Set(input.facts.map((f) => f.filing_id));
+  const sec = input.filings.filter((f) => f.role !== "upload" || withFacts.has(f.id));
+  const core = sec.filter((f) => f.role === "core" || f.role === "upload");
   const current = fundamentals(currentGetter(core, input.facts));
   const years = yearlyFundamentals(sec, input.facts);
   const warnings: string[] = [];

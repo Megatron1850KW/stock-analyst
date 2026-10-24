@@ -37,7 +37,7 @@ export function ExpertDetail({ a, children }: { a: Analysis; children?: ReactNod
       <summary className="flex cursor-pointer list-none items-center gap-2 px-5 py-4 font-serif text-[16px] font-semibold [&::-webkit-details-marker]:hidden">
         <ChevronRight className="size-4 text-muted transition-transform duration-150 group-open:rotate-90" aria-hidden />
         Detalle para expertos
-        <span className="font-sans text-[12px] font-normal text-muted">ratios técnicos, puntuación y cifras de la SEC</span>
+        <span className="font-sans text-[12px] font-normal text-muted">ratios técnicos, puntuación y cifras oficiales</span>
       </summary>
       <div className="space-y-6 border-t border-border px-5 pt-4 pb-6">
         <table className="w-full text-[13px]">

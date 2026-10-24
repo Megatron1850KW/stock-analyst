@@ -28,3 +28,12 @@ export async function storeDocument(securityId: number, file: File): Promise<Sto
 
 export const openDocument = (path: string) => invoke("document_open", { path });
 export const deleteDocumentFile = (path: string) => invoke("document_delete", { path });
+
+/** Bytes de un PDF guardado (para la extracción de cifras con Claude). */
+export async function readPdf(path: string): Promise<Uint8Array> {
+  const raw = await invoke<ArrayBuffer | number[]>("document_read_pdf", { path });
+  return raw instanceof ArrayBuffer ? new Uint8Array(raw) : Uint8Array.from(raw);
+}
+
+/** Informe Inline XBRL (.xhtml) de dentro de un ZIP ESEF guardado. */
+export const readEsefReport = (path: string) => invoke<string>("document_esef_report", { path });

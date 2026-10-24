@@ -1,4 +1,5 @@
 import { AlertTriangle, ArrowLeft, RefreshCw, Trash2 } from "lucide-react";
+import { alphaVantageProvider } from "@/data/prices/alphavantage";
 import type { ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { DISCLAIMER } from "@/app/Disclaimer";
@@ -16,6 +17,7 @@ import { CashIndicator, DebtIndicator, GrowthIndicator, ValuationIndicator, Verd
 import { QualitySection } from "./ficha/Quality";
 import { SecFactsTable } from "./ficha/SecFactsTable";
 import { ValuationHistory } from "./ficha/ValuationHistory";
+import { EXCHANGE_NAMES } from "./import-eu";
 import { describeError, useAddTicker, useRemoveSecurity, useSecurityDetail } from "./queries";
 
 function Section({ title, description, children, id }: { title: string; description?: string; children: ReactNode; id?: string }) {
@@ -63,9 +65,11 @@ export function SecurityDetailPage() {
             {s.name} <span className="text-muted">· {s.ticker}</span>
           </h1>
           <div className="mt-2 flex flex-wrap items-center gap-2 text-[12px] text-muted">
-            {s.exchange && <Badge>{s.exchange}</Badge>}
+            {s.exchange && <Badge>{s.market === "EU" ? (EXCHANGE_NAMES[s.exchange] ?? s.exchange) : s.exchange}</Badge>}
             {s.sic_description && <Badge>{s.sic_description}</Badge>}
-            <Badge>CIK {s.cik}</Badge>
+            {s.cik && <Badge>CIK {s.cik}</Badge>}
+            {s.isin && <Badge>ISIN {s.isin}</Badge>}
+            {s.market === "EU" && <Badge tone="accent">Informes ESEF (NIIF)</Badge>}
             {s.filer_type === "foreign" && <Badge tone="accent">Emisor extranjero</Badge>}
             {s.reporting_currency && s.reporting_currency !== s.currency && <Badge tone="accent">Cuentas en {s.reporting_currency}</Badge>}
             {pending > 0 && (
@@ -88,7 +92,7 @@ export function SecurityDetailPage() {
             </div>
           )}
           <div className="flex gap-2">
-            <Button variant="secondary" onClick={() => reimport.mutate(s.ticker)} disabled={reimport.isPending}>
+            <Button variant="secondary" onClick={() => reimport.mutate(s.market === "EU" && s.isin ? s.isin : s.ticker)} disabled={reimport.isPending}>
               <RefreshCw className={reimport.isPending ? "animate-spin" : ""} aria-hidden /> Volver a descargar
             </Button>
             <Button
@@ -115,7 +119,10 @@ export function SecurityDetailPage() {
       )}
 
       <div className="mt-6 grid gap-4 md:grid-cols-2" aria-label="Resumen en cuatro preguntas">
-        <ValuationIndicator a={a} />
+        <ValuationIndicator
+          a={a}
+          noPriceReason={s.market === "EU" ? alphaVantageProvider.unsupported?.({ ticker: s.ticker, name: s.name, exchange: s.exchange, currency: s.currency }) : null}
+        />
         <CashIndicator a={a} />
         <DebtIndicator a={a} />
         <GrowthIndicator a={a} />
@@ -161,17 +168,23 @@ export function SecurityDetailPage() {
       </Section>
 
       <Section id="informes" title="Informes">
-        <DocumentsSection securityId={s.id} name={`${s.name} (${s.ticker})`} filings={filings} requests={requests} />
+        <DocumentsSection
+          securityId={s.id}
+          name={`${s.name} (${s.ticker}${s.isin ? ` · ${s.isin}` : ""})`}
+          filings={filings}
+          requests={requests}
+          facts={facts}
+        />
       </Section>
 
       <div className="mt-10">
         <ExpertDetail a={a}>
           <div>
-            <h3 className="mb-1 text-[13px] font-semibold">Cifras tal como aparecen en los informes de la SEC</h3>
+            <h3 className="mb-1 text-[13px] font-semibold">Cifras tal como aparecen en los informes {s.market === "EU" ? "ESEF" : "de la SEC"}</h3>
             <p className="mb-3 text-[12px] text-muted">
               <sup>a</sup> Acumulado desde el inicio del año fiscal: el informe trimestral no da la cifra del trimestre aislado. Importes en millones.
             </p>
-            <SecFactsTable filings={core} facts={facts} />
+            <SecFactsTable filings={[...core, ...filings.filter((f) => f.role === "upload" && facts.some((x) => x.filing_id === f.id))]} facts={facts} />
           </div>
         </ExpertDetail>
       </div>

@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { z } from "zod";
+import { alphaVantageProvider } from "./alphavantage";
 
 /** Proveedor de precios intercambiable (CLAUDE.md §4). */
 export interface Quote {
@@ -30,10 +31,26 @@ export interface Split {
   denominator: number;
 }
 
+/** Lo que hace falta para encontrar el símbolo de un valor en un proveedor. */
+export interface SymbolTarget {
+  ticker: string;
+  name: string;
+  /** Código de bolsa de OpenFIGI (SM, GY, LN…) o null en EE. UU. */
+  exchange: string | null;
+  currency: string;
+}
+
 export interface PriceProvider {
   id: string;
   label: string;
   quote(symbol: string): Promise<Quote>;
+  /**
+   * Símbolo del valor en este proveedor, si no basta con el ticker (bolsas
+   * europeas). Null si el proveedor no lo cubre. Se guarda: se busca una vez.
+   */
+  resolveSymbol?(target: SymbolTarget): Promise<string | null>;
+  /** Motivo en llano si se sabe de antemano que no cubre el valor (sin gastar consultas). */
+  unsupported?(target: SymbolTarget): string | null;
   /**
    * Cierres diarios ajustados por splits desde `from` (AAAA-MM-DD), del más
    * antiguo al más reciente, y los splits del proveedor (null si no los da).
@@ -43,6 +60,9 @@ export interface PriceProvider {
 
 export interface PriceHistory {
   bars: PriceBar[];
+  /** Velas ya agregadas por el proveedor (si no da el diario completo). */
+  weekly?: PriceBar[];
+  monthly?: PriceBar[];
   splits: Split[] | null;
   /** Por qué faltan los splits, si faltan. */
   splitsError?: string;
@@ -204,7 +224,7 @@ export const tiingoProvider: PriceProvider = {
   history: async (symbol, from) => parseTiingoHistory(await invoke<string>("price_history", { provider: "tiingo", symbol, from })),
 };
 
-const PROVIDERS: Record<string, PriceProvider> = { fmp: fmpProvider, tiingo: tiingoProvider };
+const PROVIDERS: Record<string, PriceProvider> = { fmp: fmpProvider, tiingo: tiingoProvider, alphavantage: alphaVantageProvider };
 
 export function providerFor(id: string | null): PriceProvider | null {
   return (id && PROVIDERS[id]) || null;

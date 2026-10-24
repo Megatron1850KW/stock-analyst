@@ -1,0 +1,42 @@
+[
+ {
+  "isin": "ES0148396007",
+  "lei": "549300TTCXZOGZM2EY83",
+  "name": "INDUSTRIA DE DISEÑO TEXTIL, S.A.",
+  "figi": "ITX:SM ITX:SQ IDEXF:US IDEXF:PQ IDEXF:UV IXD1:GR IXD1:GF IXD1:GD",
+  "esef": "11 informes · cierres 2026-01-31, 2025-01-31, 2024-01-31, 2023-01-31, 2022-01-31, 2021-01-31",
+  "av": "sin símbolo europeo"
+ },
+ {
+  "isin": "ES0144580Y14",
+  "lei": "5QK37QC7NWOJ8D7WVQ45",
+  "name": "IBERDROLA SA",
+  "figi": "IBE:SM IBE:SQ IBE1:GR IBE1:GF IBE1:GD IBE1:GY IBE1:GS IBE1:GM",
+  "esef": "6 informes · cierres 2025-12-31, 2024-12-31, 2023-12-31, 2022-12-31, 2021-12-31, 2020-12-31",
+  "av": "0HIT.LON: 12 meses (2025-11-28 → 2026-10-23) · precio \"21.5800\""
+ },
+ {
+  "isin": "DE0007164600",
+  "lei": "529900D6BF99LW9R2E68",
+  "name": "SAP SE",
+  "figi": "SAP:SW SAP:GR SAP:GF SAP:GD SAP:GY SAP:GS SAP:GM SAP:GI",
+  "esef": "0 informes · cierres ",
+  "av": "SAP.FRK: 12 meses (2025-11-28 → 2026-10-23) · precio \"213.9780\""
+ },
+ {
+  "isin": "FR0000121014",
+  "lei": "IOG4E947OATN0KJYSD45",
+  "name": "LVMH MOET HENNESSY LOUIS VUITTON",
+  "figi": "MC:FP MOH:GR MOH:GF MOH:GD MOH:GY MOH:GS MOH:GM MOH:GI",
+  "esef": "4 informes · cierres 2024-12-31, 2023-12-31, 2022-12-31, 2021-12-31",
+  "av": "MC.PAR: 261 meses (2005-02-28 → 2026-10-23) · precio \"383.0000\""
+ },
+ {
+  "isin": "NL0010273215",
+  "lei": "724500Y6DUVHQD6OXN27",
+  "name": "ASML Holding N.V.",
+  "figi": "ASML:NA ASME:GR ASME:GF ASME:GD ASME:GY ASME:GS ASME:GM ASME:GH",
+  "esef": "5 informes · cierres 2025-12-31, 2024-12-31, 2023-12-31, 2022-12-31, 2021-12-31",
+  "av": "ASML.AMS: 261 meses (2005-02-28 → 2026-10-23) · precio \"1407.2000\""
+ }
+]

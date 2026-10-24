@@ -17,6 +17,7 @@ import { secUserAgent } from "@/features/settings/schema";
 import { useSettings } from "@/features/settings/queries";
 import { formatCurrency, SIN_DATO } from "@/lib/format";
 import { inDesktopApp } from "@/platform/runtime";
+import { EU_STEP_LABELS, EXCHANGE_NAMES } from "./import-eu";
 import { IMPORT_STEP_LABELS, looksLikeIsin, type ImportStep } from "./import-us";
 import { describeError, useAddTicker, useWatchlist } from "./queries";
 
@@ -24,8 +25,9 @@ const section = SECTIONS[0]!;
 const STEPS = Object.keys(IMPORT_STEP_LABELS) as ImportStep[];
 const timeFmt = new Intl.DateTimeFormat("es-ES", { hour: "2-digit", minute: "2-digit" });
 
-function ImportProgress({ step, ticker }: { step: ImportStep; ticker: string }) {
+function ImportProgress({ step, ticker, market }: { step: ImportStep; ticker: string; market: "US" | "EU" }) {
   const current = STEPS.indexOf(step);
+  const labels = market === "EU" ? EU_STEP_LABELS : IMPORT_STEP_LABELS;
   return (
     <div role="status" className="mb-6 rounded-[var(--radius-card)] border border-border bg-surface px-5 py-4">
       <p className="mb-2 text-[13px] font-medium">Añadiendo {ticker}…</p>
@@ -39,7 +41,7 @@ function ImportProgress({ step, ticker }: { step: ImportStep; ticker: string }) 
             ) : (
               <span className="size-3.5 rounded-full border border-border" aria-hidden />
             )}
-            {IMPORT_STEP_LABELS[s]}
+            {labels[s]}
           </li>
         ))}
       </ol>
@@ -104,7 +106,7 @@ function WatchlistTable({ rows }: { rows: WatchlistRow[] }) {
                 </Link>
                 <div className="text-[12px] text-muted">{r.name}</div>
               </td>
-              <td className="px-3 py-3 text-muted">{r.exchange ?? SIN_DATO}</td>
+              <td className="px-3 py-3 text-muted">{(r.market === "EU" && r.exchange && EXCHANGE_NAMES[r.exchange]) || r.exchange || SIN_DATO}</td>
               <td className="px-3 py-3 text-right tabular" onClick={(e) => e.stopPropagation()}>
                 {r.price != null ? (
                   <SourceValue
@@ -121,7 +123,7 @@ function WatchlistTable({ rows }: { rows: WatchlistRow[] }) {
                 )}
               </td>
               <td className="px-3 py-3 text-muted">
-                {r.annual_count} anuales · {r.interim_count} trimestrales
+                {r.annual_count} anuales · {r.interim_count} {r.market === "EU" ? "intermedios" : "trimestrales"}
               </td>
               <td className="px-3 py-3">
                 {r.gap_count > 0 ? (
@@ -167,8 +169,8 @@ export function WatchlistPage() {
     e.preventDefault();
     const t = value.trim().toUpperCase();
     if (!t) return;
-    if (looksLikeIsin(t)) {
-      setHint("Los ISIN (acciones europeas) llegarán en la fase 6. De momento, escribe el ticker de EE. UU.");
+    if (missingUa && !(looksLikeIsin(t) && !t.startsWith("US"))) {
+      setHint("Para las acciones de EE. UU. la SEC exige tu nombre y email (Ajustes). Las europeas puedes añadirlas ya por su ISIN.");
       return;
     }
     setHint(undefined);
@@ -189,8 +191,8 @@ export function WatchlistPage() {
               <Search className="pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2 text-muted" aria-hidden />
               <Input
                 ref={inputRef}
-                aria-label="Ticker de EE. UU."
-                placeholder="Ticker de EE. UU. (p. ej. AAPL)"
+                aria-label="Ticker o ISIN"
+                placeholder="Ticker (AAPL) o ISIN (ES0148396007)"
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
                 disabled={add.isPending || !inDesktopApp}
@@ -198,7 +200,7 @@ export function WatchlistPage() {
               />
               <kbd className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 font-sans text-[11px] text-muted">⌘K</kbd>
             </div>
-            <Button type="submit" disabled={!value.trim() || add.isPending || missingUa || !inDesktopApp}>
+            <Button type="submit" disabled={!value.trim() || add.isPending || !inDesktopApp}>
               <Plus aria-hidden /> Añadir
             </Button>
           </form>
@@ -210,12 +212,12 @@ export function WatchlistPage() {
           <AlertTriangle className="size-4 shrink-0" aria-hidden />
           <span>
             La SEC exige identificarse con nombre y email.{" "}
-            <Link to="/ajustes" className="font-medium underline underline-offset-2">Añádelos en Ajustes</Link> para poder buscar empresas.
+            <Link to="/ajustes" className="font-medium underline underline-offset-2">Añádelos en Ajustes</Link> para buscar empresas de EE. UU. Las europeas puedes añadirlas por su ISIN.
           </span>
         </p>
       )}
       {hint && <p className="mb-6 rounded-lg bg-surface px-4 py-2.5 text-[13px] text-muted">{hint}</p>}
-      {add.step && <ImportProgress step={add.step} ticker={submitted} />}
+      {add.step && <ImportProgress step={add.step} ticker={submitted} market={add.market} />}
       {add.error && (
         <p role="alert" className="mb-6 flex items-start gap-2 rounded-lg bg-negative/10 px-4 py-2.5 text-[13px] text-negative-text">
           <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden /> {describeError(add.error)}
@@ -226,11 +228,12 @@ export function WatchlistPage() {
           <p className="flex items-center gap-2">
             <Check className="size-4" aria-hidden />
             <span>
-              <b>{add.data.name}</b> añadida: {add.data.annual} informes anuales y {add.data.interim} trimestrales,{" "}
+              <b>{add.data.name}</b> añadida: {add.data.annual} informes anuales y {add.data.interim} {add.market === "EU" ? "intermedios" : "trimestrales"},{" "}
               {add.data.facts.toLocaleString("es-ES")} cifras guardadas.
+              {add.data.requests > 0 && <> Te pido {add.data.requests === 1 ? "1 informe" : `${add.data.requests} informes`} en «Documentos pendientes».</>}
             </span>
           </p>
-          {add.data.notes.map((n) => (
+          {[...add.data.notes, ...add.data.priceErrors.map((m) => `Precio: ${m}`)].map((n) => (
             <p key={n} className="mt-1 pl-6 text-muted">{n}</p>
           ))}
         </div>
@@ -253,7 +256,7 @@ export function WatchlistPage() {
         <EmptyState
           icon={Eye}
           title="Añade tu primer ticker"
-          description="Escribe un ticker de EE. UU. (AAPL, MSFT…). La app buscará sus 3 últimos informes anuales y 3 trimestrales en la SEC y guardará sus cifras con el origen de cada una."
+          description="Escribe un ticker de EE. UU. (AAPL, MSFT…) o el ISIN de una acción europea (ES0148396007 para Inditex). La app buscará sus informes oficiales (SEC o ESEF) y guardará sus cifras con el origen de cada una."
         />
       ) : null}
     </div>

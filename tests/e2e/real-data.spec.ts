@@ -13,7 +13,7 @@ test("MU y GOOG con datos reales de la SEC", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/#/watchlist");
   for (const t of ["MU", "GOOG"]) {
-    await page.getByLabel("Ticker de EE. UU.").fill(t);
+    await page.getByLabel("Ticker o ISIN").fill(t);
     await page.getByRole("button", { name: "Añadir" }).click();
     await expect(page.getByText(/añadida: 3 informes anuales y 3 trimestrales/)).toBeVisible();
   }

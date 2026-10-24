@@ -1,0 +1,114 @@
+{
+ "bestMatches": [
+  {
+   "1. symbol": "SAP",
+   "2. name": "Sap SE",
+   "3. type": "Equity",
+   "4. region": "United States",
+   "5. marketOpen": "09:30",
+   "6. marketClose": "16:00",
+   "7. timezone": "UTC-04",
+   "8. currency": "USD",
+   "9. matchScore": "1.0000"
+  },
+  {
+   "1. symbol": "SAPH",
+   "2. name": "SAP SE ADRHEDGED ",
+   "3. type": "ETF",
+   "4. region": "United States",
+   "5. marketOpen": "09:30",
+   "6. marketClose": "16:00",
+   "7. timezone": "UTC-04",
+   "8. currency": "USD",
+   "9. matchScore": "0.8571"
+  },
+  {
+   "1. symbol": "SAP.FRK",
+   "2. name": "SAP SE",
+   "3. type": "Equity",
+   "4. region": "Frankfurt",
+   "5. marketOpen": "08:00",
+   "6. marketClose": "20:00",
+   "7. timezone": "UTC+02",
+   "8. currency": "EUR",
+   "9. matchScore": "0.7500"
+  },
+  {
+   "1. symbol": "SAPCX",
+   "2. name": "CLEARBRIDGE APPRECIATION FUND CLASS C",
+   "3. type": "Mutual Fund",
+   "4. region": "United States",
+   "5. marketOpen": "09:30",
+   "6. marketClose": "16:00",
+   "7. timezone": "UTC-04",
+   "8. currency": "USD",
+   "9. matchScore": "0.7500"
+  },
+  {
+   "1. symbol": "SAPGF",
+   "2. name": "Sap SE",
+   "3. type": "Equity",
+   "4. region": "United States",
+   "5. marketOpen": "09:30",
+   "6. marketClose": "16:00",
+   "7. timezone": "UTC-04",
+   "8. currency": "USD",
+   "9. matchScore": "0.7500"
+  },
+  {
+   "1. symbol": "SAP.DEX",
+   "2. name": "SAP SE",
+   "3. type": "Equity",
+   "4. region": "XETRA",
+   "5. marketOpen": "08:00",
+   "6. marketClose": "20:00",
+   "7. timezone": "UTC+02",
+   "8. currency": "EUR",
+   "9. matchScore": "0.6667"
+  },
+  {
+   "1. symbol": "SAP.TRT",
+   "2. name": "Saputo Inc",
+   "3. type": "Equity",
+   "4. region": "Toronto",
+   "5. marketOpen": "09:30",
+   "6. marketClose": "16:00",
+   "7. timezone": "UTC-05",
+   "8. currency": "CAD",
+   "9. matchScore": "0.6667"
+  },
+  {
+   "1. symbol": "SAPA.FRK",
+   "2. name": "SAP SE",
+   "3. type": "Equity",
+   "4. region": "Frankfurt",
+   "5. marketOpen": "08:00",
+   "6. marketClose": "20:00",
+   "7. timezone": "UTC+02",
+   "8. currency": "EUR",
+   "9. matchScore": "0.6667"
+  },
+  {
+   "1. symbol": "SAPE.LON",
+   "2. name": "Leverage Shares -1x Apple ETP Securities EUR",
+   "3. type": "ETF",
+   "4. region": "United Kingdom",
+   "5. marketOpen": "08:00",
+   "6. marketClose": "16:30",
+   "7. timezone": "UTC+01",
+   "8. currency": "EUR",
+   "9. matchScore": "0.6667"
+  },
+  {
+   "1. symbol": "SAPI11.SAO",
+   "2. name": "Santander Títulos Imobiliarios Fundo De Investimento Imobiliario",
+   "3. type": "Equity",
+   "4. region": "Brazil/Sao Paolo",
+   "5. marketOpen": "10:00",
+   "6. marketClose": "17:30",
+   "7. timezone": "UTC-03",
+   "8. currency": "BRL",
+   "9. matchScore": "0.5000"
+  }
+ ]
+}

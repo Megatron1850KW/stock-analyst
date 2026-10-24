@@ -17,6 +17,45 @@ export interface UsSecurityInput {
 
 const now = () => new Date().toISOString();
 
+/** Origen de un informe descargado automáticamente. */
+export type FilingSource = "sec-edgar" | "filings.xbrl.org";
+
+export interface EuSecurityInput {
+  isin: string;
+  lei: string;
+  figi: string | null;
+  ticker: string;
+  name: string;
+  exchange: string | null;
+  country: string | null;
+  /** Divisa en la que cotiza. */
+  currency: string;
+  reportingCurrency: string | null;
+  fiscalYearEnd: string | null;
+}
+
+/** Alta o actualización de un valor europeo (identificado por su ISIN). */
+export async function upsertEuSecurity(db: Db, s: EuSecurityInput, watchlist = true): Promise<number> {
+  const existing = await db.select<{ id: number }>("SELECT id FROM securities WHERE isin = ?", [s.isin]);
+  const values = [s.ticker, s.name, s.exchange, s.currency, s.country, s.lei, s.figi, s.reportingCurrency, s.fiscalYearEnd];
+  if (existing[0]) {
+    await db.execute(
+      `UPDATE securities SET ticker = ?, name = ?, exchange = ?, currency = ?, country = ?, lei = ?, figi = ?,
+         reporting_currency = ?, fiscal_year_end = ?, market = 'EU', in_watchlist = MAX(in_watchlist, ?), updated_at = ?
+       WHERE id = ?`,
+      [...values, watchlist ? 1 : 0, now(), existing[0].id],
+    );
+    return existing[0].id;
+  }
+  await db.execute(
+    `INSERT INTO securities (ticker, name, exchange, currency, country, lei, figi, reporting_currency, fiscal_year_end, isin, kind, market, in_watchlist)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'stock', 'EU', ?)`,
+    [...values, s.isin, watchlist ? 1 : 0],
+  );
+  const rows = await db.select<{ id: number }>("SELECT id FROM securities WHERE isin = ?", [s.isin]);
+  return rows[0]!.id;
+}
+
 /**
  * Alta o actualización de un valor de EE. UU. (identificado por su CIK). Lo añade
  * a la watchlist, salvo los competidores (`watchlist = false`), que se guardan
@@ -50,25 +89,26 @@ export async function upsertFiling(
   f: FilingRef,
   url: string,
   role: "core" | "history" = "core",
+  source: FilingSource = "sec-edgar",
 ): Promise<number> {
   const fiscalPeriod = f.periodType === "annual" ? "FY" : null;
   await db.execute(
     `INSERT INTO filings (security_id, form_type, period_type, period_end, fiscal_period, filed_at, source, accession_no, url, fetched_at, role)
-     VALUES (?, ?, ?, ?, ?, ?, 'sec-edgar', ?, ?, ?, ?)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT (security_id, source, accession_no) DO UPDATE SET
        form_type = excluded.form_type, period_type = excluded.period_type, period_end = excluded.period_end,
        filed_at = excluded.filed_at, url = excluded.url, fetched_at = excluded.fetched_at, role = excluded.role`,
-    [securityId, f.form, f.periodType, f.reportDate, fiscalPeriod, f.filingDate, f.accession, url, now(), role],
+    [securityId, f.form, f.periodType, f.reportDate, fiscalPeriod, f.filingDate, source, f.accession, url, now(), role],
   );
   const rows = await db.select<{ id: number }>(
-    "SELECT id FROM filings WHERE security_id = ? AND source = 'sec-edgar' AND accession_no = ?",
-    [securityId, f.accession],
+    "SELECT id FROM filings WHERE security_id = ? AND source = ? AND accession_no = ?",
+    [securityId, source, f.accession],
   );
   return rows[0]!.id;
 }
 
-const FACT_COLUMNS = 9;
-const FACTS_PER_INSERT = 100; // 900 parámetros por sentencia, por debajo del límite de SQLite
+const FACT_COLUMNS = 11;
+const FACTS_PER_INSERT = 80; // 880 parámetros por sentencia, por debajo del límite de SQLite
 
 /** Sustituye las cifras de un informe (re-importar no duplica). */
 export async function replaceFilingFacts(
@@ -77,18 +117,19 @@ export async function replaceFilingFacts(
   filingId: number,
   facts: NormalizedFact[],
   gaps: ConceptGap[],
+  origin: "xbrl" | "esef" | "pdf-extraction" = "xbrl",
 ): Promise<void> {
   await db.execute("DELETE FROM financial_facts WHERE filing_id = ?", [filingId]);
   await db.execute("DELETE FROM concept_gaps WHERE filing_id = ?", [filingId]);
   const fetchedAt = now();
   for (let k = 0; k < facts.length; k += FACTS_PER_INSERT) {
     const chunk = facts.slice(k, k + FACTS_PER_INSERT);
-    const placeholders = chunk.map(() => `(${Array(FACT_COLUMNS).fill("?").join(", ")}, 'xbrl')`).join(", ");
+    const placeholders = chunk.map(() => `(${Array(FACT_COLUMNS).fill("?").join(", ")})`).join(", ");
     const params = chunk.flatMap((f) => [
-      securityId, filingId, f.concept, f.sourceTag, f.value, f.unit, f.periodStart, f.periodEnd, fetchedAt,
+      securityId, filingId, f.concept, f.sourceTag, f.value, f.unit, f.periodStart, f.periodEnd, fetchedAt, origin, f.page ?? null,
     ]);
     await db.execute(
-      `INSERT INTO financial_facts (security_id, filing_id, concept, source_tag, value, unit, period_start, period_end, fetched_at, origin)
+      `INSERT INTO financial_facts (security_id, filing_id, concept, source_tag, value, unit, period_start, period_end, fetched_at, origin, page)
        VALUES ${placeholders}`,
       params,
     );
@@ -100,12 +141,12 @@ export async function replaceFilingFacts(
   }
 }
 
-/** Borra los informes de la SEC de un valor que ya no están entre los elegidos. */
-export async function pruneFilings(db: Db, securityId: number, keepAccessions: string[]): Promise<void> {
+/** Borra los informes descargados de una fuente que ya no están entre los elegidos (no toca los subidos por ti). */
+export async function pruneFilings(db: Db, securityId: number, keepAccessions: string[], source: FilingSource = "sec-edgar"): Promise<void> {
   const placeholders = keepAccessions.map(() => "?").join(", ") || "''";
   await db.execute(
-    `DELETE FROM filings WHERE security_id = ? AND source = 'sec-edgar' AND accession_no NOT IN (${placeholders})`,
-    [securityId, ...keepAccessions],
+    `DELETE FROM filings WHERE security_id = ? AND source = ? AND accession_no NOT IN (${placeholders})`,
+    [securityId, source, ...keepAccessions],
   );
 }
 
@@ -115,6 +156,7 @@ export interface WatchlistRow {
   name: string;
   exchange: string | null;
   currency: string;
+  market: string | null;
   filer_type: string | null;
   annual_count: number;
   interim_count: number;
@@ -128,7 +170,7 @@ export interface WatchlistRow {
 
 export function listWatchlist(db: Db): Promise<WatchlistRow[]> {
   return db.select<WatchlistRow>(
-    `SELECT s.id, s.ticker, s.name, s.exchange, s.currency, s.filer_type, s.updated_at,
+    `SELECT s.id, s.ticker, s.name, s.exchange, s.currency, s.market, s.filer_type, s.updated_at,
        (SELECT COUNT(*) FROM filings f WHERE f.security_id = s.id AND f.role = 'core' AND f.period_type = 'annual') AS annual_count,
        (SELECT COUNT(*) FROM filings f WHERE f.security_id = s.id AND f.role = 'core' AND f.period_type = 'interim') AS interim_count,
        (SELECT COUNT(DISTINCT g.concept) FROM concept_gaps g
@@ -155,12 +197,17 @@ export interface SecurityRow {
   sic_description: string | null;
   fiscal_year_end: string | null;
   filer_type: string | null;
+  isin: string | null;
+  lei: string | null;
+  market: string | null;
+  country: string | null;
   updated_at: string;
 }
 
 export async function getSecurity(db: Db, id: number): Promise<SecurityRow | null> {
   const rows = await db.select<SecurityRow>(
-    `SELECT id, ticker, name, cik, exchange, currency, reporting_currency, sic, sic_description, fiscal_year_end, filer_type, updated_at
+    `SELECT id, ticker, name, cik, exchange, currency, reporting_currency, sic, sic_description, fiscal_year_end, filer_type,
+       isin, lei, market, country, updated_at
      FROM securities WHERE id = ?`,
     [id],
   );
@@ -200,12 +247,14 @@ export interface FactRow {
   period_start: string | null;
   period_end: string;
   origin: string;
+  /** Página del PDF si la cifra la extrajo la IA. */
+  page: number | null;
   fetched_at: string;
 }
 
 export function getFacts(db: Db, securityId: number): Promise<FactRow[]> {
   return db.select<FactRow>(
-    `SELECT filing_id, concept, source_tag, value, unit, period_start, period_end, origin, fetched_at
+    `SELECT filing_id, concept, source_tag, value, unit, period_start, period_end, origin, page, fetched_at
      FROM financial_facts WHERE security_id = ?`,
     [securityId],
   );
@@ -269,15 +318,24 @@ export interface PriceTarget {
   peer_only: number;
   /** Cuándo se pidió su última cotización. */
   quote_fetched_at: string | null;
+  market: "US" | "EU";
+  name: string;
+  exchange: string | null;
+  /** «proveedor:símbolo» guardado (ver 0006_price_symbols.sql). */
+  price_symbol: string | null;
 }
 
 export function listPriceTargets(db: Db): Promise<PriceTarget[]> {
   return db.select(
-    `SELECT s.id, s.ticker, s.currency,
+    `SELECT s.id, s.ticker, s.currency, s.market, s.name, s.exchange, s.price_symbol,
        (s.in_watchlist = 0 AND s.id NOT IN (SELECT security_id FROM transactions)) AS peer_only,
        (SELECT MAX(fetched_at) FROM prices p WHERE p.security_id = s.id AND p.interval = '1d') AS quote_fetched_at
-     FROM securities s WHERE s.ticker IS NOT NULL AND s.market = 'US' ORDER BY s.ticker`,
+     FROM securities s WHERE s.ticker IS NOT NULL AND s.market IN ('US', 'EU') ORDER BY s.ticker`,
   );
+}
+
+export async function savePriceSymbol(db: Db, securityId: number, value: string): Promise<void> {
+  await db.execute("UPDATE securities SET price_symbol = ? WHERE id = ?", [value, securityId]);
 }
 
 export interface BarRow {

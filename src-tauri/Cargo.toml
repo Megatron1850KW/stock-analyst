@@ -23,6 +23,7 @@ thiserror = "2"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "gzip", "json"] }
 tokio = { version = "1", features = ["time", "sync"] }
 sha2 = "0.10"
+zip = { version = "2", default-features = false, features = ["deflate"] }
 
 # Llavero de macOS. En otros sistemas (solo CI/tests) keyring usa su almacén simulado.
 [target.'cfg(target_os = "macos")'.dependencies]

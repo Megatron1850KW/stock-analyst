@@ -21,7 +21,7 @@ function guessKind(r: DocumentRequestRow | null): UploadKind {
 
 /**
  * Subida de un informe: arrastrar y soltar o elegir archivo, qué periodo cubre
- * y listo. Se guarda en el Mac; la lectura de sus cifras llega con la IA.
+ * y listo. Se guarda en el Mac y se leen sus cifras (ZIP: directamente; PDF: con Claude).
  */
 export function UploadPanel({ securityId, request, onClose }: { securityId: number; request: DocumentRequestRow | null; onClose: () => void }) {
   const ids = useId();
@@ -53,7 +53,8 @@ export function UploadPanel({ securityId, request, onClose }: { securityId: numb
         <div>
           <h3 className="font-serif text-[16px] font-semibold">{request ? `Subir: ${request.document_type}` : "Subir un informe"}</h3>
           <p className="mt-0.5 text-[12.5px] text-muted">
-            PDF del informe o paquete ESEF (.zip). Se guarda solo en tu Mac. La lectura de sus cifras se hará con la IA cuando la activemos (fase 4).
+            PDF del informe o paquete ESEF (.zip). Se guarda solo en tu Mac. Del ZIP se leen las cifras directamente; del PDF las copia
+            Claude (modelo económico, unos céntimos) y cada cifra queda marcada con su página.
           </p>
         </div>
         <Button variant="ghost" size="sm" onClick={onClose} aria-label="Cerrar">
@@ -104,6 +105,11 @@ export function UploadPanel({ securityId, request, onClose }: { securityId: numb
         </label>
       </div>
 
+      {upload.data?.extractionError && (
+        <p role="alert" className="mt-3 text-[12.5px] text-warning-text">
+          Informe guardado, pero no se han podido leer sus cifras: {upload.data.extractionError} Puedes reintentarlo desde la lista de informes.
+        </p>
+      )}
       {error && (
         <p role="alert" className="mt-3 text-[12.5px] text-negative-text">
           {error}
@@ -116,10 +122,14 @@ export function UploadPanel({ securityId, request, onClose }: { securityId: numb
         <Button
           disabled={!file || !periodEnd || upload.isPending}
           onClick={() =>
-            file && upload.mutate({ form: { securityId, kind, periodEnd, requestId: request?.id ?? null }, file }, { onSuccess: onClose })
+            file &&
+            upload.mutate(
+              { form: { securityId, kind, periodEnd, requestId: request?.id ?? null }, file },
+              { onSuccess: (r) => !r.extractionError && onClose() },
+            )
           }
         >
-          {upload.isPending ? "Guardando…" : "Guardar informe"}
+          {upload.isPending ? (file?.name.toLowerCase().endsWith(".pdf") ? "Guardando y leyendo cifras…" : "Guardando…") : "Guardar informe"}
         </Button>
       </div>
     </div>

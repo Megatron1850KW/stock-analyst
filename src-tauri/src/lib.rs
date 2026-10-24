@@ -1,5 +1,6 @@
 mod claude;
 mod documents;
+mod eu;
 mod http;
 mod prices;
 mod sec;
@@ -38,6 +39,18 @@ fn migrations() -> Vec<Migration> {
             sql: include_str!("../../src/db/migrations/0004_peers.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 5,
+            description: "europa",
+            sql: include_str!("../../src/db/migrations/0005_europe.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 6,
+            description: "simbolos de precios",
+            sql: include_str!("../../src/db/migrations/0006_price_symbols.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
 
@@ -57,13 +70,20 @@ pub fn run() {
             secrets::secret_delete,
             sec::sec_fetch,
             sec::sec_document,
+            eu::eu_fetch,
+            eu::esef_document,
+            eu::esef_report,
             claude::claude_request,
             prices::price_quote,
             prices::price_history,
             prices::price_splits,
+            prices::price_series,
+            prices::price_search,
             documents::document_store,
             documents::document_open,
-            documents::document_delete
+            documents::document_delete,
+            documents::document_read_pdf,
+            documents::document_esef_report
         ])
         .run(tauri::generate_context!())
         .expect("error al iniciar Agente Financiero");

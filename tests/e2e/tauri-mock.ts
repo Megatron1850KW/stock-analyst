@@ -6,12 +6,14 @@ import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import type { Page } from "@playwright/test";
 import { FAKE_ANALYSIS, fakeReportHtml } from "../helpers/fake-claude";
 import { fakeDaily } from "../helpers/fake-prices";
+import { avQuoteJson, avSearchJson, avSeriesJson } from "../helpers/fake-alphavantage";
+import { fakeEu } from "../helpers/fake-eu";
 
 /**
  * Simula el lado Rust de Tauri para los tests de UI en el navegador:
  * SQLite real (node:sqlite con las migraciones de la app), ajustes y llavero
- * en memoria y respuestas de la SEC y de FMP con los datos FICTICIOS de
- * tests/fixtures/ficticio. Nada de esto se usa en la app.
+ * en memoria y respuestas de la SEC, de FMP y de las fuentes europeas con
+ * los datos FICTICIOS de tests/fixtures/ficticio y tests/helpers/fake-eu. Nada de esto se usa en la app.
  */
 const root = process.cwd();
 const fixture = (name: string) => readFileSync(join(root, "tests/fixtures/ficticio", `${name}.json`), "utf8");
@@ -32,8 +34,8 @@ export interface MockOptions {
 /** Propuesta FICTICIA de competidores (existen en tests/fixtures/ficticio/tickers.json). */
 const FAKE_PEERS = {
   competidores: [
-    { ticker: "OTRF", nombre: "Otra Ficticia", motivo: "También vende piezas industriales (ficticio)." },
-    { ticker: "FIC.B", nombre: "Ficticia clase B", motivo: "Negocio parecido (ficticio)." },
+    { ticker: "OTRF", nombre: "Otra Ficticia", mercado: "EEUU", isin: null, motivo: "También vende piezas industriales (ficticio)." },
+    { ticker: "FIC.B", nombre: "Ficticia clase B", mercado: "EEUU", isin: null, motivo: "Negocio parecido (ficticio)." },
   ],
   nota: "",
 };
@@ -59,6 +61,10 @@ const realTickers = JSON.stringify({ fields: ["cik", "name", "ticker", "exchange
 function realPrices(symbol: string, kind: "history" | "splits" | "quote" = "history"): string | null {
   return readReal(join(root, "tests/fixtures/prices", `${symbol}-${kind}.json`));
 }
+/** Informe de gestión FICTICIO en español para los extractos europeos. */
+const fakeEuReportHtml = ["Modelo de negocio", "Principales riesgos", "Evolución previsible"]
+  .map((h) => `<h2>${h}</h2>` + Array.from({ length: 10 }, (_, k) => `<p>${h} ${k}: texto ficticio de Ficticia Textil para la prueba.</p>`).join(""))
+  .join("");
 const realFile = (ticker: string, kind: string) => readReal(join(secDir, `${ticker}-${kind}.json`))!;
 
 export async function installTauriMock(page: Page, opts: MockOptions = {}) {
@@ -69,7 +75,7 @@ export async function installTauriMock(page: Page, opts: MockOptions = {}) {
   }
   db.exec("PRAGMA foreign_keys = ON");
   // La app consulta esta tabla para mostrar la versión del esquema
-  db.exec("CREATE TABLE _sqlx_migrations (version INTEGER); INSERT INTO _sqlx_migrations VALUES (1), (2), (3), (4);");
+  db.exec("CREATE TABLE _sqlx_migrations (version INTEGER); INSERT INTO _sqlx_migrations VALUES (1), (2), (3), (4), (5), (6);");
 
   const store = new Map<string, unknown>(opts.settings ? [["settings", opts.settings]] : []);
   const secrets = new Set(opts.secrets ?? []);
@@ -78,7 +84,13 @@ export async function installTauriMock(page: Page, opts: MockOptions = {}) {
   /** Qué se pidió a la IA en cada llamada: "analysis" o "peers". */
   const ai: string[] = [];
 
-  await page.exposeFunction("__pwInvoke", (cmd: string, args: Record<string, unknown>) => {
+  const eu = fakeEu().client;
+  /** Alpha Vantage FICTICIO (tests/helpers/fake-alphavantage): pide su propia clave. */
+  const alphaVantage = (body: () => string) => {
+    if (!secrets.has("alphavantage_api_key")) throw "Falta la clave de Alpha Vantage (precios europeos). Añádela en Ajustes.";
+    return body();
+  };
+  await page.exposeFunction("__pwInvoke", async (cmd: string, args: Record<string, unknown>) => {
     calls.push(cmd);
     const values = (args.values as SQLInputValue[] | undefined) ?? [];
     switch (cmd) {
@@ -127,6 +139,7 @@ export async function installTauriMock(page: Page, opts: MockOptions = {}) {
         return fixture(name);
       }
       case "price_quote": {
+        if (args.provider === "alphavantage") return alphaVantage(() => avQuoteJson(args.symbol as string, opts.price ?? 38.4));
         if (!secrets.has("prices_api_key")) throw "Falta la clave del proveedor de precios. Añádela en Ajustes.";
         const realQuote = realPrices(args.symbol as string, "quote");
         if (realQuote) return realQuote;
@@ -174,6 +187,9 @@ export async function installTauriMock(page: Page, opts: MockOptions = {}) {
           // Propuesta REAL guardada (Claude Haiku 5.5) para MU y GOOG; FICTICIA para el resto
           const realPeers = ticker && join(root, "tests/fixtures/ai", `${ticker}-peers.json`);
           analysis = opts.peers ?? (realPeers && existsSync(realPeers) ? JSON.parse(readFileSync(realPeers, "utf8")).proposal : FAKE_PEERS);
+          // Las propuestas REALES guardadas son de la versión 1 del prompt (todas de EE. UU., sin mercado ni ISIN)
+          const v1 = analysis as { competidores: Record<string, unknown>[] };
+          v1.competidores = v1.competidores.map((c) => ({ mercado: "EEUU", isin: null, ...c }));
         } else {
           // Análisis REAL guardado (Claude Sonnet 5.5, 24-10-2026) para MU y GOOG; FICTICIO para el resto
           const realAi = ticker && join(root, "tests/fixtures/ai", `${ticker}-analysis.json`);
@@ -193,6 +209,25 @@ export async function installTauriMock(page: Page, opts: MockOptions = {}) {
         };
         return { status: 200, headers: { "content-type": "application/json" }, body: JSON.stringify(message) };
       }
+      case "eu_fetch": {
+        // Europa FICTICIA: «Ficticia Textil» (tests/helpers/fake-eu)
+        const id = args.id as string;
+        if (args.resource === "lei_by_isin") {
+          const r = await eu.leiByIsin(id);
+          return JSON.stringify({ data: r ? [{ attributes: { lei: r.lei, entity: { legalName: { name: r.name }, legalAddress: { country: r.country } } } }] : [] });
+        }
+        if (args.resource === "figi") return JSON.stringify([{ data: await eu.figi(id) }]);
+        if (args.resource === "esef_filings") return JSON.stringify({ data: await eu.esefFilings(id) });
+        throw new Error("recurso no simulado");
+      }
+      case "esef_document":
+        return { text: JSON.stringify(await eu.esefDocument(args.path as string)), path: `/simulado/documents/esef${args.path as string}`, cached: false };
+      case "esef_report":
+        return { text: fakeEuReportHtml, path: "/simulado/documents/esef/informe.xhtml", cached: false };
+      case "price_series":
+        return alphaVantage(() => avSeriesJson(args.interval as "weekly" | "monthly"));
+      case "price_search":
+        return alphaVantage(() => avSearchJson());
       case "price_splits":
         if (!secrets.has("prices_api_key")) throw "Falta la clave del proveedor de precios. Añádela en Ajustes.";
         return realPrices(args.symbol as string, "splits") ?? "[]";

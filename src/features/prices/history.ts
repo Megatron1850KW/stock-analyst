@@ -11,6 +11,8 @@ export interface HistoryTarget {
   id: number;
   ticker: string;
   currency: string;
+  /** Símbolo en el proveedor, si no es el ticker (bolsas europeas). */
+  symbol?: string;
 }
 
 export type HistorySyncResult =
@@ -39,13 +41,14 @@ export async function syncPriceHistory(
   const meta = await getPriceHistoryMeta(db, target.id);
   if (!force && meta?.source === provider.id && historyIsFresh(meta.fetched_at, today)) return { status: "skipped" };
 
-  const symbol = providerSymbol(target.ticker);
+  const symbol = target.symbol ?? providerSymbol(target.ticker);
   const from = `${today.getUTCFullYear() - HISTORY_YEARS}-01-01`;
-  const { bars: daily, splits, splitsError } = await provider.history(symbol, from);
+  const { bars: daily, weekly, monthly: monthlyBars, splits, splitsError } = await provider.history(symbol, from);
   if (daily.length === 0) throw new Error(`${provider.label} no tiene histórico de precios de ${target.ticker}`);
-  const monthly = aggregateBars(daily, "1mo");
+  // Velas del proveedor (con fecha de cierre) o agregadas del diario; siempre con fecha de inicio del periodo
+  const monthly = aggregateBars(monthlyBars ?? daily, "1mo");
   await replacePriceBars(db, target.id, "1mo", monthly, target.currency, provider.id);
-  await replacePriceBars(db, target.id, "1w", aggregateBars(daily, "1w"), target.currency, provider.id);
+  await replacePriceBars(db, target.id, "1w", aggregateBars(weekly ?? daily, "1w"), target.currency, provider.id);
 
   const splitsChecked = splits !== null;
   const note = splitsChecked ? null : `No se pudo consultar el historial de splits (${splitsError ?? "el proveedor no lo da"}).`;

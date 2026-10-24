@@ -230,6 +230,10 @@ export function describeApiError(e: unknown): string {
   if (status === 529 || (status !== null && status >= 500)) return "El servicio de Claude no está disponible ahora mismo. Inténtalo más tarde.";
   if (status === 400) return "Claude ha rechazado la petición por un problema de formato. Se ha registrado el error.";
   const msg = e instanceof Error ? e.message : String(e);
+  if (msg.startsWith("Failed to parse structured output")) {
+    console.error("[ia] salida no válida:", msg.slice(0, 500));
+    return "La IA devolvió una respuesta con un formato inesperado. No se ha guardado nada.";
+  }
   // Errores de Rust (sin clave, sin conexión) ya vienen en llano
   return msg;
 }

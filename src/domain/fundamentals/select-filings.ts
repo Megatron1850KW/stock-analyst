@@ -17,6 +17,8 @@ export interface FilingRef {
   reportDate: string;
   filingDate: string;
   primaryDocument: string;
+  /** ESEF: ruta del informe XHTML en filings.xbrl.org (lo que se enlaza y se lee para la IA). */
+  reportUrl?: string;
 }
 
 export interface FilingSelection {
