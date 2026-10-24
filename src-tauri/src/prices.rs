@@ -39,7 +39,7 @@ async fn fmp_get(path: &str, query: &[(&str, &str)]) -> Result<String, NetError>
         .get(format!("https://financialmodelingprep.com/stable/{path}"))
         .query(query)
         .query(&[("apikey", key.as_str())]);
-    get_text(FMP_HOST, req).await
+    get_text(FMP_HOST, req).await.map(|text| redact(&text, &key))
 }
 
 /// Precios diarios de Tiingo: sin `start_date` devuelve el último día.
@@ -70,7 +70,16 @@ async fn av_get(function: &str, params: &[(&str, &str)]) -> Result<String, NetEr
         .query(&[("function", function)])
         .query(params)
         .query(&[("apikey", key.as_str())]);
-    get_text(AV_HOST, req).await
+    // Sus avisos de límite repiten la clave en claro: nunca sale de aquí
+    get_text(AV_HOST, req).await.map(|text| redact(&text, &key))
+}
+
+/// Quita la clave de un texto antes de que llegue a la interfaz, a la base de datos o a un log.
+pub fn redact(text: &str, key: &str) -> String {
+    if key.len() < 4 {
+        return text.to_string();
+    }
+    text.replace(key, "[clave oculta]")
 }
 
 /// Texto de búsqueda de símbolos: letras (con acentos), números, espacios y . - &
@@ -174,6 +183,14 @@ mod tests {
         assert!(validate_keywords("Industria de Diseño Textil").is_ok());
         assert!(validate_keywords("H&M").is_ok());
         assert!(validate_keywords("ITX&apikey=x").is_err());
+    }
+
+    #[test]
+    fn el_aviso_de_limite_no_deja_ver_la_clave() {
+        let aviso = r#"{"Information": "We have detected your API key as CLAVEFICTICIA123 and our standard API rate limit is 25 requests per day."}"#;
+        let limpio = redact(aviso, "CLAVEFICTICIA123");
+        assert!(!limpio.contains("CLAVEFICTICIA123"));
+        assert!(limpio.contains("25 requests per day"));
         assert!(validate_keywords("a=b").is_err());
         assert!(validate_keywords("").is_err());
     }

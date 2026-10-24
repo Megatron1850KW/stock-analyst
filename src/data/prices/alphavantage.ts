@@ -201,6 +201,8 @@ const AV_REGIONS: Record<string, string[]> = {
   SW: ["switzerland", "swiss"], SE: ["switzerland", "swiss"], SS: ["stockholm", "sweden"], DC: ["copenhagen", "denmark"], NO: ["oslo", "norway"],
 };
 
+/** Palabras que no distinguen a una empresa o a un fondo de otro. */
+const GENERIC_WORDS = new Set(["the", "group", "holding", "holdings", "spa", "s.p.a", "ag", "sa", "plc", "nv", "se", "inc", "ucits", "etf", "acc", "dist", "usd", "eur"]);
 const compact = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]/g, "");
 /** Alpha Vantage llama GBX a los peniques que OpenFIGI llama GBp. */
 const currencyCode = (c: string) => (c === "GBp" || c.toUpperCase() === "GBX" ? "GBX" : c.toUpperCase());
@@ -211,7 +213,7 @@ const nameWords = (s: string) =>
     .replace(/[̀-ͯ]/g, "")
     .toLowerCase()
     .split(/[^a-z0-9]+/)
-    .filter((w) => w.length >= 3 && !["the", "group", "holding", "holdings"].includes(w));
+    .filter((w) => w.length >= 3 && !GENERIC_WORDS.has(w));
 
 /**
  * Elige el símbolo de Alpha Vantage de un valor europeo: la bolsa (región)
@@ -230,7 +232,12 @@ export function pickAvSymbol(matches: AvMatch[], target: SymbolTarget): string |
     const currency = sameCurrency(target.currency, m.currency);
     const name = nameWords(m.name).some((w) => legal.has(w));
     const score = (region ? 3 : 0) + (ticker ? 3 : 0) + (currency ? 2 : 0) + (name ? 2 : 0);
-    const ok = (region && (ticker || name)) || (currency && ticker && name);
+    // Otra bolsa en la misma divisa sirve si coincide el nombre completo (UniCredit de Milán → Xetra)
+    const words = new Set(nameWords(m.name));
+    const fullName = legal.size > 0 && words.size === legal.size && [...legal].every((w) => words.has(w));
+    // …pero no el «International Order Book» de Londres (0XXX.LON): poco negociado y con poco histórico
+    const iob = /^0[A-Z0-9]{3}\.LON$/.test(m.symbol);
+    const ok = (region && (ticker || name)) || (currency && ticker && name) || (currency && fullName && !iob);
     if (ok && (!best || score > best.score)) best = { symbol: m.symbol, score };
   }
   return best?.symbol ?? null;

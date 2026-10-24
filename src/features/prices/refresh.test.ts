@@ -64,15 +64,15 @@ describe("precios por mercado (datos FICTICIOS)", () => {
     expect(euCalls.filter((c) => c.startsWith("search:"))).toEqual([]);
   });
 
-  it("si el proveedor no cubre un valor lo dice, y no lo vuelve a buscar hasta pasado un mes", async () => {
+  it("si el proveedor no cubre un valor lo dice, y no lo vuelve a buscar hasta pasada una semana", async () => {
     const { db } = await setup();
     const calls: string[] = [];
     const r = await refreshPrices(db, { US: null, EU: fakeEuPrices(calls, { known: ["FMD"] }) }, undefined, today);
     expect(r.failed).toEqual([{ ticker: "FTX", message: "Proveedor europeo ficticio no tiene la cotización de FTX (Ficticia Textil, S.A.)." }]);
     calls.length = 0;
-    await refreshPrices(db, { US: null, EU: fakeEuPrices(calls, { known: ["FMD"] }) }, undefined, new Date("2026-11-10T08:00:00Z"));
+    await refreshPrices(db, { US: null, EU: fakeEuPrices(calls, { known: ["FMD"] }) }, undefined, new Date("2026-10-28T08:00:00Z"));
     expect(calls.filter((c) => c.startsWith("search:"))).toEqual([]);
-    await refreshPrices(db, { US: null, EU: fakeEuPrices(calls, { known: ["FMD"] }) }, undefined, new Date("2026-12-01T08:00:00Z"));
+    await refreshPrices(db, { US: null, EU: fakeEuPrices(calls, { known: ["FMD"] }) }, undefined, new Date("2026-11-10T08:00:00Z"));
     expect(calls.filter((c) => c.startsWith("search:"))).toEqual(["search:FTX:SM"]);
   });
 

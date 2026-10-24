@@ -5,7 +5,7 @@ import { importUsTicker } from "@/features/watchlist/import-us";
 import type { FilingRef } from "@/domain/fundamentals/select-filings";
 import { fakeSec } from "../../../tests/helpers/fake-sec";
 import { memoryDb } from "../../../tests/helpers/sqlite-db";
-import { missingReportRequests, monthText } from "./missing";
+import { missingReportRequests, monthText, euMissingRequests } from "./missing";
 
 // FICTICIO
 const annual = (y: number, form = "20-F"): FilingRef => ({
@@ -74,5 +74,24 @@ describe("informes subidos (datos ficticios)", () => {
     expect(await deleteUpload(db, id)).toBe("/tmp/ficticio.pdf");
     expect((await getDocumentRequests(db, securityId))[0]).toMatchObject({ status: "pending", filing_id: null });
     await expect(registerUpload(db, { ...form, periodEnd: "" }, { name: "x.pdf" }, stored)).rejects.toThrow(/fecha de cierre/);
+  });
+});
+
+describe("Europa: informes que faltan (datos FICTICIOS)", () => {
+  const today = new Date("2026-10-24T10:00:00Z");
+
+  it("si el último anual ESEF es de hace dos ejercicios, pide el que falta y cuenta los semestrales desde él", () => {
+    const reqs = euMissingRequests({ country: "IT", annualEnds: ["2024-12-31", "2023-12-31", "2022-12-31"], interimEnds: [], today });
+    expect(reqs.map((r) => [r.documentType, r.period])).toEqual([
+      ["Informe financiero anual 2025", "2025-12-31"],
+      ["Informe semestral H1 2026", "2026-06-30"],
+      ["Informe semestral H1 2025", "2025-06-30"],
+      ["Informe semestral H1 2024", "2024-06-30"],
+    ]);
+  });
+
+  it("sin ningún informe ESEF (p. ej. una alemana que no está en filings.xbrl.org) pide los 3 anuales", () => {
+    const reqs = euMissingRequests({ country: "DE", annualEnds: [], interimEnds: [], today });
+    expect(reqs.filter((r) => r.documentType.startsWith("Informe financiero anual")).map((r) => r.period)).toEqual(["2025-12-31", "2024-12-31", "2023-12-31"]);
   });
 });

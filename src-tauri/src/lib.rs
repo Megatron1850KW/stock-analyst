@@ -58,6 +58,12 @@ fn migrations() -> Vec<Migration> {
             sql: include_str!("../../src/db/migrations/0007_portfolio.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 8,
+            description: "reintentar simbolos",
+            sql: include_str!("../../src/db/migrations/0008_retry_symbols.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
 
