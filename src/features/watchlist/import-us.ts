@@ -1,6 +1,7 @@
 import { filingUrl, findTicker, type SecClient } from "@/data/sec-edgar/client";
 import type { Db } from "@/db/client";
-import { pruneFilings, replaceFilingFacts, upsertFiling, upsertUsSecurity } from "@/db/repo";
+import { pruneFilings, replaceFilingFacts, syncDocumentRequests, upsertFiling, upsertUsSecurity } from "@/db/repo";
+import { missingReportRequests } from "@/features/document-requests/missing";
 import { historyFilingsFromFacts } from "@/domain/fundamentals/history-filings";
 import { normalizeCompanyFacts } from "@/domain/fundamentals/normalize";
 import { needsOlderPages, selectFilings, toRows, type FilingRef } from "@/domain/fundamentals/select-filings";
@@ -25,6 +26,8 @@ export interface ImportResult {
   facts: number;
   gaps: number;
   notes: string[];
+  /** Informes que hay que pedir al usuario (bandeja «Documentos pendientes»). */
+  requests: number;
 }
 
 export class ImportError extends Error {
@@ -44,6 +47,7 @@ export async function importUsTicker(
   db: Db,
   rawTicker: string,
   onStep: (step: ImportStep) => void = () => {},
+  today: Date = new Date(),
 ): Promise<ImportResult> {
   onStep("ticker");
   const match = findTicker(await sec.tickers(), rawTicker);
@@ -102,6 +106,18 @@ export async function importUsTicker(
   }
   await pruneFilings(db, securityId, toSave.map(({ f }) => f.accession));
 
+  const gapsByAccession = new Map<string, string[]>();
+  for (const g of normalized.gaps) gapsByAccession.set(g.accession, [...(gapsByAccession.get(g.accession) ?? []), g.concept]);
+  const requests = missingReportRequests({
+    filerType: selection.filerType,
+    annual: selection.annual,
+    interim: selection.interim,
+    gapsByAccession,
+    secUrl: (f) => filingUrl(match.cik, f.accession, f.primaryDocument),
+    today,
+  });
+  await syncDocumentRequests(db, securityId, requests);
+
   return {
     securityId,
     ticker: match.ticker,
@@ -112,6 +128,7 @@ export async function importUsTicker(
     facts: normalized.facts.length,
     gaps: normalized.gaps.filter((g) => chosen.some((c) => c.accession === g.accession)).length,
     notes: selection.notes,
+    requests: requests.length,
   };
 }
 

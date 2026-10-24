@@ -2,11 +2,24 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { providerFor } from "@/data/prices/provider";
 import { tauriSecClient } from "@/data/sec-edgar/client";
-import { getFacts, getFilings, getGaps, getSecurity, listWatchlist, removeFromWatchlist } from "@/db/repo";
+import {
+  getDocumentRequests,
+  getFacts,
+  getFilings,
+  getGaps,
+  getLatestQuote,
+  getPriceBars,
+  getPriceHistoryMeta,
+  getSecurity,
+  getSplits,
+  listWatchlist,
+  removeFromWatchlist,
+} from "@/db/repo";
 import { refreshPrices } from "@/features/prices/refresh";
 import { secUserAgent } from "@/features/settings/schema";
 import { loadSettings } from "@/platform/settings-store";
 import { appDb } from "@/platform/database";
+import { buildAnalysis } from "./analysis";
 import { importUsTicker, ImportError, type ImportStep } from "./import-us";
 
 export const watchlistKey = ["watchlist"] as const;
@@ -20,13 +33,19 @@ export function useSecurityDetail(id: number) {
     queryKey: ["security", id],
     queryFn: async () => {
       const db = await appDb();
-      const [security, filings, facts, gaps] = await Promise.all([
+      const [security, filings, facts, gaps, monthly, splits, quote, priceMeta, requests] = await Promise.all([
         getSecurity(db, id),
         getFilings(db, id),
         getFacts(db, id),
         getGaps(db, id),
+        getPriceBars(db, id, "1mo"),
+        getSplits(db, id),
+        getLatestQuote(db, id),
+        getPriceHistoryMeta(db, id),
+        getDocumentRequests(db, id),
       ]);
-      return { security, filings, facts, gaps };
+      const analysis = security ? buildAnalysis({ security, filings, facts, monthly, splits, quote, priceMeta }) : null;
+      return { security, filings, facts, gaps, priceMeta, requests, analysis };
     },
   });
 }

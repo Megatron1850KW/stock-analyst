@@ -347,3 +347,112 @@ export async function savePriceHistoryMeta(db: Db, securityId: number, m: Omit<P
     [securityId, m.source, m.first_date, m.last_date, m.splits_checked, m.note, now()],
   );
 }
+
+export interface UploadInput {
+  securityId: number;
+  periodType: "annual" | "interim";
+  periodEnd: string;
+  /** Cómo se muestra el informe: «Informe anual (PDF)», «Semestral (ZIP ESEF)»… */
+  label: string;
+  path: string;
+  sha256: string;
+  bytes: number;
+  originalName: string;
+}
+
+/** Registra un informe subido por el usuario (el mismo archivo dos veces no se duplica). */
+export async function saveUpload(db: Db, u: UploadInput): Promise<number> {
+  const accession = `upload-${u.sha256.slice(0, 16)}`;
+  await db.execute(
+    `INSERT INTO filings (security_id, form_type, period_type, period_end, fiscal_period, filed_at, source, accession_no,
+       local_path, content_hash, bytes, original_name, role, fetched_at)
+     VALUES (?, ?, ?, ?, ?, NULL, 'user-upload', ?, ?, ?, ?, ?, 'upload', ?)
+     ON CONFLICT (security_id, source, accession_no) DO UPDATE SET
+       form_type = excluded.form_type, period_type = excluded.period_type, period_end = excluded.period_end,
+       fiscal_period = excluded.fiscal_period, original_name = excluded.original_name`,
+    [u.securityId, u.label, u.periodType, u.periodEnd, u.periodType === "annual" ? "FY" : null, accession, u.path, u.sha256, u.bytes, u.originalName, now()],
+  );
+  const rows = await db.select<{ id: number }>(
+    "SELECT id FROM filings WHERE security_id = ? AND source = 'user-upload' AND accession_no = ?",
+    [u.securityId, accession],
+  );
+  return rows[0]!.id;
+}
+
+/** Borra un informe subido y devuelve su ruta para quitar también el archivo. */
+export async function deleteUpload(db: Db, filingId: number): Promise<string | null> {
+  const rows = await db.select<{ local_path: string | null }>(
+    "SELECT local_path FROM filings WHERE id = ? AND source = 'user-upload'",
+    [filingId],
+  );
+  if (!rows[0]) return null;
+  await db.execute(
+    "UPDATE document_requests SET status = 'pending', filing_id = NULL, resolved_at = NULL WHERE filing_id = ?",
+    [filingId],
+  );
+  await db.execute("DELETE FROM filings WHERE id = ?", [filingId]);
+  return rows[0].local_path;
+}
+
+export interface DocumentRequestInput {
+  documentType: string;
+  period: string;
+  expectedDate: string | null;
+  preferredFormat: string;
+  whereToFind: string;
+}
+
+export interface DocumentRequestRow {
+  id: number;
+  security_id: number;
+  document_type: string;
+  period: string;
+  expected_date: string | null;
+  preferred_format: string | null;
+  where_to_find: string | null;
+  status: "pending" | "fulfilled" | "dismissed";
+  filing_id: number | null;
+  created_at: string;
+}
+
+export function getDocumentRequests(db: Db, securityId?: number): Promise<DocumentRequestRow[]> {
+  return db.select<DocumentRequestRow>(
+    `SELECT id, security_id, document_type, period, expected_date, preferred_format, where_to_find, status, filing_id, created_at
+     FROM document_requests ${securityId === undefined ? "" : "WHERE security_id = ?"}
+     ORDER BY status = 'pending' DESC, period DESC`,
+    securityId === undefined ? [] : [securityId],
+  );
+}
+
+/**
+ * Deja las solicitudes automáticas de un valor como dice la última
+ * comprobación: añade las nuevas, conserva las atendidas o descartadas y
+ * retira las pendientes que ya no hacen falta.
+ */
+export async function syncDocumentRequests(db: Db, securityId: number, wanted: DocumentRequestInput[]): Promise<void> {
+  const existing = await getDocumentRequests(db, securityId);
+  const key = (type: string, period: string) => `${type}|${period}`;
+  const wantedKeys = new Set(wanted.map((w) => key(w.documentType, w.period)));
+  for (const r of existing) {
+    if (r.status === "pending" && !wantedKeys.has(key(r.document_type, r.period))) {
+      await db.execute("DELETE FROM document_requests WHERE id = ?", [r.id]);
+    }
+  }
+  const have = new Set(existing.map((r) => key(r.document_type, r.period)));
+  for (const w of wanted) {
+    if (have.has(key(w.documentType, w.period))) continue;
+    await db.execute(
+      `INSERT INTO document_requests (security_id, document_type, period, expected_date, preferred_format, where_to_find)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [securityId, w.documentType, w.period, w.expectedDate, w.preferredFormat, w.whereToFind],
+    );
+  }
+}
+
+export async function resolveDocumentRequest(db: Db, id: number, status: "fulfilled" | "dismissed", filingId: number | null = null): Promise<void> {
+  await db.execute("UPDATE document_requests SET status = ?, filing_id = ?, resolved_at = ? WHERE id = ?", [status, filingId, now(), id]);
+}
+
+export function countPendingRequests(db: Db): Promise<{ security_id: number; n: number }[]> {
+  return db.select("SELECT security_id, COUNT(*) AS n FROM document_requests WHERE status = 'pending' GROUP BY security_id");
+}

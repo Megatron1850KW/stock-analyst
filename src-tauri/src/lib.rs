@@ -1,3 +1,4 @@
+mod documents;
 mod http;
 mod prices;
 mod sec;
@@ -50,7 +51,10 @@ pub fn run() {
             sec::sec_fetch,
             prices::price_quote,
             prices::price_history,
-            prices::price_splits
+            prices::price_splits,
+            documents::document_store,
+            documents::document_open,
+            documents::document_delete
         ])
         .run(tauri::generate_context!())
         .expect("error al iniciar Agente Financiero");
