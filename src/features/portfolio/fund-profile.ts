@@ -89,7 +89,8 @@ function shares(xs: { nombre: string; peso: number }[], key: (n: string) => stri
   const total = list.reduce((t, s) => t + s.weight, 0);
   // Una ficha puede pasar del 100 % por redondeos; más de un 105 % es un error de lectura
   if (total > 1.05) return { list: [], dropped: dropped + list.length };
-  return { list: list.sort((a, b) => b.weight - a.weight), dropped };
+  // De mayor a menor peso, con «Otros» siempre al final
+  return { list: list.sort((a, b) => Number(a.key === "Otros") - Number(b.key === "Otros") || b.weight - a.weight), dropped };
 }
 
 /** De la salida de la IA a la ficha guardada, con validación determinista. */

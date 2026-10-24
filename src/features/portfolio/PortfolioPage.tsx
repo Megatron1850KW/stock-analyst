@@ -42,8 +42,8 @@ export function PortfolioSummary({ p }: { p: Portfolio }) {
   const invested = p.costEur;
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      <Stat label="Valor de tu cartera" value={formatCurrency(p.valueEur, "EUR")} sub={p.unvalued > 0 ? `${p.unvalued} ${p.unvalued === 1 ? "posición" : "posiciones"} sin precio no cuentan` : `${p.positions.length} posiciones`} />
-      <Stat label="Invertido (lo que tienes hoy)" value={formatCurrency(invested, "EUR")} sub="Precio medio de compra, con comisiones" />
+      <Stat label="Valor de tu cartera" value={formatCurrency(p.valueEur, "EUR")} sub={p.unvalued > 0 ? (p.unvalued === 1 ? "1 posición sin precio no cuenta" : `${p.unvalued} posiciones sin precio no cuentan`) : `${p.positions.length} posiciones`} />
+      <Stat label="Te costó lo que tienes hoy" value={formatCurrency(invested, "EUR")} sub={p.unvalued > 0 ? "Precio medio con comisiones, sin las posiciones sin precio" : "Precio medio de compra, con comisiones"} />
       <Stat
         label="Ganancia total"
         value={signedEur(p.totalReturnEur)}
@@ -129,7 +129,7 @@ function ScenariosPanel({ s, valueEur }: { s: Scenarios | null; valueEur: number
     <section className="rounded-[var(--radius-card)] border border-border bg-surface-raised p-5 shadow-card">
       <div className="flex items-center justify-between gap-3">
         <h2 className="font-serif text-[18px] font-semibold tracking-tight">Si todo sigue como hasta ahora…</h2>
-        <Badge tone="warning">Escenarios, no predicciones</Badge>
+        <Badge tone="warning" className="shrink-0 whitespace-nowrap">Escenarios, no predicciones</Badge>
       </div>
       {!s ? (
         <p className="mt-3 text-[13px] text-muted">Hace falta el crecimiento de al menos una posición (ventas de varios años o {SCENARIO_CONFIG.minPriceYears} años de precios) para dibujar escenarios.</p>

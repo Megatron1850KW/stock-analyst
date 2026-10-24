@@ -86,6 +86,7 @@ export function TransactionDialog({ open, onClose, holdings, preset }: { open: b
     setError(undefined);
     setInput(preset?.input ?? "");
     setType(preset?.type ?? "buy");
+    setKind("stock");
     setDate(todayIso());
     setQuantity("");
     setPrice("");
@@ -184,7 +185,7 @@ export function TransactionDialog({ open, onClose, holdings, preset }: { open: b
           </datalist>
         </Row>
         {!known && (
-          <Row label="Es un/una">
+          <Row label="Tipo de valor">
             <Segmented label="Tipo de valor" value={kind} onChange={setKind} items={KINDS} />
           </Row>
         )}

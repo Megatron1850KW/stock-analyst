@@ -93,7 +93,7 @@ export interface Portfolio {
   dividendsEur: number;
   totalReturnEur: number;
   annualizedPct: number | null;
-  /** Posiciones abiertas sin valor (falta precio o tipo de cambio). */
+  /** Posiciones abiertas sin valor (falta precio o tipo de cambio): no cuentan en el valor ni en el coste. */
   unvalued: number;
   bySector: Exposure[];
   byCountry: Exposure[];
@@ -102,6 +102,7 @@ export interface Portfolio {
 }
 
 const EPS = 1e-9;
+const LAST = new Set(["Otros", "Sin dato"]);
 
 export function buildPortfolio(input: {
   securities: SecurityInfo[];
@@ -228,7 +229,8 @@ export function buildPortfolio(input: {
     }
     return [...m.entries()]
       .map(([key, v]) => ({ key, valueEur: v, weight: valueEur > 0 ? v / valueEur : 0 }))
-      .sort((a, b) => b.valueEur - a.valueEur);
+      // De mayor a menor; «Otros» y «Sin dato» al final
+      .sort((a, b) => Number(LAST.has(a.key)) - Number(LAST.has(b.key)) || b.valueEur - a.valueEur);
   };
   const sum = (f: (p: Position) => number | null) => all.reduce((s, p) => s + (f(p) ?? 0), 0);
 
@@ -236,7 +238,8 @@ export function buildPortfolio(input: {
     positions: positions.sort((a, b) => (b.valueEur ?? -1) - (a.valueEur ?? -1)),
     closed,
     valueEur,
-    costEur: sum((p) => (p.shares > 0 ? p.costEur : 0)),
+    // Solo las posiciones con valor, para que coste y valor sean comparables
+    costEur: valued.reduce((s, p) => s + p.costEur, 0),
     unrealizedEur: sum((p) => (p.shares > 0 ? p.unrealizedEur : 0)),
     realizedEur: sum((p) => p.realizedEur),
     dividendsEur: sum((p) => p.dividendsEur),

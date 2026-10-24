@@ -125,7 +125,7 @@ export function PositionCard({ h, onBuy, onSheet, onClassify }: { h: Holding; on
   const r = h.recommendation;
   const ret = p.totalReturnPct;
   const sector = p.security.sector ?? (h.fund?.profile.sectors.length ? "Repartido (ver ficha)" : null);
-  const country = p.security.country;
+  const country = p.security.country ?? (h.fund?.profile.countries.length ? "Repartido" : null);
   return (
     <article className="flex flex-col rounded-[var(--radius-card)] border border-border bg-surface-raised p-5 shadow-card" aria-label={`${h.row.ticker}: ${r.action}`}>
       <header className="flex items-start justify-between gap-3">
@@ -191,8 +191,8 @@ export function PositionCard({ h, onBuy, onSheet, onClassify }: { h: Holding; on
       )}
 
       <footer className="mt-auto flex items-center justify-between gap-2 pt-4 text-[11.5px] text-muted">
-        <button type="button" onClick={onClassify} className="truncate text-left hover:text-text" title="Cambiar sector o país">
-          {sector ?? <span className="text-warning-text">Sector: {SIN_DATO}</span>} · {country ? countryName(country) : <span className="text-warning-text">País: {SIN_DATO}</span>}
+        <button type="button" onClick={onClassify} className="line-clamp-2 min-w-0 text-left hover:text-text" title="Cambiar sector o país">
+          {sector ?? <span className="text-warning-text">Sector: {SIN_DATO}</span>} · {country ? (country === "Repartido" ? "varios países" : countryName(country)) : <span className="text-warning-text">País: {SIN_DATO}</span>}
         </button>
         <Button variant="secondary" size="sm" onClick={onBuy}><Plus aria-hidden /> Operación</Button>
       </footer>

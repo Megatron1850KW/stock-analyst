@@ -111,7 +111,7 @@ export function FundSheetDialog({ h, onClose }: { h: Holding | null; onClose: ()
             {meta?.origin === "pdf-extraction" && <Badge tone="accent"><Sparkles aria-hidden /> Leída por IA de {meta.doc_name}</Badge>}
             {meta?.edited_at && <Badge>Corregida por ti</Badge>}
             {profile.asOf && <span>Datos a {formatDate(profile.asOf)}</span>}
-            {meta?.cost_eur != null && <span>· coste {formatNumber(meta.cost_eur, 3)} €</span>}
+            {meta?.cost_eur != null && <span>· coste {meta.cost_eur < 0.01 ? "menos de 1 céntimo" : `${formatNumber(meta.cost_eur, 2)} €`}</span>}
           </div>
           <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-[13px]">
             {[

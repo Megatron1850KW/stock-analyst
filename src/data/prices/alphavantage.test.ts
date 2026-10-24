@@ -44,6 +44,9 @@ describe("Alpha Vantage (respuestas FICTICIAS con su formato)", () => {
     expect(pickAvSymbol(matches, { ...target, exchange: "GY" })).toBe("FTX.DEX");
     // Mismo ticker en Londres pero otra empresa y otra divisa: no vale
     expect(pickAvSymbol(matches.filter((m) => m.region === "United Kingdom"), target)).toBeNull();
+    // Un ETF también se encuentra; un fondo de inversión no cotizado, no
+    expect(pickAvSymbol(matches, { ticker: "FWRL", name: "FICTICIO MSCI WORLD", exchange: "GY", currency: "EUR" })).toBe("FWRL.DEX");
+    expect(pickAvSymbol(matches, { ticker: "FIDX", name: "Ficticio Index Fund", exchange: null, currency: "USD" })).toBeNull();
   });
 
   it("sabe sin consultar que no cubre la Bolsa de Madrid", () => {
