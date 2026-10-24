@@ -223,7 +223,8 @@ export function pickAvSymbol(matches: AvMatch[], target: SymbolTarget): string |
   const legal = new Set(nameWords(target.name));
   let best: { symbol: string; score: number } | null = null;
   for (const m of matches) {
-    if (m.type && !/equity/i.test(m.type)) continue;
+    // Acciones, ETFs y ETCs (Alpha Vantage clasifica los ETC como «ETF»); fuera fondos, índices y divisas
+    if (m.type && !/equity|etf/i.test(m.type)) continue;
     const region = regions.some((r) => m.region.toLowerCase().includes(r));
     const ticker = compact(m.symbol.split(".")[0]!) === compact(target.ticker);
     const currency = sameCurrency(target.currency, m.currency);

@@ -65,6 +65,50 @@ function realPrices(symbol: string, kind: "history" | "splits" | "quote" = "hist
 const fakeEuReportHtml = ["Modelo de negocio", "Principales riesgos", "Evolución previsible"]
   .map((h) => `<h2>${h}</h2>` + Array.from({ length: 10 }, (_, k) => `<p>${h} ${k}: texto ficticio de Ficticia Textil para la prueba.</p>`).join(""))
   .join("");
+/** ETF FICTICIO para la cartera: ISIN y cotizaciones inventados. */
+export const FAKE_ETF_ISIN = "IE000FICTET1";
+const FAKE_ETF_FIGI = [
+  { figi: "BBG000ETF0LN", name: "FICTICIO MSCI WORLD", ticker: "FWLD", exchCode: "LN", marketSector: "Equity" },
+  { figi: "BBG000ETF0GY", name: "FICTICIO MSCI WORLD", ticker: "FWRL", exchCode: "GY", marketSector: "Equity" },
+];
+/** Ficha FICTICIA de ese ETF, como la devolvería Haiku. */
+const FAKE_ETF_SHEET = {
+  coincide: true,
+  ter: 0.2,
+  indice: "MSCI World (ficticio)",
+  replicacion: "física optimizada (muestreo)",
+  domicilio: "IE",
+  patrimonio_millones: 12500,
+  divisa_patrimonio: "USD",
+  divisa_fondo: "USD",
+  dividendos: "acumulación",
+  colateral: null,
+  principales_posiciones: [{ nombre: "Ficticia Corp", peso: 4.8 }, { nombre: "Otra Ficticia", peso: 3.9 }, { nombre: "Ficticia Textil", peso: 2.1 }],
+  sectores: [
+    { nombre: "Tecnología", peso: 26.1 }, { nombre: "Finanzas", peso: 15.8 }, { nombre: "Salud", peso: 11.2 },
+    { nombre: "Industria", peso: 10.9 }, { nombre: "Consumo discrecional", peso: 10.3 }, { nombre: "Otros", peso: 25.7 },
+  ],
+  paises: [{ nombre: "US", peso: 71.2 }, { nombre: "JP", peso: 5.6 }, { nombre: "GB", peso: 3.8 }, { nombre: "FR", peso: 2.9 }, { nombre: "Otros", peso: 16.5 }],
+  fecha_datos: "2026-09-30",
+  paginas: [{ dato: "ter", pagina: 1 }, { dato: "indice", pagina: 1 }, { dato: "sectores", pagina: 2 }, { dato: "paises", pagina: 2 }],
+  notas: "Datos de ejemplo ficticios para las pruebas.",
+};
+/** PDF mínimo de 2 páginas (solo para contar páginas). */
+const FAKE_PDF = Array.from(Buffer.from("%PDF-1.7 /Type /Page /Type /Page /Type /Pages"));
+/** Tipos EUR→divisa FICTICIOS en días laborables desde `from` hasta el 23-10-2026. */
+function fakeFxSeries(from: string, symbols: string[]): string {
+  const base: Record<string, [number, number]> = { USD: [1.08, 1.16], GBP: [0.85, 0.86], CHF: [0.95, 0.93] };
+  const rates: Record<string, Record<string, number>> = {};
+  const start = Date.parse(from);
+  const end = Date.parse("2026-10-23");
+  for (let t = start; t <= end; t += 86_400_000) {
+    const d = new Date(t);
+    if (d.getUTCDay() === 0 || d.getUTCDay() === 6) continue;
+    const k = (t - Date.parse("2020-01-01")) / (end - Date.parse("2020-01-01"));
+    rates[d.toISOString().slice(0, 10)] = Object.fromEntries(symbols.map((c) => [c, +((base[c]?.[0] ?? 1) + ((base[c]?.[1] ?? 1) - (base[c]?.[0] ?? 1)) * k).toFixed(4)]));
+  }
+  return JSON.stringify({ amount: 1, base: "EUR", start_date: from, end_date: "2026-10-23", rates });
+}
 const realFile = (ticker: string, kind: string) => readReal(join(secDir, `${ticker}-${kind}.json`))!;
 
 export async function installTauriMock(page: Page, opts: MockOptions = {}) {
@@ -75,7 +119,7 @@ export async function installTauriMock(page: Page, opts: MockOptions = {}) {
   }
   db.exec("PRAGMA foreign_keys = ON");
   // La app consulta esta tabla para mostrar la versión del esquema
-  db.exec("CREATE TABLE _sqlx_migrations (version INTEGER); INSERT INTO _sqlx_migrations VALUES (1), (2), (3), (4), (5), (6);");
+  db.exec("CREATE TABLE _sqlx_migrations (version INTEGER); INSERT INTO _sqlx_migrations VALUES (1), (2), (3), (4), (5), (6), (7);");
 
   const store = new Map<string, unknown>(opts.settings ? [["settings", opts.settings]] : []);
   const secrets = new Set(opts.secrets ?? []);
@@ -181,9 +225,12 @@ export async function installTauriMock(page: Page, opts: MockOptions = {}) {
         const body = JSON.parse(args.body as string) as { model: string; system: { text: string }[]; messages: { content: string }[] };
         const ticker = /"ticker": ?"([A-Z.-]+)"/.exec(body.messages[0]!.content)?.[1];
         const isPeers = body.system[0]!.text.includes("competidores");
-        ai.push(isPeers ? "peers" : "analysis");
+        const isEtf = body.system[0]!.text.includes("fichas comerciales");
+        ai.push(isEtf ? "etf" : isPeers ? "peers" : "analysis");
         let analysis: unknown;
-        if (isPeers) {
+        if (isEtf) {
+          analysis = FAKE_ETF_SHEET;
+        } else if (isPeers) {
           // Propuesta REAL guardada (Claude Haiku 5.5) para MU y GOOG; FICTICIA para el resto
           const realPeers = ticker && join(root, "tests/fixtures/ai", `${ticker}-peers.json`);
           analysis = opts.peers ?? (realPeers && existsSync(realPeers) ? JSON.parse(readFileSync(realPeers, "utf8")).proposal : FAKE_PEERS);
@@ -203,7 +250,7 @@ export async function installTauriMock(page: Page, opts: MockOptions = {}) {
           content: [{ type: "text", text: JSON.stringify(analysis) }],
           stop_reason: "end_turn",
           stop_sequence: null,
-          usage: isPeers
+          usage: isPeers || isEtf
             ? { input_tokens: 800, output_tokens: 300, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 }
             : { input_tokens: 30_000, output_tokens: 4_000, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
         };
@@ -216,7 +263,7 @@ export async function installTauriMock(page: Page, opts: MockOptions = {}) {
           const r = await eu.leiByIsin(id);
           return JSON.stringify({ data: r ? [{ attributes: { lei: r.lei, entity: { legalName: { name: r.name }, legalAddress: { country: r.country } } } }] : [] });
         }
-        if (args.resource === "figi") return JSON.stringify([{ data: await eu.figi(id) }]);
+        if (args.resource === "figi") return JSON.stringify([{ data: id === FAKE_ETF_ISIN ? FAKE_ETF_FIGI : await eu.figi(id) }]);
         if (args.resource === "esef_filings") return JSON.stringify({ data: await eu.esefFilings(id) });
         throw new Error("recurso no simulado");
       }
@@ -224,6 +271,10 @@ export async function installTauriMock(page: Page, opts: MockOptions = {}) {
         return { text: JSON.stringify(await eu.esefDocument(args.path as string)), path: `/simulado/documents/esef${args.path as string}`, cached: false };
       case "esef_report":
         return { text: fakeEuReportHtml, path: "/simulado/documents/esef/informe.xhtml", cached: false };
+      case "fx_series":
+        return fakeFxSeries(args.from as string, (args.symbols as string).split(","));
+      case "document_read_pdf":
+        return FAKE_PDF;
       case "price_series":
         return alphaVantage(() => avSeriesJson(args.interval as "weekly" | "monthly"));
       case "price_search":

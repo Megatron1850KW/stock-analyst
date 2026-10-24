@@ -57,3 +57,16 @@ export function formatMonthYear(iso: string): string {
     .format(new Date(`${iso.slice(0, 10)}T00:00:00Z`))
     .replace(".", "");
 }
+
+/**
+ * Número escrito a la española o a la inglesa: «1.234,56», «1234,56» o «1234.56».
+ * Null si no es un número.
+ */
+export function parseDecimal(raw: string): number | null {
+  let s = raw.trim().replace(/\s|€|\$/g, "");
+  if (!s) return null;
+  if (s.includes(",")) s = s.replace(/\./g, "").replace(",", ".");
+  else if (/^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, "");
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+}

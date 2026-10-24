@@ -5,7 +5,7 @@ import { Link, useNavigate } from "react-router";
 import { AnimatedLogo } from "@/app/AnimatedLogo";
 import { DISCLAIMER } from "@/app/Disclaimer";
 import { EmptyState } from "@/app/EmptyState";
-import { SECTIONS } from "@/app/sections";
+import { BUILT_PHASE, SECTIONS } from "@/app/sections";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
@@ -22,6 +22,9 @@ import { VerdictBadge, yearsText } from "@/features/watchlist/ficha/Indicators";
 import { signedPercent } from "@/features/watchlist/ficha/format";
 import { formatCurrency, formatNumber, formatPercent, SIN_DATO } from "@/lib/format";
 import { cn } from "@/lib/cn";
+import { FundsTable } from "@/features/portfolio/FundsTable";
+import { PortfolioSummary, VisionBoard } from "@/features/portfolio/PortfolioPage";
+import { usePortfolio } from "@/features/portfolio/queries";
 import { appDb } from "@/platform/database";
 import { comparisonRow, highlights, sortRows, SORT_LABELS, type ComparisonRow, type Highlight, type SortKey } from "./rows";
 
@@ -240,11 +243,11 @@ function HighlightCard({ h }: { h: Highlight }) {
 
 type Tab = "watchlist" | "portfolio" | "etf";
 
-function Tabs({ tab, onChange, counts }: { tab: Tab; onChange: (t: Tab) => void; counts: { watchlist: number } }) {
+function Tabs({ tab, onChange, counts }: { tab: Tab; onChange: (t: Tab) => void; counts: { watchlist: number; funds: number; portfolio: number } }) {
   const items: { id: Tab; label: ReactNode }[] = [
     { id: "watchlist", label: <>Acciones <span className="text-muted tabular">{counts.watchlist}</span></> },
-    { id: "etf", label: "ETFs y ETCs" },
-    { id: "portfolio", label: "Mi cartera" },
+    { id: "etf", label: <>ETFs y ETCs <span className="text-muted tabular">{counts.funds}</span></> },
+    { id: "portfolio", label: <>Mi cartera <span className="text-muted tabular">{counts.portfolio}</span></> },
   ];
   return (
     <div role="tablist" aria-label="Qué comparar" className="inline-flex rounded-xl border border-border bg-surface p-1">
@@ -317,6 +320,8 @@ function ComparisonTable({ rows }: { rows: ComparisonRow[] }) {
 /** Portada: comparativa visual de fundamentales de todo lo que sigues (y, más adelante, de tu cartera). */
 export function ComparisonPage() {
   const { data: rows, isLoading } = useComparison();
+  const portfolio = usePortfolio();
+  const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>("watchlist");
   const [sort, setSort] = useState<SortKey>("cheapest");
   const sorted = rows ? sortRows(rows, sort) : [];
@@ -336,7 +341,15 @@ export function ComparisonPage() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <Tabs tab={tab} onChange={setTab} counts={{ watchlist: rows?.length ?? 0 }} />
+          <Tabs
+            tab={tab}
+            onChange={setTab}
+            counts={{
+              watchlist: rows?.length ?? 0,
+              funds: portfolio.data?.holdings.filter((h) => h.row.kind !== "stock").length ?? 0,
+              portfolio: portfolio.data?.holdings.length ?? 0,
+            }}
+          />
           <Button asChild variant="secondary">
             <Link to="/watchlist"><Plus aria-hidden /> Añadir ticker</Link>
           </Button>
@@ -378,20 +391,39 @@ export function ComparisonPage() {
         </>
       )}
       {tab === "etf" && (
-        <EmptyState
-          icon={Layers}
-          title="ETFs y ETCs"
-          description="No tienen informes de empresa: se compararán por coste (TER), qué índice o materia prima siguen, diversificación, solapamiento con tu cartera y tendencia de largo plazo."
-          upcoming="Llega con la cartera (fase 7)"
-        />
+        portfolio.data && portfolio.data.holdings.some((h) => h.row.kind !== "stock") ? (
+          <>
+            <FundsTable holdings={portfolio.data.holdings.filter((h) => h.row.kind !== "stock")} />
+            <p className="mt-3 text-[11.5px] text-muted">
+              Los ETFs y ETCs no tienen estados financieros: se miran su coste, qué siguen, su tendencia de fondo (precio frente a su media de 10 meses) y el equilibrio de tu cartera. {DISCLAIMER}
+            </p>
+          </>
+        ) : (
+          <EmptyState
+            icon={Layers}
+            title="ETFs y ETCs"
+            description="Cuando registres un ETF o un ETC en tu cartera, aquí los verás comparados por coste (TER), qué índice o materia prima siguen, tendencia de largo plazo y peso."
+          >
+            <Button asChild><Link to="/portfolio">Ir a Mi Portfolio</Link></Button>
+          </EmptyState>
+        )
       )}
       {tab === "portfolio" && (
-        <EmptyState
-          icon={WalletCards}
-          title="Mi cartera"
-          description="Cuando registres tus operaciones verás aquí tus posiciones con esta misma comparativa, más su rentabilidad en euros, su peso y la recomendación de comprar más o mantener."
-          upcoming="Llega en la fase 7"
-        />
+        portfolio.data && portfolio.data.holdings.length > 0 ? (
+          <div className="space-y-5">
+            <PortfolioSummary p={portfolio.data.portfolio} />
+            <VisionBoard view={portfolio.data} onBuy={() => navigate("/portfolio")} onSheet={() => navigate("/portfolio")} onClassify={() => navigate("/portfolio")} />
+            <p className="text-[11.5px] text-muted">Pulsa en el nombre de una acción para ver su ficha. {DISCLAIMER}</p>
+          </div>
+        ) : (
+          <EmptyState
+            icon={WalletCards}
+            title="Mi cartera"
+            description="Cuando registres tus operaciones verás aquí tus posiciones con su rentabilidad en euros, su peso, su valoración y la recomendación de comprar más o mantener."
+          >
+            <Button asChild><Link to="/portfolio">Ir a Mi Portfolio</Link></Button>
+          </EmptyState>
+        )
       )}
 
       <nav aria-label="Secciones" className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -402,7 +434,7 @@ export function ComparisonPage() {
               <span className="flex size-9 items-center justify-center rounded-lg bg-sand/60"><Icon className="size-4 text-accent-text" aria-hidden /></span>
               <span className="min-w-0">
                 <span className="block text-[13.5px] font-medium">{s.label}</span>
-                <span className="block truncate text-[11.5px] text-muted">{s.phase <= 4 ? s.title : `Llega en la fase ${s.phase}`}</span>
+                <span className="block truncate text-[11.5px] text-muted">{s.phase <= BUILT_PHASE ? s.title : `Llega en la fase ${s.phase}`}</span>
               </span>
               <kbd className="ml-auto font-sans text-[11px] text-muted">⌘{s.shortcut}</kbd>
             </Link>

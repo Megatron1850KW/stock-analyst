@@ -70,8 +70,8 @@ export function avQuoteJson(symbol: string, price: number): string {
 }
 
 export function avSearchJson(): string {
-  const m = (symbol: string, name: string, region: string, currency: string) => ({
-    "1. symbol": symbol, "2. name": name, "3. type": "Equity", "4. region": region, "5. marketOpen": "09:00", "6. marketClose": "17:30",
+  const m = (symbol: string, name: string, region: string, currency: string, type = "Equity") => ({
+    "1. symbol": symbol, "2. name": name, "3. type": type, "4. region": region, "5. marketOpen": "09:00", "6. marketClose": "17:30",
     "7. timezone": "UTC+01", "8. currency": currency, "9. matchScore": "1.0000",
   });
   return JSON.stringify({
@@ -80,6 +80,8 @@ export function avSearchJson(): string {
       m("FTX.DEX", "Ficticia Textil SA", "XETRA", "EUR"),
       m("FTX.MC", "Ficticia Textil SA", "Spain/Madrid", "EUR"),
       m("FMD.PA", "Ficticia Moda SE", "Paris", "EUR"),
+      m("FWRL.DEX", "Ficticio MSCI World UCITS ETF", "XETRA", "EUR", "ETF"),
+      m("FIDX", "Ficticio Index Fund", "United States", "USD", "Mutual Fund"),
     ],
   });
 }

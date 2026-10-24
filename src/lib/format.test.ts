@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatCurrency, formatNumber, formatOrMissing, formatPercent, SIN_DATO } from "./format";
+import { parseDecimal, formatCurrency, formatNumber, formatOrMissing, formatPercent, SIN_DATO } from "./format";
 
 // Intl usa espacio duro (U+00A0) entre cifra y símbolo
 const nbsp = (s: string) => s.replace(/ /g, " ");
@@ -41,5 +41,18 @@ describe("importes y fechas", () => {
     const { formatDate, formatMonthYear } = await import("./format");
     expect(formatDate("2025-12-31")).toBe("31 dic 2025");
     expect(formatMonthYear("2026-06-30")).toBe("jun 2026");
+  });
+});
+
+describe("parseDecimal", () => {
+  it("entiende comas y puntos", () => {
+    expect(parseDecimal("1.234,56")).toBe(1234.56);
+    expect(parseDecimal("1234,5")).toBe(1234.5);
+    expect(parseDecimal("1234.5")).toBe(1234.5);
+    expect(parseDecimal("1.234")).toBe(1234);
+    expect(parseDecimal("0.5")).toBe(0.5);
+    expect(parseDecimal("12 €")).toBe(12);
+    expect(parseDecimal("")).toBeNull();
+    expect(parseDecimal("abc")).toBeNull();
   });
 });

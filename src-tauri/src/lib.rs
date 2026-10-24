@@ -1,6 +1,7 @@
 mod claude;
 mod documents;
 mod eu;
+mod fx;
 mod http;
 mod prices;
 mod sec;
@@ -51,6 +52,12 @@ fn migrations() -> Vec<Migration> {
             sql: include_str!("../../src/db/migrations/0006_price_symbols.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 7,
+            description: "cartera",
+            sql: include_str!("../../src/db/migrations/0007_portfolio.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
 
@@ -79,6 +86,7 @@ pub fn run() {
             prices::price_splits,
             prices::price_series,
             prices::price_search,
+            fx::fx_series,
             documents::document_store,
             documents::document_open,
             documents::document_delete,

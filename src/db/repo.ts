@@ -554,3 +554,35 @@ export function countPendingRequests(db: Db): Promise<{ security_id: number; n: 
 export async function setFilingLocalPath(db: Db, url: string, path: string): Promise<void> {
   await db.execute("UPDATE filings SET local_path = ? WHERE url = ? AND source = 'sec-edgar'", [path, url]);
 }
+
+const FX_PER_INSERT = 150; // 600 parámetros por sentencia
+
+/** Tipos EUR→divisa del BCE (rate = unidades de la divisa por 1 €). */
+export async function saveFxRates(db: Db, rates: { date: string; quote: string; rate: number }[], source: string): Promise<void> {
+  for (let i = 0; i < rates.length; i += FX_PER_INSERT) {
+    const chunk = rates.slice(i, i + FX_PER_INSERT);
+    await db.execute(
+      `INSERT INTO fx_rates (date, base, quote, rate, source) VALUES ${chunk.map(() => "(?, 'EUR', ?, ?, ?)").join(", ")}
+       ON CONFLICT (date, base, quote) DO UPDATE SET rate = excluded.rate, source = excluded.source, fetched_at = excluded.fetched_at`,
+      chunk.flatMap((r) => [r.date, r.quote, r.rate, source]),
+    );
+  }
+}
+
+export function getFxRates(db: Db): Promise<{ date: string; quote: string; rate: number }[]> {
+  return db.select("SELECT date, quote, rate FROM fx_rates WHERE base = 'EUR' ORDER BY quote, date");
+}
+
+/** Última fecha guardada por divisa. */
+export function getFxCoverage(db: Db): Promise<{ quote: string; first: string; last: string }[]> {
+  return db.select("SELECT quote, MIN(date) AS first, MAX(date) AS last FROM fx_rates WHERE base = 'EUR' GROUP BY quote");
+}
+
+/** En la watchlist o en la cartera: se analiza y se piden sus informes. */
+export async function isTracked(db: Db, securityId: number): Promise<boolean> {
+  const rows = await db.select<{ n: number }>(
+    "SELECT (in_watchlist = 1 OR id IN (SELECT security_id FROM transactions)) AS n FROM securities WHERE id = ?",
+    [securityId],
+  );
+  return rows[0]?.n === 1;
+}
