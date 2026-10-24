@@ -72,7 +72,11 @@ export async function importEuIsin(
   rawIsin: string,
   onStep: (step: ImportStep) => void = () => {},
   today: Date = new Date(),
-  opts: { watchlist?: boolean } = {},
+  opts: {
+    watchlist?: boolean;
+    /** Competidor propuesto por la IA: el ISIN debe ser de esa empresa (nombre o ticker), si no, es un ISIN equivocado. */
+    expect?: { name: string; ticker: string };
+  } = {},
 ): Promise<ImportResult> {
   const watchlist = opts.watchlist ?? true;
   const isin = rawIsin.trim().toUpperCase();
@@ -83,11 +87,15 @@ export async function importEuIsin(
     throw new ImportError(`No encuentro el ISIN ${isin} en el registro oficial de entidades (GLEIF). Revisa que esté bien escrito.`);
   }
   const country = entity.country ?? isin.slice(0, 2);
-  const listing = pickListing(await eu.figi(isin), country);
+  const listings = await eu.figi(isin);
+  const listing = pickListing(listings, country);
   if (!listing?.ticker) {
     throw new ImportError(`${entity.name} (${isin}) no aparece cotizando en ninguna bolsa europea según OpenFIGI.`);
   }
   const ticker = listing.ticker.replace(/\s.*$/, "");
+  if (opts.expect && !sameCompany(opts.expect, { name: entity.name, tickers: listings.map((r) => r.ticker ?? "") })) {
+    throw new ImportError(`El ISIN ${isin} es de ${titleCase(entity.name)}, no de ${opts.expect.name}.`);
+  }
   const notes: string[] = [];
 
   onStep("filings");
@@ -170,6 +178,28 @@ export async function importEuIsin(
     notes,
     requests: requests.length,
   };
+}
+
+const LEGAL_WORDS = new Set(["sa", "se", "ag", "nv", "plc", "spa", "ab", "asa", "as", "oyj", "bv", "kgaa", "co", "the", "group", "groupe", "holding", "holdings", "de", "del", "la", "el", "and", "et", "und"]);
+const words = (s: string) =>
+  s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((w) => w.length >= 2 && !LEGAL_WORDS.has(w));
+const compact = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]/g, "");
+
+/**
+ * ¿Es la misma empresa? Comparten una palabra significativa del nombre
+ * («Hennes & Mauritz» / «H & M HENNES & MAURITZ AB») o el ticker coincide
+ * (HM-B / HMB). Evita aceptar un ISIN equivocado que proponga la IA.
+ */
+export function sameCompany(expected: { name: string; ticker: string }, found: { name: string; tickers: string[] }): boolean {
+  const legal = new Set(words(found.name));
+  if (words(expected.name).some((w) => w.length >= 3 && legal.has(w))) return true;
+  const t = compact(expected.ticker);
+  return t.length > 0 && found.tickers.some((x) => compact(x.replace(/\s.*$/, "")) === t);
 }
 
 /** «INDUSTRIA DE DISEÑO TEXTIL, S.A.» → «Industria De Diseño Textil, S.A.» (los registros oficiales vienen en mayúsculas). */

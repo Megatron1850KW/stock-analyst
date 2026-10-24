@@ -33,8 +33,8 @@ export interface MockOptions {
 /** Propuesta FICTICIA de competidores (existen en tests/fixtures/ficticio/tickers.json). */
 const FAKE_PEERS = {
   competidores: [
-    { ticker: "OTRF", nombre: "Otra Ficticia", motivo: "También vende piezas industriales (ficticio)." },
-    { ticker: "FIC.B", nombre: "Ficticia clase B", motivo: "Negocio parecido (ficticio)." },
+    { ticker: "OTRF", nombre: "Otra Ficticia", mercado: "EEUU", isin: null, motivo: "También vende piezas industriales (ficticio)." },
+    { ticker: "FIC.B", nombre: "Ficticia clase B", mercado: "EEUU", isin: null, motivo: "Negocio parecido (ficticio)." },
   ],
   nota: "",
 };
@@ -180,6 +180,9 @@ export async function installTauriMock(page: Page, opts: MockOptions = {}) {
           // Propuesta REAL guardada (Claude Haiku 5.5) para MU y GOOG; FICTICIA para el resto
           const realPeers = ticker && join(root, "tests/fixtures/ai", `${ticker}-peers.json`);
           analysis = opts.peers ?? (realPeers && existsSync(realPeers) ? JSON.parse(readFileSync(realPeers, "utf8")).proposal : FAKE_PEERS);
+          // Las propuestas REALES guardadas son de la versión 1 del prompt (todas de EE. UU., sin mercado ni ISIN)
+          const v1 = analysis as { competidores: Record<string, unknown>[] };
+          v1.competidores = v1.competidores.map((c) => ({ mercado: "EEUU", isin: null, ...c }));
         } else {
           // Análisis REAL guardado (Claude Sonnet 5.5, 24-10-2026) para MU y GOOG; FICTICIO para el resto
           const realAi = ticker && join(root, "tests/fixtures/ai", `${ticker}-analysis.json`);

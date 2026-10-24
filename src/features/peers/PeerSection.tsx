@@ -257,7 +257,7 @@ function AddPeerForm({ securityId }: { securityId: number }) {
       <label htmlFor={`peer-${securityId}`} className="text-[12.5px] text-muted">
         Añadir competidor
       </label>
-      <Input id={`peer-${securityId}`} value={ticker} onChange={(e) => setTicker(e.target.value)} placeholder="Ticker de EE. UU., p. ej. INTC" className="w-[220px]" />
+      <Input id={`peer-${securityId}`} value={ticker} onChange={(e) => setTicker(e.target.value)} placeholder="Ticker (INTC) o ISIN europeo" className="w-[220px]" />
       <Button size="sm" variant="secondary" type="submit" disabled={add.isPending || !ticker.trim()}>
         <Plus aria-hidden /> {add.isPending ? "Descargando sus datos…" : "Añadir"}
       </Button>
@@ -312,7 +312,7 @@ export function PeerSection({ securityId }: { securityId: number }) {
 
       {finding && (
         <div role="status" className="mt-5 space-y-2">
-          <p className="text-[13px] text-muted">Buscando competidores y descargando sus informes de la SEC…</p>
+          <p className="text-[13px] text-muted">Buscando competidores y descargando sus informes oficiales…</p>
           <div className="h-3 w-3/4 animate-pulse rounded bg-surface" />
         </div>
       )}
@@ -369,7 +369,7 @@ export function PeerSection({ securityId }: { securityId: number }) {
             <AddPeerForm securityId={securityId} />
             <p className="max-w-[52ch] text-[11.5px] text-muted">
               {proposal
-                ? `Lista propuesta por la IA el ${formatDate(proposal.createdAt)}${proposal.costEur !== null ? ` (coste ${formatCurrency(proposal.costEur, "EUR", proposal.costEur < 0.01 ? 4 : 2)})` : ""} y comprobada en la SEC. `
+                ? `Lista propuesta por la IA el ${formatDate(proposal.createdAt)}${proposal.costEur !== null ? ` (coste ${formatCurrency(proposal.costEur, "EUR", proposal.costEur < 0.01 ? 4 : 2)})` : ""} y comprobada en los registros oficiales (SEC o ESEF). `
                 : ""}
               Las cifras de la tabla son cálculos propios con los informes oficiales de cada empresa. Los competidores no entran en tu watchlist; su precio se actualiza como mucho una vez por semana.
               {proposal?.stored?.rejected.length ? ` Descartados: ${proposal.stored.rejected.map((r) => `${r.ticker} (${r.why.charAt(0).toLowerCase()}${r.why.slice(1).replace(/\.$/, "")})`).join(", ")}.` : ""}

@@ -1,5 +1,6 @@
 import { useIsMutating, useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { createClaudeClient } from "@/data/claude/client";
+import { tauriEuClient } from "@/data/esef/client";
 import { providerFor } from "@/data/prices/provider";
 import { tauriSecClient } from "@/data/sec-edgar/client";
 import { removePeer } from "@/db/peers-repo";
@@ -7,6 +8,7 @@ import { deleteIfUnused } from "@/db/repo";
 import { aiSpendKey } from "@/features/ai/queries";
 import { AiAnalysisError } from "@/features/ai/equity-analysis";
 import { secUserAgent } from "@/features/settings/schema";
+import { looksLikeIsin } from "@/features/watchlist/import-us";
 import { appDb } from "@/platform/database";
 import { secrets } from "@/platform/secrets";
 import { loadSettings } from "@/platform/settings-store";
@@ -21,11 +23,12 @@ export function usePeerGroup(securityId: number) {
   return useQuery({ queryKey: peerGroupKey(securityId), queryFn: async () => loadPeerGroup(await appDb(), securityId) });
 }
 
+/** Sin nombre y email para la SEC se pueden buscar igualmente competidores europeos. */
 async function syncDeps() {
   const settings = await loadSettings();
   const ua = secUserAgent(settings);
-  if (!ua) throw new AiAnalysisError("Falta tu nombre y email para la SEC. Añádelos en Ajustes.");
-  return { settings, db: await appDb(), sec: memoTickers(tauriSecClient(ua)), prices: providerFor(settings.priceProvider) };
+  const sec = ua ? memoTickers(tauriSecClient(ua)) : null;
+  return { settings, db: await appDb(), sec, eu: tauriEuClient(), prices: providerFor(settings.priceProvider) };
 }
 
 /**
@@ -34,9 +37,9 @@ async function syncDeps() {
  */
 export async function findPeers(securityId: number, opts: { force?: boolean; allowOverBudget?: boolean } = {}): Promise<PeerSyncResult> {
   if (!(await secrets.has("anthropic_api_key"))) throw new AiAnalysisError("Falta la clave de Claude. Añádela en Ajustes, o añade tú los competidores.");
-  const { settings, db, sec, prices } = await syncDeps();
+  const { settings, db, sec, eu, prices } = await syncDeps();
   const { stored } = await proposePeers(
-    { db, client: createClaudeClient(), tickers: sec.tickers, model: settings.aiModelExtraction, budgetEur: settings.aiMonthlyBudgetEur },
+    { db, client: createClaudeClient(), tickers: sec ? sec.tickers : null, model: settings.aiModelExtraction, budgetEur: settings.aiMonthlyBudgetEur },
     securityId,
     opts,
   );
@@ -44,7 +47,7 @@ export async function findPeers(securityId: number, opts: { force?: boolean; all
     // Volver a proponer sustituye a los propuestos antes por la IA; los tuyos se quedan
     await db.execute("DELETE FROM peers WHERE security_id = ? AND source = 'ai-validated'", [securityId]);
   }
-  return linkPeers({ db, sec, prices }, securityId, stored.accepted, "ai-validated");
+  return linkPeers({ db, sec, eu, prices }, securityId, stored.accepted, "ai-validated");
 }
 
 function invalidate(qc: QueryClient, securityId: number) {
@@ -71,8 +74,11 @@ export function useAddPeer(securityId: number) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (ticker: string) => {
-      const { db, sec, prices } = await syncDeps();
-      const r = await linkPeers({ db, sec, prices }, securityId, [{ ticker: ticker.trim().toUpperCase(), reason: "Añadido por ti" }], "user");
+      const { db, sec, eu, prices } = await syncDeps();
+      const id = ticker.trim().toUpperCase();
+      // Un ISIN europeo va por ESEF; un ticker o un ISIN de EE. UU., por la SEC
+      const peer = looksLikeIsin(id) && !id.startsWith("US") ? { ticker: id, isin: id } : { ticker: id };
+      const r = await linkPeers({ db, sec, eu, prices }, securityId, [{ ...peer, reason: "Añadido por ti" }], "user");
       if (r.failed.length && !r.added.length) throw new Error(r.failed[0]!.message);
       return r;
     },

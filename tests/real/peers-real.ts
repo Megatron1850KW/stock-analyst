@@ -33,6 +33,13 @@ import { proposePeers } from "@/features/peers/propose";
 import { linkPeers, memoTickers } from "@/features/peers/sync";
 import { importUsTicker } from "@/features/watchlist/import-us";
 import { memoryDb } from "./memory-db";
+import type { EuClient } from "@/data/esef/client";
+
+/** Esta prueba es de EE. UU.: una europea propuesta se descarta (ver eu-probe para Europa). */
+const unavailable = async (): Promise<never> => {
+  throw new Error("Europa no se prueba en este script.");
+};
+const tauriEuClientUnavailable: EuClient = { leiByIsin: unavailable, figi: unavailable, esefFilings: unavailable, esefDocument: unavailable };
 
 const [ua, out = "af-fixtures", tickers = "MU,GOOG"] = process.argv.slice(2);
 if (!ua || !/@/.test(ua)) throw new Error('Uso: node peers-real.mjs "Nombre email" [carpeta] [MU,GOOG]');
@@ -147,7 +154,7 @@ for (const t of tickers.split(",")) {
   writeFileSync(join(out, "ai", `${t}-peers.json`), JSON.stringify(stored, null, 1));
   writeFileSync(join(out, "ai", `${t}-peers-request.json`), JSON.stringify(sent, null, 1));
 
-  const sync = await linkPeers({ db, sec: liveSec, prices: livePrices }, securityId, stored.accepted, "ai-validated");
+  const sync = await linkPeers({ db, sec: liveSec, eu: tauriEuClientUnavailable, prices: livePrices }, securityId, stored.accepted, "ai-validated");
   if (sync.failed.length) console.log(`Fallos: ${sync.failed.map((f) => `${f.ticker}: ${f.message}`).join("; ")}`);
 
   const group = await loadPeerGroup(db, securityId);

@@ -92,7 +92,7 @@ test("sin nombre y email para la SEC no busca acciones de EE. UU. y lo explica",
 test("una acción europea (ficticia) se añade por su ISIN con sus informes ESEF, sin pedir datos para la SEC", async ({ page }) => {
   const { calls } = await installTauriMock(page, { secrets: ["prices_api_key"] });
   await page.goto("/#/watchlist");
-  await page.getByLabel("Ticker o ISIN").fill("ES0000000001");
+  await page.getByLabel("Ticker o ISIN").fill("ES0000000010");
   await page.getByRole("button", { name: "Añadir" }).click();
   await expect(page.getByText(/Ficticia Textil.*añadida: 3 informes anuales y 0 intermedios/i)).toBeVisible();
   // Faltan los semestrales: se piden en «Documentos pendientes»
@@ -102,9 +102,32 @@ test("una acción europea (ficticia) se añade por su ISIN con sus informes ESEF
 
   await page.getByRole("row", { name: /FTX/ }).getByRole("link").first().click();
   await expect(page.getByRole("heading", { level: 1, name: /Ficticia Textil/i })).toBeVisible();
-  await expect(page.getByText("ES0000000001").first()).toBeVisible();
+  await expect(page.getByText("ES0000000010").first()).toBeVisible();
   await expect(page.locator("#financieros ~ div").getByRole("row", { name: /^Ventas/ })).toContainText("1.331 M€");
   await shot(page, "7-europa-ficha");
+});
+
+test("una europea (ficticia) se analiza con su informe ESEF y se compara con una competidora europea", async ({ page }) => {
+  const peers = {
+    competidores: [{ ticker: "FMD", nombre: "Ficticia Moda", mercado: "Europa", isin: "FR0000000010", motivo: "También vende ropa (ficticio)." }],
+    nota: "",
+  };
+  const { ai, calls } = await installTauriMock(page, { secrets: ["prices_api_key", "anthropic_api_key"], peers });
+  await page.goto("/#/watchlist");
+  await page.getByLabel("Ticker o ISIN").fill("ES0000000010");
+  await page.getByRole("button", { name: "Añadir" }).click();
+  await page.getByRole("row", { name: /FTX/ }).getByRole("link").first().click();
+
+  const ia = page.getByRole("region", { name: /Qué opina el analista/ });
+  await expect(ia.getByText("Análisis IA")).toBeVisible();
+  await expect.poll(() => ai.join(",")).toBe("analysis,peers");
+  // El texto para la IA sale del informe ESEF guardado, nunca de la SEC
+  expect(calls).toContain("esef_report");
+  expect(calls).not.toContain("sec_fetch");
+  const comp = page.getByRole("region", { name: "Frente a la competencia" });
+  await expect(comp.getByRole("row", { name: /FMD/ })).toBeVisible();
+  await comp.scrollIntoViewIfNeeded();
+  await shot(page, "8-europa-competidores");
 });
 
 test("sin clave de precios avisa en llano", async ({ page }) => {

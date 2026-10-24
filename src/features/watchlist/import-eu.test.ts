@@ -11,7 +11,7 @@ describe("alta de una acción europea por ISIN (datos FICTICIOS)", () => {
   it("ISIN → LEI → informes ESEF → cifras NIIF guardadas con su origen", async () => {
     const db = memoryDb();
     const eu = fakeEu();
-    const r = await importEuIsin(eu.client, db, " es0000000001 ", undefined, TODAY);
+    const r = await importEuIsin(eu.client, db, " es0000000010 ", undefined, TODAY);
     expect(r).toMatchObject({ ticker: "FTX", name: "Ficticia Textil, S.A.", annual: 3, interim: 0, historyYears: 2 });
 
     const s = (await getSecurity(db, r.securityId))!;

@@ -5,7 +5,7 @@ import { refreshPrices } from "@/features/prices/refresh";
 import { fakeSec } from "../../../tests/helpers/fake-sec";
 import { fakePrices } from "../../../tests/helpers/fake-prices";
 import { memoryDb } from "../../../tests/helpers/sqlite-db";
-import { importUsTicker, ImportError, looksLikeIsin } from "./import-us";
+import { importUsTicker, ImportError, isinChecksumOk, looksLikeIsin } from "./import-us";
 
 describe("alta de una acción de EE. UU. (datos ficticios)", () => {
   it("guarda el valor, sus 6 informes y las cifras con su origen", async () => {
@@ -79,6 +79,9 @@ describe("alta de una acción de EE. UU. (datos ficticios)", () => {
   it("reconoce un ISIN", () => {
     expect(looksLikeIsin("ES0148396007")).toBe(true);
     expect(looksLikeIsin("us0378331005")).toBe(true);
+    // Dígito de control (ISIN reales de Inditex, Apple y SAP)
+    expect(["ES0148396007", "US0378331005", "DE0007164600"].every(isinChecksumOk)).toBe(true);
+    expect(isinChecksumOk("ES0148396008")).toBe(false);
     expect(looksLikeIsin("AAPL")).toBe(false);
   });
 });
