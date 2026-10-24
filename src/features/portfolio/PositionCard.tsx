@@ -14,6 +14,7 @@ import { qualityTone, qualityWord } from "@/features/watchlist/ficha/Quality";
 import { signedPercent } from "@/features/watchlist/ficha/format";
 import { formatCurrency, formatNumber, formatPercent, SIN_DATO } from "@/lib/format";
 import { cn } from "@/lib/cn";
+import { RiskBadge } from "@/features/technical-risk/RiskBadge";
 import type { Holding } from "./load";
 
 const KIND_LABEL = { stock: "Acción", etf: "ETF", etc: "ETC" } as const;
@@ -181,6 +182,11 @@ export function PositionCard({ h, onBuy, onSheet, onClassify }: { h: Holding; on
       <div className="mt-4"><WeightBar weight={p.weight} /></div>
       <div className="mt-4 border-t border-border pt-4">{h.row.kind === "stock" ? <StockFacts h={h} /> : <FundFacts h={h} onSheet={onSheet} />}</div>
 
+      {h.technical.level && (
+        <p className="mt-3 flex items-center gap-2 text-[12px] text-muted">
+          <RiskBadge level={h.technical.level} /> <span className="line-clamp-1" title={h.technical.sentence}>{h.technical.sentence}</span>
+        </p>
+      )}
       {r.alerts.length > 0 && (
         <ul className="mt-3 space-y-1 rounded-lg bg-warning/12 px-3 py-2 text-[12px] text-warning-text">
           {r.alerts.map((a) => <li key={a} className="flex gap-1.5"><AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden />{a}</li>)}

@@ -36,6 +36,7 @@ export function useRefreshPrices() {
       void qc.invalidateQueries({ queryKey: ["watchlist"] });
       void qc.invalidateQueries({ queryKey: ["comparison"] });
       void qc.invalidateQueries({ queryKey: ["portfolio"] });
+      void qc.invalidateQueries({ queryKey: ["technical-risk"] });
     },
   });
 }

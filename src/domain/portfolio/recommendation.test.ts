@@ -60,6 +60,14 @@ describe("recommend (§8.4)", () => {
     expect(recommend({ ...etf, weight: 0.3, trend: { price: 110, average: 100 } }).action).toBe("Mantener");
   });
 
+  it("riesgo técnico alto frena la compra y dice por qué", () => {
+    const sentence = "La tendencia de fondo es bajista, está un 45 % por debajo de su máximo y se mueve mucho.";
+    const r = recommend({ ...base, valuation: "Barata", outcome: "Oportunidad", technical: { level: "Alto", sentence } });
+    expect(r.action).toBe("Mantener");
+    expect(r.reasons[0]).toBe("Riesgo técnico alto: la tendencia de fondo es bajista, está un 45 % por debajo de su máximo y se mueve mucho. Mejor esperar a que se estabilice.");
+    expect(recommend({ ...base, valuation: "Barata", technical: { level: "Medio", sentence } }).action).toBe("Comprar más");
+  });
+
   it("media de 10 meses", () => {
     expect(trendFromCloses([1, 2, 3])).toBeNull();
     expect(trendFromCloses([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])).toEqual({ price: 10, average: 5.5 });

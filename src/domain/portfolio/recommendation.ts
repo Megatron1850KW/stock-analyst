@@ -1,6 +1,7 @@
 import type { Outcome } from "@/domain/scoring/peer-verdict";
 import { PORTFOLIO_CONFIG, QUALITY_CONFIG } from "@/domain/scoring/config";
 import type { DebtLevel } from "@/domain/scoring/debt-level";
+import type { RiskLevel } from "@/domain/technical/risk";
 import type { Verdict } from "@/domain/scoring/valuation-score";
 
 /**
@@ -42,6 +43,8 @@ export interface RecommendationInput {
   debt: DebtLevel | null;
   /** ETF/ETC: tendencia de fondo. */
   trend: Trend | null;
+  /** Riesgo técnico de largo plazo (§5.3); «Alto» frena la compra. */
+  technical?: { level: RiskLevel | null; sentence: string } | null;
 }
 
 const pct = (x: number) => `${(x * 100).toLocaleString("es-ES", { maximumFractionDigits: 0 })} %`;
@@ -55,6 +58,15 @@ export function trendFromCloses(closes: number[], months = PORTFOLIO_CONFIG.tren
 }
 
 export function recommend(input: RecommendationInput, cfg = PORTFOLIO_CONFIG): Recommendation {
+  const r = baseRecommendation(input, cfg);
+  // Con riesgo técnico alto no se amplía: mejor esperar a que el precio se estabilice
+  if (r.action === "Comprar más" && input.technical?.level === "Alto") {
+    return { ...r, action: "Mantener", reasons: [`Riesgo técnico alto: ${input.technical.sentence.charAt(0).toLowerCase()}${input.technical.sentence.slice(1)} Mejor esperar a que se estabilice.`, ...r.reasons] };
+  }
+  return r;
+}
+
+function baseRecommendation(input: RecommendationInput, cfg: typeof PORTFOLIO_CONFIG): Recommendation {
   const alerts: string[] = [];
   const noFinancials = input.kind !== "stock";
 
