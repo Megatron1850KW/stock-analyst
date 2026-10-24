@@ -13,9 +13,19 @@
  * Notas de mapeo:
  * - Ventas: desde 2018 (ASC 606) la mayoría usa RevenueFromContractWith…;
  *   "Revenues" es el total cuando la empresa tiene otros ingresos además.
- * - Deuda: no se suma aquí. Se guardan las piezas (largo plazo total, parte
- *   corriente/no corriente, préstamos a corto, papel comercial) y el cálculo
- *   de deuda financiera se hace en domain/valuation, documentado y testeado.
+ * - Deuda: no se suma aquí. Se guardan las piezas y el cálculo de deuda
+ *   financiera se hace en domain/valuation, documentado y testeado:
+ *   · debt_total: total con vencimientos corrientes. Ojo: en US-GAAP
+ *     "LongTermDebt" ya incluye la parte corriente, mientras que
+ *     "LongTermDebtAndCapitalLeaseObligations" es SOLO la parte no corriente
+ *     (por eso va en debt_noncurrent). Comprobado con Micron (MU), cuyo
+ *     balance usa DebtAndCapitalLeaseObligations como total.
+ *   · debt_noncurrent + debt_current: alternativa cuando no hay total.
+ *   · short_term_borrowings y commercial_paper: deuda a corto que no viene de
+ *     la deuda a largo; se suman aparte, sin riesgo de contar dos veces.
+ * - Beneficio bruto: algunas empresas (p. ej. Alphabet) no lo publican. No se
+ *   rellena aquí; si hace falta, se calcula en domain/valuation como ventas
+ *   menos coste de las ventas y se etiqueta como cifra calculada.
  * - Capex: pagos por inmovilizado material. Algunas empresas lo desglosan en
  *   varias líneas; si solo hay PaymentsToAcquireProductiveAssets se usa esa.
  * - Las cifras de flujo de caja de un 10-Q son acumuladas del año (YTD); se
@@ -137,10 +147,34 @@ export const CONCEPTS: ConceptDef[] = [
     period: "instant",
     tags: [g("ShortTermInvestments"), g("MarketableSecuritiesCurrent"), g("AvailableForSaleSecuritiesDebtSecuritiesCurrent"), i("CurrentInvestments")],
   },
-  { id: "long_term_debt_total", label: "Deuda a largo plazo (total)", kind: "money", period: "instant", tags: [g("LongTermDebt"), g("LongTermDebtAndCapitalLeaseObligations")] },
-  { id: "long_term_debt_noncurrent", label: "Deuda a largo plazo (no corriente)", kind: "money", period: "instant", tags: [g("LongTermDebtNoncurrent"), g("LongTermDebtAndCapitalLeaseObligationsNoncurrent"), i("NoncurrentPortionOfNoncurrentBorrowings"), i("NoncurrentBorrowings")] },
-  { id: "long_term_debt_current", label: "Deuda a largo plazo (parte corriente)", kind: "money", period: "instant", tags: [g("LongTermDebtCurrent"), g("LongTermDebtAndCapitalLeaseObligationsCurrent"), i("CurrentPortionOfNoncurrentBorrowings")] },
-  { id: "short_term_borrowings", label: "Préstamos a corto plazo", kind: "money", period: "instant", tags: [g("ShortTermBorrowings"), g("DebtCurrent"), i("ShorttermBorrowings"), i("CurrentBorrowings")] },
+  {
+    id: "debt_total",
+    label: "Deuda financiera total",
+    kind: "money",
+    period: "instant",
+    tags: [
+      g("DebtAndCapitalLeaseObligations"),
+      g("LongTermDebtAndCapitalLeaseObligationsIncludingCurrentMaturities"),
+      g("DebtLongtermAndShorttermCombinedAmount"),
+      g("LongTermDebt"),
+      i("Borrowings"),
+    ],
+  },
+  {
+    id: "debt_noncurrent",
+    label: "Deuda a largo plazo (no corriente)",
+    kind: "money",
+    period: "instant",
+    tags: [g("LongTermDebtNoncurrent"), g("LongTermDebtAndCapitalLeaseObligations"), i("NoncurrentPortionOfNoncurrentBorrowings"), i("NoncurrentBorrowings")],
+  },
+  {
+    id: "debt_current",
+    label: "Deuda que vence en 12 meses",
+    kind: "money",
+    period: "instant",
+    tags: [g("LongTermDebtCurrent"), g("DebtCurrent"), g("LongTermDebtAndCapitalLeaseObligationsCurrent"), i("CurrentPortionOfNoncurrentBorrowings")],
+  },
+  { id: "short_term_borrowings", label: "Préstamos a corto plazo", kind: "money", period: "instant", tags: [g("ShortTermBorrowings"), i("ShorttermBorrowings"), i("CurrentBorrowings")] },
   { id: "commercial_paper", label: "Papel comercial", kind: "money", period: "instant", tags: [g("CommercialPaper")] },
   { id: "total_assets", label: "Activo total", kind: "money", period: "instant", tags: [g("Assets"), i("Assets")] },
   { id: "total_liabilities", label: "Pasivo total", kind: "money", period: "instant", tags: [g("Liabilities"), i("Liabilities")] },

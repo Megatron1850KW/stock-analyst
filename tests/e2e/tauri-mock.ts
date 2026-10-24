@@ -17,7 +17,19 @@ export interface MockOptions {
   secrets?: string[];
   /** Precio ficticio que devuelve el proveedor. */
   price?: number;
+  /** Servir los datos REALES guardados de la SEC (MU y GOOG) en vez de los ficticios. */
+  realSec?: boolean;
 }
+
+const REAL_CIKS: Record<string, string> = { "723125": "MU", "1652044": "GOOG" };
+const realTickers = JSON.stringify({
+  fields: ["cik", "name", "ticker", "exchange"],
+  data: [
+    [723125, "MICRON TECHNOLOGY INC", "MU", "Nasdaq"],
+    [1652044, "Alphabet Inc.", "GOOG", "Nasdaq"],
+  ],
+});
+const realFile = (ticker: string, kind: string) => readFileSync(join(root, "tests/fixtures/sec", `${ticker}-${kind}.json`), "utf8");
 
 export async function installTauriMock(page: Page, opts: MockOptions = {}) {
   const db = new DatabaseSync(":memory:");
@@ -68,6 +80,12 @@ export async function installTauriMock(page: Page, opts: MockOptions = {}) {
         secrets.delete(args.name as string);
         return null;
       case "sec_fetch": {
+        if (opts.realSec) {
+          if (args.resource === "tickers") return realTickers;
+          const ticker = REAL_CIKS[String(Number(args.cik))];
+          if (!ticker) throw new Error("CIK no guardado");
+          return realFile(ticker, args.resource === "submissions" ? "submissions" : "companyfacts");
+        }
         const map: Record<string, string> = { tickers: "tickers", submissions: "submissions", company_facts: "companyfacts" };
         const name = map[args.resource as string];
         if (!name) throw new Error("recurso no simulado");
