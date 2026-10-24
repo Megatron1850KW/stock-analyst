@@ -1,3 +1,4 @@
+import { providerLabel } from "@/data/prices/provider";
 import type { BarRow, FactRow, FilingRow, LatestQuoteRow, PriceHistoryMeta, SecurityRow, SplitRow } from "@/db/repo";
 import {
   currentGetter,
@@ -58,7 +59,7 @@ function quarterMetric(label: string, g: ReturnType<typeof lastQuarterGrowth>): 
   };
 }
 
-const priceSourceLabel = (s: string) => (s === "fmp" ? "Financial Modeling Prep" : s);
+const priceSourceLabel = (s: string) => providerLabel(s);
 
 export function buildAnalysis(input: {
   security: SecurityRow;

@@ -32,7 +32,7 @@ const realTickers = JSON.stringify({
   ],
 });
 /** Precios REALES guardados (tests/fixtures/prices), si existen para ese símbolo. */
-function realPrices(symbol: string, kind: "history" | "splits" = "history"): string | null {
+function realPrices(symbol: string, kind: "history" | "splits" | "quote" = "history"): string | null {
   const file = join(root, "tests/fixtures/prices", `${symbol}-${kind}.json`);
   return existsSync(file) ? readFileSync(file, "utf8") : null;
 }
@@ -99,15 +99,20 @@ export async function installTauriMock(page: Page, opts: MockOptions = {}) {
         if (!name) throw new Error("recurso no simulado");
         return fixture(name);
       }
-      case "price_quote":
+      case "price_quote": {
         if (!secrets.has("prices_api_key")) throw "Falta la clave del proveedor de precios. Añádela en Ajustes.";
+        const realQuote = realPrices(args.symbol as string, "quote");
+        if (realQuote) return realQuote;
+        if (args.provider === "tiingo") return JSON.stringify([{ date: "2026-10-23T00:00:00.000Z", close: opts.price ?? 42.5, splitFactor: 1 }]);
         return JSON.stringify([{ symbol: args.symbol, price: opts.price ?? 42.5, timestamp: 1792785600 }]);
+      }
       case "price_history": {
         if (!secrets.has("prices_api_key")) throw "Falta la clave del proveedor de precios. Añádela en Ajustes.";
         const real = realPrices(args.symbol as string);
         if (real) return real;
         // FICTICIO: curva suave que acaba cerca del precio simulado
         const bars = fakeDaily(args.from as string, "2026-10-23", (opts.price ?? 42.5) / 2.6, 0.09);
+        if (args.provider === "tiingo") return JSON.stringify(bars.map((b) => ({ ...b, date: `${b.date}T00:00:00.000Z`, splitFactor: 1 })));
         return JSON.stringify(bars.reverse().map((b) => ({ symbol: args.symbol, ...b })));
       }
       case "document_store": {

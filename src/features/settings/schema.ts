@@ -10,13 +10,14 @@ const aiModelId = z.enum(["claude-sonnet-5-5", "claude-haiku-5-5", "claude-opus-
 
 /** Proveedores de precios históricos candidatos (§4.3). La elección es del usuario. */
 export const PRICE_PROVIDERS = [
-  { id: "fmp", label: "Financial Modeling Prep" },
+  { id: "tiingo", label: "Tiingo (gratis, EE. UU.)" },
+  { id: "fmp", label: "Financial Modeling Prep (de pago)" },
   { id: "eodhd", label: "EODHD" },
   { id: "finnhub", label: "Finnhub" },
   { id: "alphavantage", label: "Alpha Vantage" },
   { id: "stooq", label: "Stooq (sin clave)" },
 ] as const;
-const priceProviderId = z.enum(["fmp", "eodhd", "finnhub", "alphavantage", "stooq"]);
+const priceProviderId = z.enum(["tiingo", "fmp", "eodhd", "finnhub", "alphavantage", "stooq"]);
 
 export const settingsSchema = z.object({
   secUserAgentName: z.string().trim().max(80),
@@ -40,7 +41,7 @@ export const DEFAULT_SETTINGS: Settings = {
   aiModelAnalysis: "claude-sonnet-5-5",
   aiModelExtraction: "claude-haiku-5-5",
   aiMonthlyBudgetEur: 10,
-  priceProvider: "fmp",
+  priceProvider: "tiingo",
   baseCurrency: "EUR",
   language: "es",
   theme: "system",

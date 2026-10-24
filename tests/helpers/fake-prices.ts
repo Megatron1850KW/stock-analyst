@@ -40,12 +40,8 @@ export function fakePrices(opts: FakePriceOptions = {}): PriceProvider {
     },
     history: async (s, from) => {
       calls.push(`history:${s}:${from}`);
-      return fakeDaily(from, opts.historyTo ?? "2026-10-23");
-    },
-    splits: async (s) => {
-      calls.push(`splits:${s}`);
-      if (opts.splits === "error") throw new Error("Restricted Endpoint");
-      return opts.splits ?? [];
+      const bars = fakeDaily(from, opts.historyTo ?? "2026-10-23");
+      return opts.splits === "error" ? { bars, splits: null, splitsError: "Restricted Endpoint" } : { bars, splits: opts.splits ?? [] };
     },
   };
 }

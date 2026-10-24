@@ -3,7 +3,7 @@ import { installTauriMock } from "./tauri-mock";
 
 const SCREENSHOTS = process.env.SCREENSHOT_DIR;
 // Ajustes de prueba: identidad FICTICIA para la cabecera de la SEC
-const SETTINGS = { secUserAgentName: "Usuario Prueba", secUserAgentEmail: "prueba@example.com", priceProvider: "fmp" };
+const SETTINGS = { secUserAgentName: "Usuario Prueba", secUserAgentEmail: "prueba@example.com", priceProvider: "tiingo" };
 
 async function shot(page: import("@playwright/test").Page, name: string) {
   if (!SCREENSHOTS) return;

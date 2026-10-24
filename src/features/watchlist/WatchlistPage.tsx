@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { SourceValue } from "@/components/ui/source-value";
 import { Tooltip } from "@/components/ui/tooltip";
 import type { WatchlistRow } from "@/db/repo";
+import { providerLabel } from "@/data/prices/provider";
 import { lastRefreshKey, useRefreshPrices, type LastRefresh } from "@/features/prices/queries";
 import { secUserAgent } from "@/features/settings/schema";
 import { useSettings } from "@/features/settings/queries";
@@ -108,7 +109,7 @@ function WatchlistTable({ rows }: { rows: WatchlistRow[] }) {
                 {r.price != null ? (
                   <SourceValue
                     info={{
-                      source: r.price_source === "fmp" ? "Financial Modeling Prep" : (r.price_source ?? ""),
+                      source: providerLabel(r.price_source),
                       period: `Cotización del ${r.price_date}`,
                       fetchedAt: r.price_fetched_at,
                     }}

@@ -20,7 +20,7 @@ describe("histórico de precios (datos ficticios)", () => {
     const { db, target } = await setup();
     const calls: string[] = [];
     const res = await syncPriceHistory(db, fakePrices({ calls, splits: [{ date: "2020-08-31", numerator: 4, denominator: 1 }] }), target, { today });
-    expect(calls).toEqual(["history:FICT:2015-01-01", "splits:FICT"]);
+    expect(calls).toEqual(["history:FICT:2015-01-01"]);
     expect(res).toMatchObject({ status: "updated", firstDate: "2015-01-01", splitsChecked: true, note: null });
     const monthly = await getPriceBars(db, target.id, "1mo");
     expect(monthly[0]!.date).toBe("2015-01-01");

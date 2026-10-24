@@ -41,20 +41,15 @@ export async function syncPriceHistory(
 
   const symbol = providerSymbol(target.ticker);
   const from = `${today.getUTCFullYear() - HISTORY_YEARS}-01-01`;
-  const daily = await provider.history(symbol, from);
+  const { bars: daily, splits, splitsError } = await provider.history(symbol, from);
   if (daily.length === 0) throw new Error(`${provider.label} no tiene histórico de precios de ${target.ticker}`);
   const monthly = aggregateBars(daily, "1mo");
   await replacePriceBars(db, target.id, "1mo", monthly, target.currency, provider.id);
   await replacePriceBars(db, target.id, "1w", aggregateBars(daily, "1w"), target.currency, provider.id);
 
-  let splitsChecked = false;
-  let note: string | null = null;
-  try {
-    await replaceSplits(db, target.id, await provider.splits(symbol), provider.id);
-    splitsChecked = true;
-  } catch (e) {
-    note = `No se pudo consultar el historial de splits (${e instanceof Error ? e.message : String(e)}).`;
-  }
+  const splitsChecked = splits !== null;
+  const note = splitsChecked ? null : `No se pudo consultar el historial de splits (${splitsError ?? "el proveedor no lo da"}).`;
+  if (splits) await replaceSplits(db, target.id, splits, provider.id);
   const firstDate = daily[0]!.date;
   await savePriceHistoryMeta(db, target.id, {
     source: provider.id,

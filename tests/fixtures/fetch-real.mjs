@@ -7,8 +7,9 @@
  *
  * - SEC: submissions completo y companyfacts recortado a las etiquetas del
  *   modelo común y a 10-K/10-Q/20-F/40-F desde 2013 (incluye la historia).
- * - FMP: cotización, histórico diario desde 2015 y splits. La clave se lee del
- *   Llavero (la guarda la app en Ajustes) y NUNCA se escribe ni se muestra.
+ * - Tiingo: precios diarios desde 2015 (sin ajustar, con factor de split). La
+ *   clave se lee del Llavero (la guarda la app en Ajustes), viaja en una
+ *   cabecera y NUNCA se escribe ni se muestra.
  */
 import { execFileSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -34,17 +35,15 @@ let key = null;
 try {
   key = execFileSync("security", ["find-generic-password", "-s", "es.agentefinanciero.app", "-a", "prices_api_key", "-w"], { encoding: "utf8" }).trim();
 } catch {
-  console.log("FMP: no hay clave en el Llavero (guárdala en Ajustes de la app). Se omiten los precios.");
+  console.log("Precios: no hay clave en el Llavero (guárdala en Ajustes de la app). Se omiten.");
 }
-async function fmp(path, params) {
-  const url = new URL(`https://financialmodelingprep.com/stable/${path}`);
-  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
-  url.searchParams.set("apikey", key);
+async function tiingo(symbol, startDate) {
+  const url = new URL(`https://api.tiingo.com/tiingo/daily/${symbol.toLowerCase()}/prices`);
+  if (startDate) url.searchParams.set("startDate", startDate);
   await sleep(300);
-  const res = await fetch(url);
+  const res = await fetch(url, { headers: { Authorization: `Token ${key}` } });
   const text = await res.text();
-  // Nunca registrar la URL (lleva la clave)
-  console.log(`FMP ${path} ${params.symbol}: HTTP ${res.status}, ${text.length} bytes${res.ok ? "" : " → " + text.slice(0, 160)}`);
+  console.log(`Tiingo ${symbol} ${startDate ? "histórico" : "último día"}: HTTP ${res.status}, ${text.length} bytes${res.ok ? "" : " → " + text.slice(0, 160)}`);
   return res.ok ? text : null;
 }
 
@@ -68,15 +67,10 @@ for (const t of tickers.split(",")) {
   console.log(`SEC ${t}: submissions y companyfacts (${kept} valores) guardados`);
 
   if (key) {
-    const sym = t;
-    for (const [name, path, params] of [
-      ["quote", "quote", { symbol: sym }],
-      ["history", "historical-price-eod/full", { symbol: sym, from: "2015-01-01" }],
-      ["splits", "splits", { symbol: sym }],
-    ]) {
-      const body = await fmp(path, params);
-      if (body) writeFileSync(join(out, "prices", `${t}-${name}.json`), body);
-    }
+    const quote = await tiingo(t, null);
+    if (quote) writeFileSync(join(out, "prices", `${t}-quote.json`), quote);
+    const history = await tiingo(t, "2015-01-01");
+    if (history) writeFileSync(join(out, "prices", `${t}-history.json`), history);
   }
 }
 console.log("Listo:", out);

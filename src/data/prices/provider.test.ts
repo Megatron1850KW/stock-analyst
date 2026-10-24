@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { parseFmpHistory, parseFmpQuote, parseFmpSplits } from "./provider";
+import { parseFmpHistory, parseFmpQuote, parseFmpSplits, parseTiingoHistory, parseTiingoQuote } from "./provider";
 
 describe("cotización de FMP (respuestas ficticias)", () => {
   it("lee precio, rango del día y fecha en hora de Nueva York", () => {
@@ -35,5 +35,27 @@ describe("histórico y splits de FMP (respuestas ficticias)", () => {
     expect(parseFmpSplits(raw)).toEqual([{ date: "2024-06-10", numerator: 10, denominator: 1 }]);
     expect(() => parseFmpSplits(JSON.stringify([{ date: "x" }]))).toThrow(/splits válido/);
     expect(() => parseFmpHistory(JSON.stringify({ "Error Message": "Premium" }))).toThrow(/Premium/);
+  });
+});
+
+describe("Tiingo (respuestas ficticias)", () => {
+  const row = (date: string, close: number, splitFactor = 1) => ({ date: `${date}T00:00:00.000Z`, open: close, high: close, low: close, close, volume: 100, adjClose: close, splitFactor });
+
+  it("ajusta por splits los días anteriores y los lista", () => {
+    // Split 20×1 el 2022-07-18: antes cotizaba a 2.000, después a 100
+    const raw = JSON.stringify([row("2022-07-15", 2000), row("2022-07-18", 105, 20), row("2022-07-19", 110)]);
+    const h = parseTiingoHistory(raw);
+    expect(h.bars.map((b) => [b.date, b.close, b.volume])).toEqual([
+      ["2022-07-15", 100, 2000],
+      ["2022-07-18", 105, 100],
+      ["2022-07-19", 110, 100],
+    ]);
+    expect(h.splits).toEqual([{ date: "2022-07-18", numerator: 20, denominator: 1 }]);
+  });
+
+  it("toma el último día como cotización y explica los errores", () => {
+    expect(parseTiingoQuote(JSON.stringify([row("2026-10-22", 10), row("2026-10-23", 11)]), "FICT")).toMatchObject({ price: 11, date: "2026-10-23" });
+    expect(() => parseTiingoQuote(JSON.stringify({ detail: "Invalid token." }), "FICT")).toThrow(/Tiingo rechazó la consulta: Invalid token/);
+    expect(() => parseTiingoQuote("[]", "FICT")).toThrow(/no tiene cotización/);
   });
 });
