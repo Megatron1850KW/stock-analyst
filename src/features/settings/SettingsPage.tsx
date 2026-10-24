@@ -79,6 +79,13 @@ function SavedIndicator({ at }: { at: number }) {
   );
 }
 
+const AI_MODE_HINTS: Record<Settings["aiMode"], string> = {
+  manual:
+    "En la ficha de cada acción, «Copiar para Claude» prepara un texto que pegas en claude.ai (vale el plan gratuito); luego pegas su respuesta en la app. Sin clave y sin coste. Los competidores y las cifras de PDFs se añaden a mano.",
+  api: "La app llama a Claude sola al añadir un valor, cuando sale un informe nuevo, al pulsar «Re-analizar» o para leer un PDF. Necesita una clave de la API, que se paga aparte del plan de claude.ai.",
+  off: "Sin análisis narrativo. Todo lo demás funciona igual: cifras oficiales, indicadores, valoración, competidores que añadas tú, estrellas, riesgo técnico, cartera y calendario.",
+};
+
 export function SettingsPage() {
   const { data: settings } = useSettings();
   const update = useUpdateSettings();
@@ -136,46 +143,57 @@ export function SettingsPage() {
           <CardHeader>
             <CardTitle>Inteligencia artificial</CardTitle>
             <CardDescription>
-              La IA solo se usa al añadir un valor, cuando sale un informe nuevo, al pulsar «Re-analizar» o para leer un PDF.
+              Las cifras, indicadores, valoraciones y estrellas se calculan sin IA. La IA solo redacta el análisis narrativo, propone competidores y lee PDFs.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Field label="Modelo para análisis" htmlFor="ai-analysis" hint={AI_MODELS.find((m) => m.id === settings.aiModelAnalysis)?.hint}>
-              <Select id="ai-analysis" value={settings.aiModelAnalysis} onChange={(e) => save({ aiModelAnalysis: e.target.value as Settings["aiModelAnalysis"] })}>
-                {AI_MODELS.map((m) => (
-                  <option key={m.id} value={m.id}>{m.label}</option>
-                ))}
+            <Field label="Cómo usar la IA" htmlFor="ai-mode" hint={AI_MODE_HINTS[settings.aiMode]}>
+              <Select id="ai-mode" value={settings.aiMode} onChange={(e) => save({ aiMode: e.target.value as Settings["aiMode"] })}>
+                <option value="manual">Claude.ai manual (gratis, copiar y pegar)</option>
+                <option value="api">API de Claude (automático, de pago por uso)</option>
+                <option value="off">Sin IA</option>
               </Select>
             </Field>
-            <Field label="Modelo para extraer datos de PDFs" htmlFor="ai-extraction" hint={AI_MODELS.find((m) => m.id === settings.aiModelExtraction)?.hint}>
-              <Select id="ai-extraction" value={settings.aiModelExtraction} onChange={(e) => save({ aiModelExtraction: e.target.value as Settings["aiModelExtraction"] })}>
-                {AI_MODELS.map((m) => (
-                  <option key={m.id} value={m.id}>{m.label}</option>
-                ))}
-              </Select>
-            </Field>
-            <Field
-              label="Presupuesto mensual"
-              htmlFor="ai-budget"
-              hint={`Si se supera, la app pedirá confirmación antes de cada llamada. Gastado este mes: ${spend ? `${spend.approx ? "≈ " : ""}${formatCurrency(spend.eur, "EUR", 2)} en ${spend.calls} llamada${spend.calls === 1 ? "" : "s"}` : "…"}.`}
-            >
-              <div className="relative">
-                <Input
-                  id="ai-budget"
-                  type="number"
-                  min={0}
-                  step={1}
-                  defaultValue={settings.aiMonthlyBudgetEur}
-                  key={settings.aiMonthlyBudgetEur}
-                  onBlur={(e) => {
-                    const v = settingsSchema.shape.aiMonthlyBudgetEur.safeParse(Number(e.target.value));
-                    if (v.success && v.data !== settings.aiMonthlyBudgetEur) save({ aiMonthlyBudgetEur: v.data });
-                  }}
-                  className="tabular pr-8"
-                />
-                <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-[13px] text-muted">€</span>
-              </div>
-            </Field>
+            {settings.aiMode === "api" && (
+              <>
+                <Field label="Modelo para análisis" htmlFor="ai-analysis" hint={AI_MODELS.find((m) => m.id === settings.aiModelAnalysis)?.hint}>
+                  <Select id="ai-analysis" value={settings.aiModelAnalysis} onChange={(e) => save({ aiModelAnalysis: e.target.value as Settings["aiModelAnalysis"] })}>
+                    {AI_MODELS.map((m) => (
+                      <option key={m.id} value={m.id}>{m.label}</option>
+                    ))}
+                  </Select>
+                </Field>
+                <Field label="Modelo para extraer datos de PDFs" htmlFor="ai-extraction" hint={AI_MODELS.find((m) => m.id === settings.aiModelExtraction)?.hint}>
+                  <Select id="ai-extraction" value={settings.aiModelExtraction} onChange={(e) => save({ aiModelExtraction: e.target.value as Settings["aiModelExtraction"] })}>
+                    {AI_MODELS.map((m) => (
+                      <option key={m.id} value={m.id}>{m.label}</option>
+                    ))}
+                  </Select>
+                </Field>
+                <Field
+                  label="Presupuesto mensual"
+                  htmlFor="ai-budget"
+                  hint={`Si se supera, la app pedirá confirmación antes de cada llamada. Gastado este mes: ${spend ? `${spend.approx ? "≈ " : ""}${formatCurrency(spend.eur, "EUR", 2)} en ${spend.calls} llamada${spend.calls === 1 ? "" : "s"}` : "…"}.`}
+                >
+                  <div className="relative">
+                    <Input
+                      id="ai-budget"
+                      type="number"
+                      min={0}
+                      step={1}
+                      defaultValue={settings.aiMonthlyBudgetEur}
+                      key={settings.aiMonthlyBudgetEur}
+                      onBlur={(e) => {
+                        const v = settingsSchema.shape.aiMonthlyBudgetEur.safeParse(Number(e.target.value));
+                        if (v.success && v.data !== settings.aiMonthlyBudgetEur) save({ aiMonthlyBudgetEur: v.data });
+                      }}
+                      className="tabular pr-8"
+                    />
+                    <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-[13px] text-muted">€</span>
+                  </div>
+                </Field>
+              </>
+            )}
           </CardContent>
         </Card>
 

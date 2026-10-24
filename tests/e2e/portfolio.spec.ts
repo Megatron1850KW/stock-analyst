@@ -3,7 +3,7 @@ import { FAKE_ETF_ISIN, installTauriMock } from "./tauri-mock";
 
 const SCREENSHOTS = process.env.SCREENSHOT_DIR;
 // Ajustes de prueba: identidad FICTICIA para la cabecera de la SEC
-const SETTINGS = { secUserAgentName: "Usuario Prueba", secUserAgentEmail: "prueba@example.com", priceProvider: "tiingo", priceProviderEu: "alphavantage" };
+const SETTINGS = { aiMode: "api", secUserAgentName: "Usuario Prueba", secUserAgentEmail: "prueba@example.com", priceProvider: "tiingo", priceProviderEu: "alphavantage" };
 const SECRETS = ["prices_api_key", "alphavantage_api_key", "anthropic_api_key"];
 
 async function shot(page: Page, name: string, fullPage = false) {

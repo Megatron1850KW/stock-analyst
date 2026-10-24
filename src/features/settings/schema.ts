@@ -22,6 +22,11 @@ const priceProviderId = z.enum(["tiingo", "fmp", "eodhd", "finnhub", "alphavanta
 export const settingsSchema = z.object({
   secUserAgentName: z.string().trim().max(80),
   secUserAgentEmail: z.union([z.literal(""), z.email("Email no válido")]),
+  /**
+   * Cómo se usa la IA: con la API de Claude (de pago por uso), copiando y
+   * pegando en claude.ai (gratis, a mano) o sin IA.
+   */
+  aiMode: z.enum(["api", "manual", "off"]),
   aiModelAnalysis: aiModelId,
   aiModelExtraction: aiModelId,
   aiMonthlyBudgetEur: z.number().min(0).max(10_000),
@@ -42,6 +47,7 @@ export type Settings = z.infer<typeof settingsSchema>;
 export const DEFAULT_SETTINGS: Settings = {
   secUserAgentName: "",
   secUserAgentEmail: "",
+  aiMode: "manual",
   aiModelAnalysis: "claude-sonnet-5-5",
   aiModelExtraction: "claude-haiku-5-5",
   aiMonthlyBudgetEur: 10,
@@ -84,8 +90,8 @@ export const SECRET_KEYS = [
   {
     id: "anthropic_api_key",
     label: "Claude (Anthropic)",
-    description: "Para el análisis narrativo y la extracción de PDFs. Solo se usa cuando tú lo pides o sale un informe nuevo.",
-    required: true,
+    description: "Solo en el modo «API de Claude»: análisis narrativo, competidores y lectura de PDFs. Solo se usa cuando tú lo pides o sale un informe nuevo.",
+    required: false,
   },
   {
     id: "prices_api_key",

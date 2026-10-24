@@ -1,9 +1,10 @@
 import { expect, test } from "@playwright/test";
+import { FAKE_ANALYSIS } from "../helpers/fake-claude";
 import { installTauriMock } from "./tauri-mock";
 
 const SCREENSHOTS = process.env.SCREENSHOT_DIR;
 // Ajustes de prueba: identidad FICTICIA para la cabecera de la SEC
-const SETTINGS = { secUserAgentName: "Usuario Prueba", secUserAgentEmail: "prueba@example.com", priceProvider: "tiingo" };
+const SETTINGS = { aiMode: "api", secUserAgentName: "Usuario Prueba", secUserAgentEmail: "prueba@example.com", priceProvider: "tiingo" };
 
 async function shot(page: import("@playwright/test").Page, name: string) {
   if (!SCREENSHOTS) return;
@@ -115,7 +116,7 @@ test("una europea (ficticia) se analiza con su informe ESEF y se compara con una
     competidores: [{ ticker: "FMD", nombre: "Ficticia Moda", mercado: "Europa", isin: "FR0000000010", motivo: "También vende ropa (ficticio)." }],
     nota: "",
   };
-  const { ai, calls } = await installTauriMock(page, { secrets: ["prices_api_key", "alphavantage_api_key", "anthropic_api_key"], peers });
+  const { ai, calls } = await installTauriMock(page, { settings: { aiMode: "api" }, secrets: ["prices_api_key", "alphavantage_api_key", "anthropic_api_key"], peers });
   await page.goto("/#/watchlist");
   await page.getByLabel("Ticker o ISIN").fill("ES0000000010");
   await page.getByRole("button", { name: "Añadir" }).click();
@@ -204,6 +205,46 @@ test("sin clave de Claude no se llama a la IA y se ofrece el botón", async ({ p
   await ia.getByRole("button", { name: "Analizar con IA" }).click();
   await expect(ia.getByRole("alert")).toContainText("Falta la clave de Claude. Añádela en Ajustes.");
   expect(calls).not.toContain("claude_request");
+});
+
+test("modo Claude.ai manual (por defecto): copiar, pegar la respuesta FICTICIA y guardar sin llamar a la API", async ({ page }) => {
+  const { aiMode: _mode, ...manual } = SETTINGS;
+  const { calls } = await installTauriMock(page, { settings: manual, secrets: ["prices_api_key", "anthropic_api_key"] });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/#/watchlist");
+  await page.getByLabel("Ticker o ISIN").fill("FICT");
+  await page.getByRole("button", { name: "Añadir" }).click();
+  await page.getByRole("link", { name: "FICT" }).click();
+  const ia = page.getByRole("region", { name: /Qué opina el analista/ });
+  // Al añadirla no se llama a la API, aunque haya clave
+  await ia.getByRole("button", { name: "Analizar con Claude.ai" }).click();
+  const panel = ia.getByLabel("Análisis con Claude.ai");
+  await expect(panel.getByLabel("Texto para Claude")).toHaveValue(/Analiza la acción .*\(FICT\)[\s\S]*<resumen_numerico>/);
+  await expect(panel.getByRole("link", { name: /Abrir claude.ai/ })).toHaveAttribute("href", "https://claude.ai/new");
+
+  await panel.getByLabel("Respuesta de Claude").fill("No puedo ayudarte con eso");
+  await panel.getByRole("button", { name: "Guardar análisis" }).click();
+  await expect(panel.getByRole("alert")).toContainText("No encuentro el JSON");
+  await shot(page, "26-ia-manual");
+
+  await panel.getByLabel("Respuesta de Claude").fill("```json\n" + JSON.stringify(FAKE_ANALYSIS) + "\n```");
+  await panel.getByRole("button", { name: "Guardar análisis" }).click();
+  await expect(panel).toBeHidden();
+  await expect(ia).toContainText("Redactado en claude.ai (copiado a mano)");
+  await expect(ia).toContainText(FAKE_ANALYSIS.veredicto.resumen);
+  await expect(ia.getByRole("button", { name: "Rehacer con Claude.ai" })).toBeVisible();
+  expect(calls).not.toContain("claude_request");
+});
+
+test("sin IA (Ajustes) no hay botón de análisis", async ({ page }) => {
+  await installTauriMock(page, { settings: { ...SETTINGS, aiMode: "off" }, secrets: ["prices_api_key", "anthropic_api_key"] });
+  await page.goto("/#/watchlist");
+  await page.getByLabel("Ticker o ISIN").fill("FICT");
+  await page.getByRole("button", { name: "Añadir" }).click();
+  await page.getByRole("link", { name: "FICT" }).click();
+  const ia = page.getByRole("region", { name: /Qué opina el analista/ });
+  await expect(ia).toContainText("La IA está desactivada en Ajustes");
+  await expect(ia.getByRole("button")).toHaveCount(0);
 });
 
 test("añade una lista pegada de golpe (ficticia): acción de EE. UU., ETF por ISIN y una europea sin ISIN", async ({ page }) => {

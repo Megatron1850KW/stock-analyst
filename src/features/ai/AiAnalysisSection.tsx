@@ -1,15 +1,18 @@
-import { ArrowDownRight, ArrowUpRight, CircleAlert, CircleCheck, CircleMinus, FileText, History, RefreshCw, Sparkles } from "lucide-react";
-import type { ReactNode } from "react";
+import { ArrowDownRight, ClipboardCopy, ArrowUpRight, CircleAlert, CircleCheck, CircleMinus, FileText, History, RefreshCw, Sparkles } from "lucide-react";
+import { useState, type ReactNode } from "react";
 import { DISCLAIMER } from "@/app/Disclaimer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/ui/tooltip";
+import { useSettings } from "@/features/settings/queries";
 import { AI_MODELS } from "@/features/settings/schema";
 import { formatCurrency, formatDate, formatPercent } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { SECTION_LABELS } from "@/domain/reports/sections";
 import { BudgetExceededError, describeApiError, type AnalysisDocument, type StoredAnalysis } from "./equity-analysis";
-import { useAiAnalysis, useAnalysisRunning, useRunAnalysis } from "./queries";
+import { MANUAL_MODEL } from "./manual";
+import { ManualAnalysisPanel } from "./ManualAnalysisPanel";
+import { useAiAnalysis, useAnalysisRunning, usePrepareManual, useRunAnalysis } from "./queries";
 import { approxSnapshot, sinceAnalysis, snapshotOf } from "./since";
 import type { Analysis } from "@/features/watchlist/analysis";
 import { isKnownCitation, type Cita, type EquityAnalysis } from "./schema";
@@ -193,7 +196,7 @@ export interface NewestReport {
  * Precio y valoración de hoy frente a los del día del análisis. Es un cálculo
  * propio: la IA no se vuelve a llamar por mucho que cambie el precio.
  */
-function SinceStrip({ stored, createdAt, current, newest }: { stored: StoredAnalysis; createdAt: string; current: Analysis; newest?: NewestReport | null }) {
+function SinceStrip({ stored, createdAt, current, newest, redo }: { stored: StoredAnalysis; createdAt: string; current: Analysis; newest?: NewestReport | null; redo: string | null }) {
   const now = snapshotOf(current);
   const then = stored.snapshot ?? (now.price ? approxSnapshot(current.monthly, createdAt, now.price.currency) : null);
   const unread = newest && !stored.documents.some((d) => d.id === newest.id) ? newest : null;
@@ -233,13 +236,13 @@ function SinceStrip({ stored, createdAt, current, newest }: { stored: StoredAnal
         {unread && (
           <li className="flex items-start gap-1.5 text-warning-text">
             <FileText className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-            Hay un informe más reciente ({docLabel({ id: unread.id, form: unread.form, periodEnd: unread.periodEnd, filedAt: null, url: null, sections: [] }, unread.id)}) que la IA aún no ha leído.
+            Hay un informe más reciente ({docLabel({ id: unread.id, form: unread.form, periodEnd: unread.periodEnd, filedAt: null, url: null, sections: [] }, unread.id)}) que el análisis aún no ha leído.
           </li>
         )}
       </ul>
       <p className="mt-2 text-[12px] text-muted">
         {s?.suggestRefresh || unread
-          ? "El texto de abajo se escribió con los datos de entonces. Si quieres actualizarlo, pulsa «Re-analizar»; la app no lo hace sola."
+          ? `El texto de abajo se escribió con los datos de entonces.${redo ? ` Si quieres actualizarlo, pulsa «${redo}»; la app no lo hace sola.` : ""}`
           : "Las cifras y los indicadores de arriba ya están al día. El cambio es pequeño, así que no hace falta pagar un análisis nuevo."}
       </p>
     </div>
@@ -252,8 +255,22 @@ export function AiAnalysisSection({ securityId, current, newest }: { securityId:
   const running = useAnalysisRunning(securityId);
   const budget = run.error instanceof BudgetExceededError ? run.error : null;
   const stored = data?.stored ?? null;
+  const mode = useSettings().data?.aiMode ?? "manual";
+  const prepare = usePrepareManual(securityId);
+  const [manualOpen, setManualOpen] = useState(false);
+  const manual = manualOpen && prepare.data ? prepare.data : null;
 
-  const action = (
+  const action =
+    mode === "off" ? null : mode === "manual" ? (
+      <Button
+        variant={stored ? "secondary" : "primary"}
+        onClick={() => prepare.mutate(undefined, { onSuccess: () => setManualOpen(true) })}
+        disabled={prepare.isPending || !!manual}
+      >
+        <ClipboardCopy aria-hidden />
+        {prepare.isPending ? "Preparando…" : stored ? "Rehacer con Claude.ai" : "Analizar con Claude.ai"}
+      </Button>
+    ) : (
     <Button
       variant={stored ? "secondary" : "primary"}
       onClick={() => run.mutate({ force: !!stored })}
@@ -262,7 +279,8 @@ export function AiAnalysisSection({ securityId, current, newest }: { securityId:
       {stored ? <RefreshCw className={running ? "animate-spin" : ""} aria-hidden /> : <Sparkles aria-hidden />}
       {stored ? "Re-analizar" : "Analizar con IA"}
     </Button>
-  );
+    );
+  const isManual = data?.row.model === MANUAL_MODEL;
 
   return (
     <section aria-labelledby="analisis-ia" className="rounded-[var(--radius-card)] border border-accent/25 bg-surface-raised p-6 shadow-card">
@@ -275,13 +293,26 @@ export function AiAnalysisSection({ securityId, current, newest }: { securityId:
             <AiLabel />
           </div>
           <p className="mt-1 max-w-[70ch] text-[12.5px] text-muted">
-            {data?.row
+            {data?.row && isManual
+              ? `Redactado en claude.ai (copiado a mano) el ${formatDate(data.row.created_at)} a partir de los informes oficiales y de las cifras calculadas arriba. Sin coste.`
+              : data?.row
               ? `Redactado por ${modelLabel(stored?.servedModel ?? data.row.model)} el ${formatDate(data.row.created_at)} a partir de los informes oficiales y de las cifras calculadas arriba. Coste: ${formatCurrency(data.row.cost_eur ?? 0, "EUR", (data.row.cost_eur ?? 0) < 0.01 ? 3 : 2)}${stored?.costApprox ? " (aprox.)" : ""}.`
-              : "La IA lee el último informe anual y el último trimestral y redacta el negocio, lo que espera la empresa, catalizadores, riesgos y un veredicto. Solo se ejecuta cuando tú lo pides o sale un informe nuevo."}
+              : mode === "off"
+                ? "La IA está desactivada en Ajustes. Todas las cifras e indicadores de esta ficha se calculan sin ella."
+                : mode === "manual"
+                  ? "Prepara un texto con sus cifras y extractos de sus dos últimos informes para pegarlo en claude.ai (vale el plan gratuito). Luego pegas aquí su respuesta: negocio, lo que espera la empresa, catalizadores, riesgos y un veredicto."
+                  : "La IA lee el último informe anual y el último trimestral y redacta el negocio, lo que espera la empresa, catalizadores, riesgos y un veredicto. Solo se ejecuta cuando tú lo pides o sale un informe nuevo."}
           </p>
         </div>
         {action}
       </div>
+
+      {prepare.error && (
+        <p role="alert" className="mt-4 text-[13px] text-negative-text">
+          {describeApiError(prepare.error)}
+        </p>
+      )}
+      {manual && <ManualAnalysisPanel securityId={securityId} prepared={manual.prepared} text={manual.text} onDone={() => setManualOpen(false)} />}
 
       {running && (
         <div role="status" className="mt-5 space-y-2">
@@ -318,7 +349,7 @@ export function AiAnalysisSection({ securityId, current, newest }: { securityId:
       {data && !stored && !running && (
         <p className="mt-5 text-[13px] text-negative-text">El análisis guardado no se puede leer. Pulsa «Re-analizar».</p>
       )}
-      {stored && !running && data && current && <SinceStrip stored={stored} createdAt={data.row.created_at} current={current} newest={newest} />}
+      {stored && !running && data && current && <SinceStrip stored={stored} createdAt={data.row.created_at} current={current} newest={newest} redo={mode === "off" ? null : mode === "manual" ? "Rehacer con Claude.ai" : "Re-analizar"} />}
       {stored && !running && (
         <div className="mt-6">
           <AnalysisBody a={stored.analysis} docs={stored.documents} />
