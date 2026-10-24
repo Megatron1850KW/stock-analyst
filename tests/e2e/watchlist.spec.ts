@@ -78,7 +78,14 @@ test("sube un informe en PDF y lo lista", async ({ page }) => {
   // Un archivo que no es PDF ni ZIP se rechaza antes de enviarlo
   await page.getByRole("button", { name: "Subir informe" }).click();
   await page.getByLabel("Archivo del informe").setInputFiles({ name: "notas.txt", mimeType: "text/plain", buffer: Buffer.from("hola") });
-  await expect(page.getByRole("alert")).toContainText("Solo PDF o ZIP");
+  await expect(page.getByRole("alert")).toContainText("Solo PDF o paquete ESEF");
+  // Sin fecha, el botón explica qué falta; un paquete .xbri trae el cierre en su nombre
+  const again = page.getByRole("region", { name: "Subir informe" });
+  await again.getByLabel("Archivo del informe").setInputFiles({ name: "informe.zip", mimeType: "application/zip", buffer: Buffer.from("PK\x03\x04 FICTICIO") });
+  await expect(again).toContainText("Falta la fecha de cierre");
+  await again.getByLabel("Archivo del informe").setInputFiles({ name: "fict-2025-12-31-1-fr.xbri", mimeType: "application/octet-stream", buffer: Buffer.from("PK\x03\x04 FICTICIO") });
+  await expect(again.getByLabel("Cierre del periodo que cubre")).toHaveValue("2025-12-31");
+  await expect(again.getByRole("button", { name: "Guardar informe" })).toBeEnabled();
 });
 
 test("sin nombre y email para la SEC no busca acciones de EE. UU. y lo explica", async ({ page }) => {

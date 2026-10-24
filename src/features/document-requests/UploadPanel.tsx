@@ -36,9 +36,12 @@ export function UploadPanel({ securityId, request, onClose }: { securityId: numb
   function pick(f: File | undefined) {
     setLocalError(null);
     if (!f) return;
-    if (!/\.(pdf|zip)$/i.test(f.name)) return setLocalError("Solo PDF o ZIP (paquete ESEF).");
+    if (!/\.(pdf|zip|xbri)$/i.test(f.name)) return setLocalError("Solo PDF o paquete ESEF (.zip o .xbri).");
     if (f.size > MAX_MB * 1024 * 1024) return setLocalError(`El archivo pasa de ${MAX_MB} MB.`);
     setFile(f);
+    // Los paquetes ESEF llevan el cierre en el nombre: «549300…-2025-12-31-1-en.zip»
+    const end = /(\d{4}-\d{2}-\d{2})/.exec(f.name)?.[1];
+    if (end && !periodEnd && !Number.isNaN(Date.parse(end))) setPeriodEnd(end);
   }
   function onDrop(e: DragEvent) {
     e.preventDefault();
@@ -53,7 +56,7 @@ export function UploadPanel({ securityId, request, onClose }: { securityId: numb
         <div>
           <h3 className="font-serif text-[16px] font-semibold">{request ? `Subir: ${request.document_type}` : "Subir un informe"}</h3>
           <p className="mt-0.5 text-[12.5px] text-muted">
-            PDF del informe o paquete ESEF (.zip). Se guarda solo en tu Mac. Del ZIP se leen las cifras directamente; del PDF las copia
+            PDF del informe o paquete ESEF (.zip o .xbri). Se guarda solo en tu Mac. Del ZIP se leen las cifras directamente; del PDF las copia
             Claude (modelo económico, unos céntimos) y cada cifra queda marcada con su página.
           </p>
         </div>
@@ -113,6 +116,11 @@ export function UploadPanel({ securityId, request, onClose }: { securityId: numb
       {error && (
         <p role="alert" className="mt-3 text-[12.5px] text-negative-text">
           {error}
+        </p>
+      )}
+      {!upload.isPending && (!file || !periodEnd) && (
+        <p className="mt-3 text-right text-[12px] text-muted">
+          {!file ? "Elige el archivo del informe para poder guardarlo." : "Falta la fecha de cierre: completa día, mes y año."}
         </p>
       )}
       <div className="mt-4 flex justify-end gap-2">

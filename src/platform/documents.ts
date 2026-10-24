@@ -10,7 +10,8 @@ const storedSchema = z.object({
 });
 export type StoredDocument = z.infer<typeof storedSchema>;
 
-export const ACCEPTED_FILES = ".pdf,.zip,application/pdf,application/zip";
+// .xbri: paquete de informe XBRL (es un ZIP con otro nombre), como el ESEF 2025 de EssilorLuxottica
+export const ACCEPTED_FILES = ".pdf,.zip,.xbri,application/pdf,application/zip";
 
 /**
  * Guarda el archivo en la carpeta de datos de la app. Viaja en binario (no
