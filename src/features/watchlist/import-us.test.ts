@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { getFacts, getFilings, getGaps, listWatchlist, removeFromWatchlist, saveQuote } from "@/db/repo";
 import { refreshPrices } from "@/features/prices/refresh";
 import { fakeSec } from "../../../tests/helpers/fake-sec";
+import { fakePrices } from "../../../tests/helpers/fake-prices";
 import { memoryDb } from "../../../tests/helpers/sqlite-db";
 import { importUsTicker, ImportError, looksLikeIsin } from "./import-us";
 
@@ -45,12 +46,8 @@ describe("alta de una acción de EE. UU. (datos ficticios)", () => {
   it("guarda la cotización y la muestra en la watchlist", async () => {
     const db = memoryDb();
     const r = await importUsTicker(fakeSec(), db, "FICT");
-    const res = await refreshPrices(db, {
-      id: "test",
-      label: "Proveedor ficticio",
-      quote: async (s) => ({ symbol: s, price: 10.5, open: 10, high: 11, low: 9.9, volume: 5, date: "2026-10-23" }),
-    });
-    expect(res).toEqual({ updated: 1, failed: [] });
+    const res = await refreshPrices(db, fakePrices());
+    expect(res).toEqual({ updated: 1, histories: 1, failed: [] });
     const [row] = await listWatchlist(db);
     expect(row).toMatchObject({ price: 10.5, price_date: "2026-10-23", price_source: "test" });
     // Una segunda consulta el mismo día sustituye, no duplica
@@ -62,8 +59,7 @@ describe("alta de una acción de EE. UU. (datos ficticios)", () => {
     const db = memoryDb();
     await importUsTicker(fakeSec(), db, "FICT");
     const res = await refreshPrices(db, {
-      id: "test",
-      label: "x",
+      ...fakePrices(),
       quote: async () => {
         throw "Falta la clave del proveedor de precios. Añádela en Ajustes.";
       },

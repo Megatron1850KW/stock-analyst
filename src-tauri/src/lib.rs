@@ -48,7 +48,9 @@ pub fn run() {
             secrets::secret_exists,
             secrets::secret_delete,
             sec::sec_fetch,
-            prices::price_quote
+            prices::price_quote,
+            prices::price_history,
+            prices::price_splits
         ])
         .run(tauri::generate_context!())
         .expect("error al iniciar Agente Financiero");

@@ -244,3 +244,106 @@ export async function saveQuote(db: Db, q: QuoteInput): Promise<void> {
 export function listPriceTargets(db: Db): Promise<{ id: number; ticker: string; currency: string }[]> {
   return db.select("SELECT id, ticker, currency FROM securities WHERE ticker IS NOT NULL AND market = 'US' ORDER BY ticker");
 }
+
+export interface BarRow {
+  date: string;
+  open: number | null;
+  high: number | null;
+  low: number | null;
+  close: number;
+  volume: number | null;
+}
+
+const BARS_PER_INSERT = 80; // 800 parámetros por sentencia
+
+/** Sustituye las velas de un intervalo ('1w' o '1mo') de un valor. */
+export async function replacePriceBars(
+  db: Db,
+  securityId: number,
+  interval: "1w" | "1mo",
+  bars: BarRow[],
+  currency: string,
+  source: string,
+): Promise<void> {
+  await db.execute("DELETE FROM prices WHERE security_id = ? AND interval = ?", [securityId, interval]);
+  const fetchedAt = now();
+  for (let k = 0; k < bars.length; k += BARS_PER_INSERT) {
+    const chunk = bars.slice(k, k + BARS_PER_INSERT);
+    await db.execute(
+      `INSERT INTO prices (security_id, interval, date, open, high, low, close, volume, currency, source, fetched_at)
+       VALUES ${chunk.map(() => `(?, '${interval}', ?, ?, ?, ?, ?, ?, ?, ?, ?)`).join(", ")}`,
+      chunk.flatMap((b) => [securityId, b.date, b.open, b.high, b.low, b.close, b.volume, currency, source, fetchedAt]),
+    );
+  }
+}
+
+export function getPriceBars(db: Db, securityId: number, interval: "1d" | "1w" | "1mo"): Promise<BarRow[]> {
+  return db.select<BarRow>(
+    "SELECT date, open, high, low, close, volume FROM prices WHERE security_id = ? AND interval = ? ORDER BY date",
+    [securityId, interval],
+  );
+}
+
+export interface LatestQuoteRow {
+  date: string;
+  close: number;
+  currency: string;
+  source: string;
+  fetched_at: string;
+}
+
+export async function getLatestQuote(db: Db, securityId: number): Promise<LatestQuoteRow | null> {
+  const rows = await db.select<LatestQuoteRow>(
+    `SELECT date, close, currency, source, fetched_at FROM prices
+     WHERE security_id = ? AND interval = '1d' ORDER BY date DESC LIMIT 1`,
+    [securityId],
+  );
+  return rows[0] ?? null;
+}
+
+export interface SplitRow {
+  date: string;
+  numerator: number;
+  denominator: number;
+}
+
+export async function replaceSplits(db: Db, securityId: number, splits: SplitRow[], source: string): Promise<void> {
+  await db.execute("DELETE FROM splits WHERE security_id = ?", [securityId]);
+  for (const s of splits) {
+    await db.execute(
+      "INSERT OR REPLACE INTO splits (security_id, date, numerator, denominator, source) VALUES (?, ?, ?, ?, ?)",
+      [securityId, s.date, s.numerator, s.denominator, source],
+    );
+  }
+}
+
+export function getSplits(db: Db, securityId: number): Promise<SplitRow[]> {
+  return db.select<SplitRow>("SELECT date, numerator, denominator FROM splits WHERE security_id = ? ORDER BY date", [securityId]);
+}
+
+export interface PriceHistoryMeta {
+  source: string;
+  first_date: string | null;
+  last_date: string | null;
+  splits_checked: 0 | 1;
+  note: string | null;
+  fetched_at: string;
+}
+
+export async function getPriceHistoryMeta(db: Db, securityId: number): Promise<PriceHistoryMeta | null> {
+  const rows = await db.select<PriceHistoryMeta>(
+    "SELECT source, first_date, last_date, splits_checked, note, fetched_at FROM price_history_meta WHERE security_id = ?",
+    [securityId],
+  );
+  return rows[0] ?? null;
+}
+
+export async function savePriceHistoryMeta(db: Db, securityId: number, m: Omit<PriceHistoryMeta, "fetched_at">): Promise<void> {
+  await db.execute(
+    `INSERT INTO price_history_meta (security_id, source, first_date, last_date, splits_checked, note, fetched_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT (security_id) DO UPDATE SET source = excluded.source, first_date = excluded.first_date,
+       last_date = excluded.last_date, splits_checked = excluded.splits_checked, note = excluded.note, fetched_at = excluded.fetched_at`,
+    [securityId, m.source, m.first_date, m.last_date, m.splits_checked, m.note, now()],
+  );
+}

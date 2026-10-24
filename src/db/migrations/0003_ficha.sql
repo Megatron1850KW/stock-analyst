@@ -18,3 +18,15 @@ CREATE TABLE splits (
 );
 
 CREATE INDEX document_requests_security ON document_requests(security_id, status);
+
+-- Estado del histórico de precios de cada valor (se pide al añadirlo y luego
+-- como mucho una vez al mes). splits_checked = 0 si el proveedor no dio splits.
+CREATE TABLE price_history_meta (
+  security_id     INTEGER PRIMARY KEY REFERENCES securities(id) ON DELETE CASCADE,
+  source          TEXT NOT NULL,
+  first_date      TEXT,
+  last_date       TEXT,
+  splits_checked  INTEGER NOT NULL DEFAULT 0 CHECK (splits_checked IN (0, 1)),
+  note            TEXT,
+  fetched_at      TEXT NOT NULL
+);

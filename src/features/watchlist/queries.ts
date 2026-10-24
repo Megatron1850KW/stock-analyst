@@ -1,7 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { providerFor } from "@/data/prices/provider";
 import { tauriSecClient } from "@/data/sec-edgar/client";
 import { getFacts, getFilings, getGaps, getSecurity, listWatchlist, removeFromWatchlist } from "@/db/repo";
+import { refreshPrices } from "@/features/prices/refresh";
 import { secUserAgent } from "@/features/settings/schema";
 import { loadSettings } from "@/platform/settings-store";
 import { appDb } from "@/platform/database";
@@ -41,9 +43,15 @@ export function useAddTicker() {
   const [step, setStep] = useState<ImportStep | null>(null);
   const mutation = useMutation({
     mutationFn: async (ticker: string) => {
-      const ua = secUserAgent(await loadSettings());
+      const settings = await loadSettings();
+      const ua = secUserAgent(settings);
       if (!ua) throw new ImportError("Antes de consultar la SEC, añade tu nombre y email en Ajustes (la SEC lo exige).");
-      return importUsTicker(tauriSecClient(ua), await appDb(), ticker, setStep);
+      const db = await appDb();
+      const result = await importUsTicker(tauriSecClient(ua), db, ticker, setStep);
+      // Precio e histórico del valor recién añadido (si hay proveedor); un fallo aquí no anula el alta
+      const provider = providerFor(settings.priceProvider);
+      const prices = provider ? await refreshPrices(db, provider, result.securityId).catch(() => null) : null;
+      return { ...result, priceErrors: prices?.failed.map((f) => f.message) ?? [] };
     },
     onSettled: () => {
       setStep(null);

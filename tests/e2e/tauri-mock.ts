@@ -1,7 +1,8 @@
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import type { Page } from "@playwright/test";
+import { fakeDaily } from "../helpers/fake-prices";
 
 /**
  * Simula el lado Rust de Tauri para los tests de UI en el navegador:
@@ -29,6 +30,11 @@ const realTickers = JSON.stringify({
     [1652044, "Alphabet Inc.", "GOOG", "Nasdaq"],
   ],
 });
+/** Precios REALES guardados (tests/fixtures/prices), si existen para ese símbolo. */
+function realPrices(symbol: string, kind: "history" | "splits" = "history"): string | null {
+  const file = join(root, "tests/fixtures/prices", `${symbol}-${kind}.json`);
+  return existsSync(file) ? readFileSync(file, "utf8") : null;
+}
 const realFile = (ticker: string, kind: string) => readFileSync(join(root, "tests/fixtures/sec", `${ticker}-${kind}.json`), "utf8");
 
 export async function installTauriMock(page: Page, opts: MockOptions = {}) {
@@ -94,6 +100,17 @@ export async function installTauriMock(page: Page, opts: MockOptions = {}) {
       case "price_quote":
         if (!secrets.has("prices_api_key")) throw "Falta la clave del proveedor de precios. Añádela en Ajustes.";
         return JSON.stringify([{ symbol: args.symbol, price: opts.price ?? 42.5, timestamp: 1792785600 }]);
+      case "price_history": {
+        if (!secrets.has("prices_api_key")) throw "Falta la clave del proveedor de precios. Añádela en Ajustes.";
+        const real = realPrices(args.symbol as string);
+        if (real) return real;
+        // FICTICIO: curva suave que acaba cerca del precio simulado
+        const bars = fakeDaily(args.from as string, "2026-10-23", (opts.price ?? 42.5) / 2.6, 0.09);
+        return JSON.stringify(bars.reverse().map((b) => ({ symbol: args.symbol, ...b })));
+      }
+      case "price_splits":
+        if (!secrets.has("prices_api_key")) throw "Falta la clave del proveedor de precios. Añádela en Ajustes.";
+        return realPrices(args.symbol as string, "splits") ?? "[]";
       default:
         throw new Error(`Comando no simulado: ${cmd}`);
     }
