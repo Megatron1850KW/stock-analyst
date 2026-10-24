@@ -40,7 +40,7 @@ export const SINCE_ANALYSIS_CONFIG = {
 export const QUALITY_CONFIG = {
   /** Ejercicios que se miran hacia atrás para crecimientos y tendencias. */
   lookbackYears: 3,
-  weights: { growth: 0.25, margins: 0.2, cashConversion: 0.2, debt: 0.2, dilution: 0.15 },
+  weights: { growth: 0.2, margins: 0.25, cashConversion: 0.25, debt: 0.2, dilution: 0.1 },
   /** Crecimiento anual compuesto de ventas/beneficio: −5 % = 0 puntos, +15 % = 100. */
   growth: { bad: -0.05, good: 0.15 },
   /** Margen operativo: 0 % = 0 puntos, 25 % = 100; y su tendencia: −5 puntos = 0, +5 = 100. */
