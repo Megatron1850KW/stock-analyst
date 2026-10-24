@@ -40,15 +40,21 @@ export async function upsertUsSecurity(db: Db, s: UsSecurityInput): Promise<numb
   return rows[0]!.id;
 }
 
-export async function upsertFiling(db: Db, securityId: number, f: FilingRef, url: string): Promise<number> {
+export async function upsertFiling(
+  db: Db,
+  securityId: number,
+  f: FilingRef,
+  url: string,
+  role: "core" | "history" = "core",
+): Promise<number> {
   const fiscalPeriod = f.periodType === "annual" ? "FY" : null;
   await db.execute(
-    `INSERT INTO filings (security_id, form_type, period_type, period_end, fiscal_period, filed_at, source, accession_no, url, fetched_at)
-     VALUES (?, ?, ?, ?, ?, ?, 'sec-edgar', ?, ?, ?)
+    `INSERT INTO filings (security_id, form_type, period_type, period_end, fiscal_period, filed_at, source, accession_no, url, fetched_at, role)
+     VALUES (?, ?, ?, ?, ?, ?, 'sec-edgar', ?, ?, ?, ?)
      ON CONFLICT (security_id, source, accession_no) DO UPDATE SET
        form_type = excluded.form_type, period_type = excluded.period_type, period_end = excluded.period_end,
-       filed_at = excluded.filed_at, url = excluded.url, fetched_at = excluded.fetched_at`,
-    [securityId, f.form, f.periodType, f.reportDate, fiscalPeriod, f.filingDate, f.accession, url, now()],
+       filed_at = excluded.filed_at, url = excluded.url, fetched_at = excluded.fetched_at, role = excluded.role`,
+    [securityId, f.form, f.periodType, f.reportDate, fiscalPeriod, f.filingDate, f.accession, url, now(), role],
   );
   const rows = await db.select<{ id: number }>(
     "SELECT id FROM filings WHERE security_id = ? AND source = 'sec-edgar' AND accession_no = ?",
@@ -119,11 +125,11 @@ export interface WatchlistRow {
 export function listWatchlist(db: Db): Promise<WatchlistRow[]> {
   return db.select<WatchlistRow>(
     `SELECT s.id, s.ticker, s.name, s.exchange, s.currency, s.filer_type, s.updated_at,
-       (SELECT COUNT(*) FROM filings f WHERE f.security_id = s.id AND f.period_type = 'annual') AS annual_count,
-       (SELECT COUNT(*) FROM filings f WHERE f.security_id = s.id AND f.period_type = 'interim') AS interim_count,
+       (SELECT COUNT(*) FROM filings f WHERE f.security_id = s.id AND f.role = 'core' AND f.period_type = 'annual') AS annual_count,
+       (SELECT COUNT(*) FROM filings f WHERE f.security_id = s.id AND f.role = 'core' AND f.period_type = 'interim') AS interim_count,
        (SELECT COUNT(DISTINCT g.concept) FROM concept_gaps g
           JOIN filings f ON f.id = g.filing_id
-          WHERE g.security_id = s.id AND f.period_end = (SELECT MAX(period_end) FROM filings WHERE security_id = s.id AND period_type = 'annual')) AS gap_count,
+          WHERE g.security_id = s.id AND f.period_end = (SELECT MAX(period_end) FROM filings WHERE security_id = s.id AND role = 'core' AND period_type = 'annual')) AS gap_count,
        p.close AS price, p.date AS price_date, p.source AS price_source, p.fetched_at AS price_fetched_at
      FROM securities s
      LEFT JOIN prices p ON p.security_id = s.id AND p.interval = '1d'
@@ -166,12 +172,17 @@ export interface FilingRow {
   accession_no: string;
   url: string | null;
   fetched_at: string;
+  role: "core" | "history" | "upload";
+  source: string;
+  local_path: string | null;
+  original_name: string | null;
+  bytes: number | null;
 }
 
 export function getFilings(db: Db, securityId: number): Promise<FilingRow[]> {
   return db.select<FilingRow>(
-    `SELECT id, form_type, period_type, period_end, filed_at, accession_no, url, fetched_at
-     FROM filings WHERE security_id = ? ORDER BY period_type, period_end DESC`,
+    `SELECT id, form_type, period_type, period_end, filed_at, accession_no, url, fetched_at, role, source, local_path, original_name, bytes
+     FROM filings WHERE security_id = ? ORDER BY role, period_type, period_end DESC`,
     [securityId],
   );
 }
