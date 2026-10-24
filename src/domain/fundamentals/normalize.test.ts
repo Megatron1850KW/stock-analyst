@@ -61,3 +61,17 @@ describe("normalización al modelo común (datos ficticios)", () => {
     expect(result.currency).toBe("USD");
   });
 });
+
+describe("ventas de un banco (datos FICTICIOS al estilo de American Express)", () => {
+  it("usa los ingresos netos de intereses antes que las comisiones", () => {
+    const accn = "0009999999-26-000409";
+    const e = (val: number) => [{ start: "2026-01-01", end: "2026-09-30", val, accn, form: "10-Q", filed: "2026-10-20" }];
+    const bank = companyFactsSchema.parse({
+      cik: 9999999,
+      entityName: "BANCO FICTICIO",
+      facts: { "us-gaap": { RevenuesNetOfInterestExpense: { units: { USD: e(58_606) } }, RevenueFromContractWithCustomerExcludingAssessedTax: { units: { USD: e(32_962) } } } },
+    });
+    const r = normalizeCompanyFacts(bank, [{ accession: accn, form: "10-Q", periodType: "interim", reportDate: "2026-09-30", filingDate: "2026-10-20", primaryDocument: "x.htm" }]);
+    expect(r.facts.find((f) => f.concept === "revenue")).toMatchObject({ value: 58_606, sourceTag: "us-gaap:RevenuesNetOfInterestExpense" });
+  });
+});

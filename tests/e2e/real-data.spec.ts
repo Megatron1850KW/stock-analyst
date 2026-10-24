@@ -9,6 +9,8 @@ const SETTINGS = { aiMode: "api", secUserAgentName: "Usuario Prueba", secUserAge
 const SCREENSHOTS = process.env.SCREENSHOT_DIR;
 
 test("MU y GOOG con datos reales de la SEC", async ({ page }) => {
+  // Lee los companyfacts reales (varios MB) de dos empresas: con todo en paralelo roza los 30 s
+  test.setTimeout(60_000);
   await installTauriMock(page, { settings: SETTINGS, secrets: ["prices_api_key", "anthropic_api_key"], realSec: true });
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/#/watchlist");

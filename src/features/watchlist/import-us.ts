@@ -3,7 +3,10 @@ import type { Db } from "@/db/client";
 import { isTracked, pruneFilings, replaceFilingFacts, syncDocumentRequests, upsertFiling, upsertUsSecurity } from "@/db/repo";
 import { missingReportRequests } from "@/features/document-requests/missing";
 import { historyFilingsFromFacts } from "@/domain/fundamentals/history-filings";
-import { normalizeCompanyFacts } from "@/domain/fundamentals/normalize";
+import type { CompanyFacts } from "@/data/sec-edgar/schemas";
+import { parseIxbrl } from "@/domain/fundamentals/ixbrl";
+import { normalizeCompanyFacts, type NormalizeResult } from "@/domain/fundamentals/normalize";
+import { factsFromInline, mergeFacts } from "@/domain/fundamentals/sec-inline";
 import { needsOlderPages, selectFilings, toRows, type FilingRef } from "@/domain/fundamentals/select-filings";
 
 export type ImportStep = "ticker" | "filings" | "facts" | "save";
@@ -42,6 +45,36 @@ const MAX_OLDER_PAGES = 3;
  * trimestrales, cifras XBRL normalizadas y guardado con su origen.
  * Es idempotente: volver a ejecutarlo actualiza sin duplicar.
  */
+/** Conceptos sin los que la ficha se queda sin valoración: si faltan, se mira el propio documento. */
+const KEY_CONCEPTS = ["revenue", "net_income", "operating_cash_flow"];
+
+/**
+ * Lo que companyfacts no trae (un informe aún sin cargar, BPA solo por clase de
+ * acción) se lee del Inline XBRL del propio informe, sin IA. Un fallo no impide
+ * la importación: los huecos quedan como «Sin dato».
+ */
+async function inlineFallback(sec: SecClient, cik: string, chosen: FilingRef[], normalized: NormalizeResult): Promise<CompanyFacts | null> {
+  if (!sec.document) return null;
+  const gaps = new Map<string, Set<string>>();
+  for (const g of normalized.gaps) gaps.set(g.accession, (gaps.get(g.accession) ?? new Set()).add(g.concept));
+  let out: CompanyFacts | null = null;
+  for (const f of chosen) {
+    const missing = gaps.get(f.accession);
+    if (!missing) continue;
+    const lacksKey = KEY_CONCEPTS.some((c) => missing.has(c));
+    const lacksEps = missing.has("eps_diluted") && missing.has("eps_basic");
+    if (!lacksKey && !lacksEps) continue;
+    try {
+      const doc = parseIxbrl(await sec.document(filingUrl(cik, f.accession, f.primaryDocument)));
+      const found = factsFromInline(doc, { accession: f.accession, filed: f.filingDate });
+      out = out ? mergeFacts(out, found) : found;
+    } catch (e) {
+      console.warn(`[sec] no se pudo leer el documento ${f.accession}:`, e instanceof Error ? e.message : e);
+    }
+  }
+  return out;
+}
+
 export async function importUsTicker(
   sec: SecClient,
   db: Db,
@@ -77,9 +110,14 @@ export async function importUsTicker(
   }
 
   onStep("facts");
-  const facts = await sec.companyFacts(match.cik);
+  let facts = await sec.companyFacts(match.cik);
   const history = historyFilingsFromFacts(facts, chosen);
-  const normalized = normalizeCompanyFacts(facts, [...chosen, ...history]);
+  let normalized = normalizeCompanyFacts(facts, [...chosen, ...history]);
+  const inline = await inlineFallback(sec, match.cik, chosen, normalized);
+  if (inline) {
+    facts = mergeFacts(facts, inline);
+    normalized = normalizeCompanyFacts(facts, [...chosen, ...history]);
+  }
 
   onStep("save");
   const securityId = await upsertUsSecurity(db, {

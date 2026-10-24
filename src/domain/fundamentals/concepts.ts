@@ -33,6 +33,9 @@
  *   menos coste de las ventas y se etiqueta como cifra calculada.
  * - Capex: pagos por inmovilizado material. Algunas empresas lo desglosan en
  *   varias líneas; si solo hay PaymentsToAcquireProductiveAssets se usa esa.
+ * - Bancos: «RevenuesNetOfInterestExpense» va antes que RevenueFromContract…,
+ *   que en un banco solo recoge las comisiones (American Express: 32.962 M
+ *   frente a 58.606 M de ingresos totales en el 10-Q de sep. 2026).
  * - Las cifras de flujo de caja de un 10-Q son acumuladas del año (YTD); se
  *   guardan con sus fechas de inicio y fin para no confundirlas con trimestres.
  */
@@ -66,6 +69,9 @@ export const CONCEPTS: ConceptDef[] = [
     period: "duration",
     tags: [
       g("Revenues"),
+      // Bancos y financieras (p. ej. American Express): el total es neto de intereses;
+      // su RevenueFromContractWithCustomer… es solo una parte (las comisiones)
+      g("RevenuesNetOfInterestExpense"),
       g("RevenueFromContractWithCustomerExcludingAssessedTax"),
       g("RevenueFromContractWithCustomerIncludingAssessedTax"),
       g("SalesRevenueNet"),
