@@ -1,0 +1,189 @@
+{
+ "analysis": {
+  "modelo_negocio": "Micron fabrica memorias para ordenadores y dispositivos: DRAM (memoria de trabajo rápida, que se borra al apagar), NAND (almacenamiento permanente, por ejemplo en discos SSD) y NOR (memoria para código de arranque). Vende componentes, módulos y discos SSD a través de cuatro unidades de negocio. La nube (CMBU) incluye HBM, una memoria muy rápida para IA. Los centros de datos tradicionales y NeoClouds (CDBU) son el segundo bloque. El tercero es móvil y PC (MCBU), y el cuarto automoción e industria (AEBU). En el último ejercicio, el DRAM supuso unos 100.680 millones de USD de ventas y el NAND unos 31.790 millones. Gana dinero vendiendo bits de memoria, y sus ingresos dependen mucho del precio de venta, que es muy cíclico. Fabrica en EE. UU., Taiwán, Singapur, Japón, Malasia, China e India, y alrededor de la mitad de sus ventas viene de sus diez mayores clientes.",
+  "outlook": {
+   "resumen": "La dirección describe una demanda de memoria impulsada por la IA que supera a la oferta de la industria, y firma contratos plurianuales con clientes para asegurar volúmenes y precios. No da previsiones numéricas de ventas o beneficios, solo de inversión (capex: gasto en fábricas y equipos). Prevé mucha inversión en nuevas fábricas en EE. UU., Japón, Singapur y Taiwán.",
+   "guidance": [
+    {
+     "texto": "Inversión (capex, neta de ayudas públicas) de unos 11.500 millones de USD en el primer trimestre de 2027 y unos 25.000 millones en el primer semestre, con más gasto en el segundo semestre.",
+     "cita": {
+      "documento": "0000723125-26-000023",
+      "seccion": "Comentario de la dirección (MD&A)",
+      "texto": "approximately $25 billion in the first six months of 2027, and higher in the second half of 2027"
+     }
+    },
+    {
+     "texto": "Los contratos estratégicos con compromiso de compra (take-or-pay) darían más visibilidad y márgenes por encima de los máximos de ciclos pasados, incluso con precios en el suelo de la banda. Es una expectativa de la dirección, sin cifra concreta.",
+     "cita": {
+      "documento": "0000723125-26-000023",
+      "seccion": "Comentario de la dirección (MD&A)",
+      "texto": "We expect gross margins from our strategic customer agreements with price bands, even at floor pricing levels, to yield gross margins meaningfully above our peak quarterly margins in any past cycle."
+     }
+    },
+    {
+     "texto": "Las nuevas fábricas empezarán a producir entre mediados de 2027 y 2030: primera de Idaho a mitad de 2027, segunda a finales de 2028 y la de Nueva York en 2030.",
+     "cita": {
+      "documento": "0000723125-26-000023",
+      "seccion": "Comentario de la dirección (MD&A)",
+      "texto": "We expect initial wafer output in calendar 2030."
+     }
+    }
+   ]
+  },
+  "catalizadores": [
+   {
+    "titulo": "Demanda de IA superior a la oferta",
+    "detalle": "La dirección dice que la demanda de memoria por la IA crece más rápido que la capacidad de la industria, lo que sostiene precios y márgenes altos.",
+    "cita": {
+     "documento": "0000723125-26-000023",
+     "seccion": "Comentario de la dirección (MD&A)",
+     "texto": "AI-driven memory and storage demand growth is outpacing industry supply."
+    }
+   },
+   {
+    "titulo": "Contratos plurianuales con compromiso de compra",
+    "detalle": "Los acuerdos estratégicos con volúmenes vinculantes y bandas de precio podrían suavizar el carácter cíclico del negocio. Ya incluyen depósitos de clientes por 12.750 millones de USD.",
+    "cita": {
+     "documento": "0000723125-26-000023",
+     "seccion": "Comentario de la dirección (MD&A)",
+     "texto": "These agreements provide customers with contracted supply assurance and greater pricing visibility"
+    }
+   },
+   {
+    "titulo": "Nueva memoria HBM4 y tecnología de vanguardia",
+    "detalle": "Micron ya produce en volumen HBM4 y prepara HBM4E para 2027. Además, su nodo 1γ DRAM es ya mayoritario en producción, lo que mejora costes y rendimiento.",
+    "cita": {
+     "documento": "0000723125-26-000023",
+     "seccion": "Negocio",
+     "texto": "Development of HBM4E, our next-generation HBM product leveraging our 1γ DRAM technology node, is well underway, and we expect to ramp volume in calendar 2027."
+    }
+   },
+   {
+    "titulo": "Más capacidad y ayudas públicas",
+    "detalle": "Las fábricas nuevas en EE. UU., Japón, Singapur y Taiwán permitirán aumentar la oferta. Las ayudas de la ley CHIPS (hasta 6.400 millones de USD en subvenciones) y el crédito fiscal del 35% reducen el coste.",
+    "cita": {
+     "documento": "0000723125-26-000023",
+     "seccion": "Comentario de la dirección (MD&A)",
+     "texto": "The grants under the funding agreements represent total CHIPS Act grants of up to $6.4 billion"
+    }
+   },
+   {
+    "titulo": "Mayor retorno al accionista",
+    "detalle": "El consejo ha ampliado la autorización de recompra de acciones hasta 35.160 millones de USD y mantiene un dividendo trimestral de 0,15 USD por acción. Es una posibilidad, no una obligación.",
+    "cita": {
+     "documento": "0000723125-26-000023",
+     "seccion": "Comentario de la dirección (MD&A)",
+     "texto": "authorized an increase in the maximum amount of discretionary repurchases of our outstanding common stock to be made from December 9, 2026 to $35.16 billion"
+    }
+   }
+  ],
+  "riesgos": [
+   {
+    "titulo": "Precios de memoria muy volátiles (ciclo)",
+    "detalle": "Las ventas actuales vienen sobre todo de una gran subida de precios (en torno al 180% en DRAM y 200% en NAND). En los últimos cinco años los precios han variado entre +200% y -50% al año. Si la oferta alcanza a la demanda, los márgenes podrían caer con fuerza, como en 2023 (pérdidas y margen operativo de -37%).",
+    "cita": {
+     "documento": "0000723125-26-000023",
+     "seccion": "Factores de riesgo",
+     "texto": "Over the past five fiscal years, annual percentage changes in DRAM and NAND average selling prices have ranged from an increase of approximately 200% to a decrease of approximately 50%."
+    },
+    "gravedad": "alta"
+   },
+   {
+    "titulo": "Exceso de oferta por inversión propia y de competidores",
+    "detalle": "Micron y sus rivales (Samsung, SK hynix, y los chinos CXMT y YMTC, apoyados por su Estado) están construyendo fábricas. Si la demanda no acompaña, los precios podrían bajar mucho.",
+    "cita": {
+     "documento": "0000723125-26-000023",
+     "seccion": "Factores de riesgo",
+     "texto": "If worldwide demand for semiconductor memory and storage does not increase or remain stable, average selling prices for our products could decline materially"
+    },
+    "gravedad": "alta"
+   },
+   {
+    "titulo": "Dependencia de la demanda de IA, difícil de prever",
+    "detalle": "La propia empresa admite que el calendario y el volumen de la demanda de IA pueden cambiar mucho. Pueden incurrir en costes por una demanda que no se materialice, y los precios altos podrían llevar a clientes a usar menos memoria.",
+    "cita": {
+     "documento": "0000723125-26-000023",
+     "seccion": "Factores de riesgo",
+     "texto": "it is difficult to accurately forecast such demand, particularly over the longer term"
+    },
+    "gravedad": "alta"
+   },
+   {
+    "titulo": "Riesgo geopolítico y concentración en Taiwán",
+    "detalle": "La mayor parte de la producción de DRAM de 2026 salió de Taiwán. Además, China prohibió a operadores de infraestructura crítica comprar productos de Micron, y EE. UU. restringe ventas a ciertos clientes.",
+    "cita": {
+     "documento": "0000723125-26-000023",
+     "seccion": "Factores de riesgo",
+     "texto": "A majority of our DRAM production output in 2026 was from our fabrication facilities in Taiwan, and any loss of output could have a material adverse effect on us."
+    },
+    "gravedad": "media"
+   },
+   {
+    "titulo": "Inversión enorme y ejecución de nuevas fábricas",
+    "detalle": "El gasto en fábricas es muy elevado (30.712 millones de USD en el último año y más previsto). Retrasos, sobrecostes o poca demanda podrían impedir un retorno adecuado.",
+    "cita": {
+     "documento": "0000723125-26-000023",
+     "seccion": "Factores de riesgo",
+     "texto": "These expansion projects are multi-year projects that require significant lead time and commitment of capital well in advance of achieving any returns."
+    },
+    "gravedad": "media"
+   },
+   {
+    "titulo": "Ayudas públicas condicionadas y depósitos de clientes",
+    "detalle": "Las ayudas pueden reducirse o reclamarse si no se cumplen las condiciones. Además, los depósitos de clientes (12.750 millones de USD) casi todos deben devolverse entre 2029 y 2031.",
+    "cita": {
+     "documento": "0000723125-26-000023",
+     "seccion": "Factores de riesgo",
+     "texto": "Failure to achieve such milestones could result in up to all of certain incentives being clawed back"
+    },
+    "gravedad": "baja"
+   }
+  ],
+  "veredicto": {
+   "postura": "Neutral",
+   "resumen": "Micron vive un momento extraordinario: ventas de 133.188 millones de USD, margen operativo del 74,6% y caja libre de 58.963 millones de USD, con más caja que deuda (deuda neta de -38.255 millones). Los múltiplos parecen baratos frente a su historia (PER 11,8 y rentabilidad de caja libre del 5,9%), y el veredicto de valoración es «Barata». Pero esa baratura puede ser engañosa: los beneficios actuales provienen de un pico de precios en un sector muy cíclico, donde en 2023 hubo pérdidas. Los contratos plurianuales y la demanda de IA son argumentos a favor, pero no está probado que los márgenes actuales sean sostenibles, y la competencia y la inversión en capacidad pueden revertirlos. Por eso adopto una postura neutral, a pesar de la valoración barata y la sólida salud financiera, a la espera de ver cómo se comportan los márgenes con precios normalizados.}"
+  },
+  "puntos_clave": [
+   "Ventas de 133.188 millones de USD y beneficio neto de 84.969 millones: un salto enorme por la subida de precios de la memoria.",
+   "Balance muy sólido: caja e inversiones de 43.434 millones frente a deuda bruta de 5.179 millones.",
+   "Valoración barata frente a su historia (PER 11,8, EV/EBIT 9,7), pero basada en beneficios de un posible pico de ciclo.",
+   "El sector es muy cíclico: en 2023 la empresa tuvo pérdidas y un margen operativo del -37%.",
+   "Capex previsto elevado (unos 25.000 millones en el primer semestre de 2027) y más oferta de la industria en camino."
+  ],
+  "datos_no_encontrados": [
+   "Previsión numérica de ventas, márgenes o beneficios de la dirección.",
+   "Cuota de mercado actual de Micron frente a Samsung y SK hynix.",
+   "Detalle de los contratos estratégicos: volúmenes totales, plazos y niveles de precios mínimos y máximos.",
+   "Beneficios y márgenes en un escenario de precios normalizados o de caída del ciclo.",
+   "Estimaciones de oferta y demanda de la industria para los próximos años."
+  ]
+ },
+ "documents": [
+  {
+   "id": "0000723125-26-000023",
+   "form": "10-K",
+   "periodEnd": "2026-09-03",
+   "filedAt": "2026-10-09",
+   "url": "https://www.sec.gov/Archives/edgar/data/723125/000072312526000023/mu-20260903.htm",
+   "sections": [
+    {
+     "section": "business",
+     "truncated": true,
+     "fullLength": 61780
+    },
+    {
+     "section": "risks",
+     "truncated": true,
+     "fullLength": 118465
+    },
+    {
+     "section": "mdna",
+     "truncated": false,
+     "fullLength": 39944
+    }
+   ]
+  }
+ ],
+ "servedModel": "claude-sonnet-5-5",
+ "costApprox": true
+}

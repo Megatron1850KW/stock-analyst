@@ -5,6 +5,7 @@ import { DISCLAIMER } from "@/app/Disclaimer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SourceValue } from "@/components/ui/source-value";
+import { AiAnalysisSection } from "@/features/ai/AiAnalysisSection";
 import { DocumentsSection } from "@/features/document-requests/DocumentsSection";
 import { formatCurrency } from "@/lib/format";
 import { ExpertDetail } from "./ficha/ExpertDetail";
@@ -117,6 +118,10 @@ export function SecurityDetailPage() {
       <p className="mt-3 text-[11.5px] text-muted">
         Cálculos propios a partir de los informes oficiales; pasa el ratón por una cifra para ver de dónde sale. {DISCLAIMER}
       </p>
+
+      <div className="mt-10">
+        <AiAnalysisSection securityId={s.id} />
+      </div>
 
       <Section
         id="valoracion"

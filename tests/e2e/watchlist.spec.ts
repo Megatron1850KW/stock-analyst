@@ -106,3 +106,47 @@ test("sin clave de precios avisa en llano", async ({ page }) => {
   await page.getByRole("button", { name: /Actualizar precios/ }).click();
   await expect(page.getByText("1 sin precio")).toBeVisible();
 });
+
+test("al añadir un valor la IA lo analiza una vez y la portada lo compara", async ({ page }) => {
+  const { calls } = await installTauriMock(page, { settings: SETTINGS, secrets: ["prices_api_key", "anthropic_api_key"] });
+  await page.goto("/#/watchlist");
+  await page.getByLabel("Ticker de EE. UU.").fill("FICT");
+  await page.getByRole("button", { name: "Añadir" }).click();
+  await page.getByRole("link", { name: "FICT" }).click();
+
+  const ia = page.getByRole("region", { name: /Qué opina el analista/ });
+  await expect(ia.getByText("Análisis IA")).toBeVisible();
+  await expect(ia.getByText("Neutral", { exact: true })).toBeVisible();
+  await expect(ia).toContainText("FICTICIA CORP (empresa inventada para pruebas)");
+  await expect(ia.getByRole("button", { name: "Cita sin verificar" })).toBeVisible();
+  await expect(ia.getByRole("button", { name: "Re-analizar" })).toBeEnabled();
+  expect(calls.filter((c) => c === "claude_request")).toHaveLength(1);
+  await ia.scrollIntoViewIfNeeded();
+  await shot(page, "7-analisis-ia");
+
+  // Volver a la ficha no vuelve a llamar a la IA
+  await page.goto("/#/");
+  const row = page.getByRole("row", { name: /FICT/ });
+  await expect(row).toContainText("Neutral");
+  await expect(row).toContainText("Más caja que deuda");
+  await shot(page, "8-comparativa");
+  await row.click();
+  await expect(page.getByRole("heading", { level: 1, name: /FICTICIA CORP/ })).toBeVisible();
+  expect(calls.filter((c) => c === "claude_request")).toHaveLength(1);
+
+  // «Re-analizar» sí llama
+  await page.getByRole("button", { name: "Re-analizar" }).click();
+  await expect.poll(() => calls.filter((c) => c === "claude_request").length).toBe(2);
+});
+
+test("sin clave de Claude no se llama a la IA y se ofrece el botón", async ({ page }) => {
+  const { calls } = await installTauriMock(page, { settings: SETTINGS, secrets: ["prices_api_key"] });
+  await page.goto("/#/watchlist");
+  await page.getByLabel("Ticker de EE. UU.").fill("FICT");
+  await page.getByRole("button", { name: "Añadir" }).click();
+  await page.getByRole("link", { name: "FICT" }).click();
+  const ia = page.getByRole("region", { name: /Qué opina el analista/ });
+  await ia.getByRole("button", { name: "Analizar con IA" }).click();
+  await expect(ia.getByRole("alert")).toContainText("Falta la clave de Claude. Añádela en Ajustes.");
+  expect(calls).not.toContain("claude_request");
+});

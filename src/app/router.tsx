@@ -1,4 +1,5 @@
 import { createHashRouter, Navigate, type RouteObject } from "react-router";
+import { ComparisonPage } from "@/features/comparison/ComparisonPage";
 import { PortfolioPage } from "@/features/portfolio/PortfolioPage";
 import { SettingsPage } from "@/features/settings/SettingsPage";
 import { StarsPage } from "@/features/stars/StarsPage";
@@ -6,7 +7,6 @@ import { TechnicalRiskPage } from "@/features/technical-risk/TechnicalRiskPage";
 import { SecurityDetailPage } from "@/features/watchlist/SecurityDetailPage";
 import { WatchlistPage } from "@/features/watchlist/WatchlistPage";
 import { AppLayout } from "./AppLayout";
-import { HomePage } from "./HomePage";
 import { SectionColumns } from "./SectionColumns";
 
 export const routes: RouteObject[] = [
@@ -14,7 +14,7 @@ export const routes: RouteObject[] = [
     path: "/",
     element: <AppLayout />,
     children: [
-      { index: true, element: <HomePage /> },
+      { index: true, element: <ComparisonPage /> },
       {
         element: <SectionColumns />,
         children: [

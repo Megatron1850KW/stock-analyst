@@ -2,25 +2,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { providerFor } from "@/data/prices/provider";
 import { tauriSecClient } from "@/data/sec-edgar/client";
-import {
-  getDocumentRequests,
-  getFacts,
-  getFilings,
-  getGaps,
-  getLatestQuote,
-  getPriceBars,
-  getPriceHistoryMeta,
-  getSecurity,
-  getSplits,
-  listWatchlist,
-  removeFromWatchlist,
-} from "@/db/repo";
+import { listWatchlist, removeFromWatchlist } from "@/db/repo";
+import { startInitialAnalysis } from "@/features/ai/queries";
 import { refreshPrices } from "@/features/prices/refresh";
 import { secUserAgent } from "@/features/settings/schema";
 import { loadSettings } from "@/platform/settings-store";
 import { appDb } from "@/platform/database";
-import { buildAnalysis } from "./analysis";
 import { importUsTicker, ImportError, type ImportStep } from "./import-us";
+import { loadSecurityDetail } from "./load";
 
 export const watchlistKey = ["watchlist"] as const;
 
@@ -31,22 +20,7 @@ export function useWatchlist() {
 export function useSecurityDetail(id: number) {
   return useQuery({
     queryKey: ["security", id],
-    queryFn: async () => {
-      const db = await appDb();
-      const [security, filings, facts, gaps, monthly, splits, quote, priceMeta, requests] = await Promise.all([
-        getSecurity(db, id),
-        getFilings(db, id),
-        getFacts(db, id),
-        getGaps(db, id),
-        getPriceBars(db, id, "1mo"),
-        getSplits(db, id),
-        getLatestQuote(db, id),
-        getPriceHistoryMeta(db, id),
-        getDocumentRequests(db, id),
-      ]);
-      const analysis = security ? buildAnalysis({ security, filings, facts, monthly, splits, quote, priceMeta }) : null;
-      return { security, filings, facts, gaps, priceMeta, requests, analysis };
-    },
+    queryFn: async () => loadSecurityDetail(await appDb(), id),
   });
 }
 
@@ -75,8 +49,12 @@ export function useAddTicker() {
     onSettled: () => {
       setStep(null);
       void qc.invalidateQueries({ queryKey: watchlistKey });
+      void qc.invalidateQueries({ queryKey: ["comparison"] });
     },
-    onSuccess: (r) => void qc.invalidateQueries({ queryKey: ["security", r.securityId] }),
+    onSuccess: (r) => {
+      void qc.invalidateQueries({ queryKey: ["security", r.securityId] });
+      startInitialAnalysis(qc, r.securityId);
+    },
   });
   return { ...mutation, step };
 }
@@ -85,6 +63,9 @@ export function useRemoveSecurity() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: number) => removeFromWatchlist(await appDb(), id),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: watchlistKey }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: watchlistKey });
+      void qc.invalidateQueries({ queryKey: ["comparison"] });
+    },
   });
 }

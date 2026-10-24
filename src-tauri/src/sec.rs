@@ -95,9 +95,53 @@ pub async fn sec_fetch(
     get_text(HOST, req).await
 }
 
+/// URL de un documento del archivo de EDGAR, tal como se guarda en filings.url:
+/// https://www.sec.gov/Archives/edgar/data/<cik>/<accession sin guiones>/<fichero>.htm
+pub fn validate_archive_url(url: &str) -> Result<&str, NetError> {
+    let bad = || NetError::Invalid(format!("Documento de la SEC no válido: {url}"));
+    let rest = url.strip_prefix("https://www.sec.gov/Archives/edgar/data/").ok_or_else(bad)?;
+    let parts: Vec<&str> = rest.split('/').collect();
+    let [cik, acc, file] = parts.as_slice() else { return Err(bad()) };
+    let digits = |s: &str, min: usize, max: usize| (min..=max).contains(&s.len()) && s.chars().all(|c| c.is_ascii_digit());
+    let name_ok = file.len() <= 120
+        && !file.starts_with('.')
+        && file.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'))
+        && (file.ends_with(".htm") || file.ends_with(".html"));
+    if digits(cik, 1, 10) && digits(acc, 18, 18) && name_ok { Ok(url) } else { Err(bad()) }
+}
+
+/// Descarga un 10-K/10-Q/20-F en HTML para extraer sus secciones de texto
+/// (negocio, riesgos, MD&A) que se envían a la IA.
+#[tauri::command]
+pub async fn sec_document(url: String, user_agent: String) -> Result<String, NetError> {
+    let ua = validate_user_agent(&user_agent)?.to_owned();
+    let url = validate_archive_url(&url)?.to_owned();
+    THROTTLE.wait().await;
+    let req = client()
+        .get(url)
+        .header(reqwest::header::USER_AGENT, ua)
+        .header(reqwest::header::ACCEPT, "text/html");
+    get_text(HOST, req).await
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn solo_descarga_documentos_del_archivo_de_edgar() {
+        let ok = "https://www.sec.gov/Archives/edgar/data/723125/000072312525000028/mu-20250828.htm";
+        assert!(validate_archive_url(ok).is_ok());
+        for bad in [
+            "https://www.sec.gov/Archives/edgar/data/723125/000072312525000028/../../x.htm",
+            "https://www.sec.gov/Archives/edgar/data/723125/0000723125-25-000028/mu.htm",
+            "https://www.sec.gov/Archives/edgar/data/723125/000072312525000028/mu.pdf",
+            "https://evil.example/Archives/edgar/data/1/000072312525000028/a.htm",
+            "https://www.sec.gov/Archives/edgar/data/723125/000072312525000028/.htm",
+        ] {
+            assert!(validate_archive_url(bad).is_err(), "{bad}");
+        }
+    }
 
     #[test]
     fn normaliza_el_cik_a_10_digitos() {

@@ -84,7 +84,7 @@ export const SECRET_KEYS = [
   {
     id: "prices_api_key",
     label: "Proveedor de precios",
-    description: "Clave de Financial Modeling Prep (plan gratuito) u otro proveedor que elijas abajo.",
+    description: "Clave de Tiingo (plan gratuito) u otro proveedor que elijas abajo.",
     required: false,
   },
   {
