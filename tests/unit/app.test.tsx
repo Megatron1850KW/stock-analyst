@@ -24,7 +24,7 @@ describe("esqueleto de la app", () => {
   it("abre en la comparativa con el logo, las 4 secciones y el aviso legal", async () => {
     renderApp();
     expect(await screen.findByRole("heading", { level: 1, name: "Comparativa" })).toBeInTheDocument();
-    expect(screen.getAllByAltText("Agente Financiero").length).toBeGreaterThan(0);
+    expect(screen.getAllByAltText("Stock Analisis").length).toBeGreaterThan(0);
     expect(screen.getByRole("tablist", { name: "Qué comparar" })).toBeInTheDocument();
     const nav = screen.getByRole("navigation", { name: "Secciones" });
     const titles = within(nav).getAllByRole("link").map((a) => a.querySelector("span span")?.textContent);

@@ -12,7 +12,7 @@ export function TopBar() {
     <header data-tauri-drag-region className="flex h-14 shrink-0 items-center justify-between gap-4 pr-5 pl-24">
       <Link to="/" className="flex items-center gap-2 rounded-md px-1.5 py-1 hover:bg-text/5" aria-label="Portada">
         <AnimatedLogo decorative className="size-6" />
-        <span className="font-serif text-[15px] font-semibold tracking-tight">Agente Financiero</span>
+        <span className="font-serif text-[15px] font-semibold tracking-tight">Stock Analisis</span>
       </Link>
       <div className="flex items-center gap-2">
         {!inDesktopApp && (

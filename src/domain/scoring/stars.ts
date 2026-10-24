@@ -134,8 +134,7 @@ export function complement(c: StarCandidate, mix: PortfolioMix, cfg: Cfg = STARS
   return { score: Math.round(parts.reduce((a, p) => a + p.score * weight(p), 0) / total), parts };
 }
 
-function exclusion(c: StarCandidate, valuation: number | null, cfg: Cfg, maxPosition: number): string | null {
-  if (c.heldWeight != null && c.heldWeight > maxPosition) return `Ya pesa un ${(c.heldWeight * 100).toLocaleString("es-ES", { maximumFractionDigits: 1 })} % de tu cartera (máximo ${pct(maxPosition)}).`;
+function exclusion(c: StarCandidate, valuation: number | null, cfg: Cfg): string | null {
   if (valuation === null) return "Sin valoración: falta el precio o historia suficiente.";
   if (c.quality === null) return "Faltan datos para medir su calidad.";
   if (c.outcome === "Trampa de valor") return "Posible trampa de valor.";
@@ -159,7 +158,7 @@ export function watchlistStar(candidates: StarCandidate[], mix: PortfolioMix, cf
   const ranking: WatchlistStarRow[] = candidates.map((candidate) => {
     const valuation = valuationPoints(candidate);
     const comp = complement(candidate, mix, cfg);
-    const excluded = exclusion(candidate, valuation, cfg, maxPosition);
+    const excluded = exclusion(candidate, valuation, cfg);
     const score = excluded || valuation === null || candidate.quality === null ? null : Math.round((valuation * candidate.quality * comp.score) / 10_000);
     return { candidate, valuation, complement: comp, score, excluded };
   });
@@ -170,7 +169,7 @@ export function watchlistStar(candidates: StarCandidate[], mix: PortfolioMix, cf
     return {
       star: null,
       ranking,
-      note: candidates.length === 0 ? "Añade acciones a tu watchlist para ver cuál complementa mejor tu cartera." : "Ninguna acción de tu watchlist cumple hoy los mínimos (precio, calidad, sin trampa de valor y sin sobrepeso en tu cartera).",
+      note: candidates.length === 0 ? "Añade acciones a tu watchlist para ver cuál complementa mejor tu cartera." : "Ninguna acción de tu watchlist cumple hoy los mínimos (precio, calidad y sin trampa de valor).",
     };
   }
   const c = best.candidate;
@@ -183,7 +182,8 @@ export function watchlistStar(candidates: StarCandidate[], mix: PortfolioMix, cf
         ? topPart.text
         : "Es la que mejor encaja con tu cartera de las que pasan los mínimos.",
   );
-  return { star: { id: c.id, ticker: c.ticker, name: c.name, reasons: reasons.filter((r): r is string => !!r).slice(0, 3) }, ranking };
+  const caution = c.heldWeight != null && c.heldWeight > maxPosition ? `Ojo: ya pesa un ${pct(c.heldWeight)} de tu cartera; ampliar la concentraría más.` : undefined;
+  return { star: { id: c.id, ticker: c.ticker, name: c.name, reasons: reasons.filter((r): r is string => !!r).slice(0, 3), caution }, ranking };
 }
 
 /* ---------- Cartera ---------- */

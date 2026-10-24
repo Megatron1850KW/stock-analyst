@@ -73,7 +73,6 @@ describe("estrella de la watchlist", () => {
         base({ id: 3, ticker: "CARA", valuation: { verdict: "Cara", score: 20, deviation: 0.3 } }),
         base({ id: 4, ticker: "TECH", valuation: cheap, technical: "Alto" }),
         base({ id: 5, ticker: "NOPX", valuation: { verdict: null, score: null, deviation: null } }),
-        base({ id: 6, ticker: "HEAVY", valuation: cheap, heldWeight: 0.2 }),
       ],
       EMPTY,
     );
@@ -81,13 +80,17 @@ describe("estrella de la watchlist", () => {
     expect(r.note).toMatch(/mínimos/);
     expect(r.ranking.every((x) => x.excluded)).toBe(true);
     expect(r.ranking.find((x) => x.candidate.ticker === "TRAP")?.excluded).toBe("Posible trampa de valor.");
-    expect(r.ranking.find((x) => x.candidate.ticker === "HEAVY")?.excluded).toMatch(/^Ya pesa un 20 % de tu cartera/);
   });
 
   it("la valoración mezcla historia y competencia", () => {
     const r = watchlistStar([base({ valuation: { verdict: "Justa", score: 50, deviation: 0 }, peers: { verdict: "Barata", deviation: -0.25 } })], EMPTY);
     expect(r.ranking[0]!.valuation).toBe(63); // (50 + 75) / 2 redondeado
     expect(r.star?.reasons.at(-1)).toBe("Tu cartera está vacía: cualquier acción la diversifica.");
+  });
+
+  it("el peso en cartera no la descarta: solo avisa", () => {
+    const r = watchlistStar([base({ valuation: { verdict: "Barata", score: 80, deviation: -0.3 }, heldWeight: 0.2 })], EMPTY);
+    expect(r.star?.caution).toMatch(/ya pesa un 20 %/);
   });
 
   it("sin acciones, sin estrella y con explicación", () => {
