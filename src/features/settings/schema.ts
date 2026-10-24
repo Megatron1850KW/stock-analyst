@@ -26,6 +26,8 @@ export const settingsSchema = z.object({
   aiModelExtraction: aiModelId,
   aiMonthlyBudgetEur: z.number().min(0).max(10_000),
   priceProvider: priceProviderId.nullable(),
+  /** Precios de las bolsas europeas (Tiingo solo cubre EE. UU.). */
+  priceProviderEu: z.enum(["alphavantage"]).nullable(),
   baseCurrency: z.enum(["EUR", "USD"]),
   language: z.enum(["es"]),
   theme: z.enum(["system", "light", "dark"]),
@@ -42,6 +44,7 @@ export const DEFAULT_SETTINGS: Settings = {
   aiModelExtraction: "claude-haiku-5-5",
   aiMonthlyBudgetEur: 10,
   priceProvider: "tiingo",
+  priceProviderEu: "alphavantage",
   baseCurrency: "EUR",
   language: "es",
   theme: "system",
@@ -84,7 +87,13 @@ export const SECRET_KEYS = [
   {
     id: "prices_api_key",
     label: "Proveedor de precios",
-    description: "Clave de Tiingo (plan gratuito) u otro proveedor que elijas abajo.",
+    description: "Clave de Tiingo (plan gratuito) u otro proveedor que elijas abajo. Precios de EE. UU.",
+    required: false,
+  },
+  {
+    id: "alphavantage_api_key",
+    label: "Alpha Vantage",
+    description: "Precios de las bolsas europeas (plan gratuito: 25 consultas al día).",
     required: false,
   },
   {

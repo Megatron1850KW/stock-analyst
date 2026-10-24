@@ -1,7 +1,6 @@
 import { useIsMutating, useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { createClaudeClient } from "@/data/claude/client";
 import { tauriEuClient } from "@/data/esef/client";
-import { providerFor } from "@/data/prices/provider";
 import { tauriSecClient } from "@/data/sec-edgar/client";
 import { removePeer } from "@/db/peers-repo";
 import { deleteIfUnused } from "@/db/repo";
@@ -12,6 +11,7 @@ import { looksLikeIsin } from "@/features/watchlist/import-us";
 import { appDb } from "@/platform/database";
 import { secrets } from "@/platform/secrets";
 import { loadSettings } from "@/platform/settings-store";
+import { providersFor } from "@/features/prices/refresh";
 import { loadPeerGroup } from "./load";
 import { proposePeers } from "./propose";
 import { linkPeers, memoTickers, type PeerSyncResult } from "./sync";
@@ -28,7 +28,7 @@ async function syncDeps() {
   const settings = await loadSettings();
   const ua = secUserAgent(settings);
   const sec = ua ? memoTickers(tauriSecClient(ua)) : null;
-  return { settings, db: await appDb(), sec, eu: tauriEuClient(), prices: providerFor(settings.priceProvider) };
+  return { settings, db: await appDb(), sec, eu: tauriEuClient(), prices: providersFor(settings) };
 }
 
 /**

@@ -317,15 +317,24 @@ export interface PriceTarget {
   peer_only: number;
   /** Cuándo se pidió su última cotización. */
   quote_fetched_at: string | null;
+  market: "US" | "EU";
+  name: string;
+  exchange: string | null;
+  /** «proveedor:símbolo» guardado (ver 0006_price_symbols.sql). */
+  price_symbol: string | null;
 }
 
 export function listPriceTargets(db: Db): Promise<PriceTarget[]> {
   return db.select(
-    `SELECT s.id, s.ticker, s.currency,
+    `SELECT s.id, s.ticker, s.currency, s.market, s.name, s.exchange, s.price_symbol,
        (s.in_watchlist = 0 AND s.id NOT IN (SELECT security_id FROM transactions)) AS peer_only,
        (SELECT MAX(fetched_at) FROM prices p WHERE p.security_id = s.id AND p.interval = '1d') AS quote_fetched_at
-     FROM securities s WHERE s.ticker IS NOT NULL AND s.market = 'US' ORDER BY s.ticker`,
+     FROM securities s WHERE s.ticker IS NOT NULL AND s.market IN ('US', 'EU') ORDER BY s.ticker`,
   );
+}
+
+export async function savePriceSymbol(db: Db, securityId: number, value: string): Promise<void> {
+  await db.execute("UPDATE securities SET price_symbol = ? WHERE id = ?", [value, securityId]);
 }
 
 export interface BarRow {

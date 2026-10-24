@@ -1,10 +1,9 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
-import { providerFor } from "@/data/prices/provider";
 import { appDb } from "@/platform/database";
 import { inDesktopApp } from "@/platform/runtime";
 import { loadSettings } from "@/platform/settings-store";
-import { refreshPrices, type RefreshResult } from "./refresh";
+import { providersFor, providersLabel, refreshPrices, type RefreshResult } from "./refresh";
 
 export const lastRefreshKey = ["price-refresh"] as const;
 export interface LastRefresh extends RefreshResult {
@@ -17,10 +16,10 @@ export function useRefreshPrices() {
   return useMutation({
     mutationKey: ["refresh-prices"],
     mutationFn: async (): Promise<LastRefresh> => {
-      const provider = providerFor((await loadSettings()).priceProvider);
-      if (!provider) throw new Error("Elige un proveedor de precios en Ajustes.");
-      const result = await refreshPrices(await appDb(), provider);
-      return { ...result, at: new Date().toISOString(), provider: provider.label };
+      const providers = providersFor(await loadSettings());
+      if (!providers.US && !providers.EU) throw new Error("Elige un proveedor de precios en Ajustes.");
+      const result = await refreshPrices(await appDb(), providers);
+      return { ...result, at: new Date().toISOString(), provider: providersLabel(providers) };
     },
     onSuccess: (r) => {
       qc.setQueryData(lastRefreshKey, r);

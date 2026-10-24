@@ -6,6 +6,7 @@ import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import type { Page } from "@playwright/test";
 import { FAKE_ANALYSIS, fakeReportHtml } from "../helpers/fake-claude";
 import { fakeDaily } from "../helpers/fake-prices";
+import { avQuoteJson, avSearchJson, avSeriesJson } from "../helpers/fake-alphavantage";
 import { fakeEu } from "../helpers/fake-eu";
 
 /**
@@ -74,7 +75,7 @@ export async function installTauriMock(page: Page, opts: MockOptions = {}) {
   }
   db.exec("PRAGMA foreign_keys = ON");
   // La app consulta esta tabla para mostrar la versión del esquema
-  db.exec("CREATE TABLE _sqlx_migrations (version INTEGER); INSERT INTO _sqlx_migrations VALUES (1), (2), (3), (4), (5);");
+  db.exec("CREATE TABLE _sqlx_migrations (version INTEGER); INSERT INTO _sqlx_migrations VALUES (1), (2), (3), (4), (5), (6);");
 
   const store = new Map<string, unknown>(opts.settings ? [["settings", opts.settings]] : []);
   const secrets = new Set(opts.secrets ?? []);
@@ -84,6 +85,11 @@ export async function installTauriMock(page: Page, opts: MockOptions = {}) {
   const ai: string[] = [];
 
   const eu = fakeEu().client;
+  /** Alpha Vantage FICTICIO (tests/helpers/fake-alphavantage): pide su propia clave. */
+  const alphaVantage = (body: () => string) => {
+    if (!secrets.has("alphavantage_api_key")) throw "Falta la clave de Alpha Vantage (precios europeos). Añádela en Ajustes.";
+    return body();
+  };
   await page.exposeFunction("__pwInvoke", async (cmd: string, args: Record<string, unknown>) => {
     calls.push(cmd);
     const values = (args.values as SQLInputValue[] | undefined) ?? [];
@@ -133,6 +139,7 @@ export async function installTauriMock(page: Page, opts: MockOptions = {}) {
         return fixture(name);
       }
       case "price_quote": {
+        if (args.provider === "alphavantage") return alphaVantage(() => avQuoteJson(args.symbol as string, opts.price ?? 38.4));
         if (!secrets.has("prices_api_key")) throw "Falta la clave del proveedor de precios. Añádela en Ajustes.";
         const realQuote = realPrices(args.symbol as string, "quote");
         if (realQuote) return realQuote;
@@ -217,6 +224,10 @@ export async function installTauriMock(page: Page, opts: MockOptions = {}) {
         return { text: JSON.stringify(await eu.esefDocument(args.path as string)), path: `/simulado/documents/esef${args.path as string}`, cached: false };
       case "esef_report":
         return { text: fakeEuReportHtml, path: "/simulado/documents/esef/informe.xhtml", cached: false };
+      case "price_series":
+        return alphaVantage(() => avSeriesJson(args.interval as "weekly" | "monthly"));
+      case "price_search":
+        return alphaVantage(() => avSearchJson());
       case "price_splits":
         if (!secrets.has("prices_api_key")) throw "Falta la clave del proveedor de precios. Añádela en Ajustes.";
         return realPrices(args.symbol as string, "splits") ?? "[]";

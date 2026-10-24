@@ -90,7 +90,7 @@ test("sin nombre y email para la SEC no busca acciones de EE. UU. y lo explica",
 });
 
 test("una acción europea (ficticia) se añade por su ISIN con sus informes ESEF, sin pedir datos para la SEC", async ({ page }) => {
-  const { calls } = await installTauriMock(page, { secrets: ["prices_api_key"] });
+  const { calls } = await installTauriMock(page, { secrets: ["prices_api_key", "alphavantage_api_key"] });
   await page.goto("/#/watchlist");
   await page.getByLabel("Ticker o ISIN").fill("ES0000000010");
   await page.getByRole("button", { name: "Añadir" }).click();
@@ -98,6 +98,9 @@ test("una acción europea (ficticia) se añade por su ISIN con sus informes ESEF
   // Faltan los semestrales: se piden en «Documentos pendientes»
   await expect(page.getByText(/en «Documentos pendientes»/)).toBeVisible();
   expect(calls).not.toContain("sec_fetch");
+  // Precio en euros de Alpha Vantage, con su histórico (semanal y mensual)
+  await expect(page.getByRole("row", { name: /FTX/ })).toContainText("38,40");
+  expect(calls.filter((c) => c === "price_series")).toHaveLength(2);
   await shot(page, "6-europa-watchlist");
 
   await page.getByRole("row", { name: /FTX/ }).getByRole("link").first().click();

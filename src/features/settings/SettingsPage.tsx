@@ -185,7 +185,7 @@ export function SettingsPage() {
             <CardDescription>Los precios se consultan una vez al abrir la app o al pulsar «Actualizar precios».</CardDescription>
           </CardHeader>
           <CardContent>
-            <Field label="Proveedor de precios históricos" htmlFor="price-provider" hint="Funcionan Tiingo (cuenta gratuita, acciones de EE. UU.) y Financial Modeling Prep (su plan gratis solo da unos pocos símbolos). El resto queda preparado para más adelante.">
+            <Field label="Precios de EE. UU." htmlFor="price-provider" hint="Funcionan Tiingo (cuenta gratuita, acciones de EE. UU.) y Financial Modeling Prep (su plan gratis solo da unos pocos símbolos). El resto queda preparado para más adelante.">
               <Select
                 id="price-provider"
                 value={settings.priceProvider ?? ""}
@@ -195,6 +195,16 @@ export function SettingsPage() {
                 {PRICE_PROVIDERS.map((p) => (
                   <option key={p.id} value={p.id}>{p.label}</option>
                 ))}
+              </Select>
+            </Field>
+            <Field label="Precios de bolsas europeas" htmlFor="price-provider-eu" hint="Alpha Vantage (cuenta gratuita, 25 consultas al día). Cada acción europea gasta una consulta al actualizar precios y tres al añadirla o renovar su histórico (una vez al mes).">
+              <Select
+                id="price-provider-eu"
+                value={settings.priceProviderEu ?? ""}
+                onChange={(e) => save({ priceProviderEu: (e.target.value || null) as Settings["priceProviderEu"] })}
+              >
+                <option value="">Sin precios europeos</option>
+                <option value="alphavantage">Alpha Vantage</option>
               </Select>
             </Field>
             <Field label="Divisa base" htmlFor="base-currency" hint="Toda la cartera se consolida en esta divisa con tipos del BCE.">

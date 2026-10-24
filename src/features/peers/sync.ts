@@ -4,7 +4,7 @@ import type { SecClient } from "@/data/sec-edgar/client";
 import type { Db } from "@/db/client";
 import { addPeer, type PeerSource } from "@/db/peers-repo";
 import { deleteIfUnused, getLatestQuote } from "@/db/repo";
-import { refreshPrices } from "@/features/prices/refresh";
+import { refreshPrices, type PriceProviders } from "@/features/prices/refresh";
 import { importEuIsin } from "@/features/watchlist/import-eu";
 import { ImportError, importUsTicker } from "@/features/watchlist/import-us";
 
@@ -20,7 +20,7 @@ export interface PeerSyncDeps {
   sec: SecClient | null;
   eu: EuClient;
   /** Sin proveedor de precios se guardan solo los informes. */
-  prices: PriceProvider | null;
+  prices: PriceProviders | PriceProvider | null;
   today?: Date;
 }
 

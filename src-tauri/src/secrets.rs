@@ -10,7 +10,7 @@ pub const SERVICE: &str = "es.agentefinanciero.app";
 
 /// Lista cerrada de claves admitidas. Debe coincidir con SECRET_KEYS en
 /// src/features/settings/schema.ts.
-pub const ALLOWED: &[&str] = &["anthropic_api_key", "prices_api_key", "openfigi_api_key"];
+pub const ALLOWED: &[&str] = &["anthropic_api_key", "prices_api_key", "alphavantage_api_key", "openfigi_api_key"];
 
 #[derive(Debug, thiserror::Error)]
 pub enum SecretError {
