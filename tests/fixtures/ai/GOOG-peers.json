@@ -1,0 +1,77 @@
+{
+ "proposal": {
+  "competidores": [
+   {
+    "ticker": "MSFT",
+    "nombre": "Microsoft Corporation",
+    "motivo": "Compite con Google Cloud en infraestructura, IA y Workspace frente a Microsoft 365 y Azure, y también en buscadores y publicidad con Bing."
+   },
+   {
+    "ticker": "META",
+    "nombre": "Meta Platforms Inc.",
+    "motivo": "Se disputa el mismo presupuesto publicitario digital y las mismas audiencias a través de Facebook, Instagram y YouTube."
+   },
+   {
+    "ticker": "AMZN",
+    "nombre": "Amazon.com Inc.",
+    "motivo": "Compite en publicidad digital con su red de anuncios de búsqueda y en nube con AWS frente a Google Cloud."
+   },
+   {
+    "ticker": "AAPL",
+    "nombre": "Apple Inc.",
+    "motivo": "Vende dispositivos y un ecosistema de aplicaciones y suscripciones que compite con Pixel, Google Play y sus servicios, y cobra por la búsqueda por defecto en Safari."
+   },
+   {
+    "ticker": "SNAP",
+    "nombre": "Snap Inc.",
+    "motivo": "Compite por la atención de usuarios jóvenes y por el presupuesto publicitario en vídeo y redes sociales, aunque a una escala mucho menor."
+   },
+   {
+    "ticker": "PINS",
+    "nombre": "Pinterest Inc.",
+    "motivo": "Compite por anunciantes de descubrimiento visual y búsqueda de ideas, un nicho pequeño pero solapado con la publicidad de Google."
+   }
+  ],
+  "nota": "Ninguna empresa cotizada replica el conjunto de Alphabet, así que la comparación debe hacerse por segmentos: publicidad, nube y dispositivos."
+ },
+ "accepted": [
+  {
+   "cik": "789019",
+   "name": "MICROSOFT CORP",
+   "ticker": "MSFT",
+   "exchange": "Nasdaq",
+   "reason": "Compite con Google Cloud en infraestructura, IA y Workspace frente a Microsoft 365 y Azure, y también en buscadores y publicidad con Bing."
+  },
+  {
+   "cik": "1326801",
+   "name": "Meta Platforms, Inc.",
+   "ticker": "META",
+   "exchange": "Nasdaq",
+   "reason": "Se disputa el mismo presupuesto publicitario digital y las mismas audiencias a través de Facebook, Instagram y YouTube."
+  },
+  {
+   "cik": "1018724",
+   "name": "AMAZON COM INC",
+   "ticker": "AMZN",
+   "exchange": "Nasdaq",
+   "reason": "Compite en publicidad digital con su red de anuncios de búsqueda y en nube con AWS frente a Google Cloud."
+  },
+  {
+   "cik": "320193",
+   "name": "Apple Inc.",
+   "ticker": "AAPL",
+   "exchange": "Nasdaq",
+   "reason": "Vende dispositivos y un ecosistema de aplicaciones y suscripciones que compite con Pixel, Google Play y sus servicios, y cobra por la búsqueda por defecto en Safari."
+  }
+ ],
+ "rejected": [
+  {
+   "ticker": "SNAP",
+   "why": "Ya hay 4 competidores más parecidos."
+  },
+  {
+   "ticker": "PINS",
+   "why": "Ya hay 4 competidores más parecidos."
+  }
+ ]
+}

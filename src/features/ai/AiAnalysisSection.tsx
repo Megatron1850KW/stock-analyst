@@ -1,15 +1,17 @@
-import { CircleAlert, CircleCheck, CircleMinus, FileText, RefreshCw, Sparkles } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, CircleAlert, CircleCheck, CircleMinus, FileText, History, RefreshCw, Sparkles } from "lucide-react";
 import type { ReactNode } from "react";
 import { DISCLAIMER } from "@/app/Disclaimer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/ui/tooltip";
 import { AI_MODELS } from "@/features/settings/schema";
-import { formatCurrency, formatDate } from "@/lib/format";
+import { formatCurrency, formatDate, formatPercent } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { SECTION_LABELS } from "@/domain/reports/sections";
 import { BudgetExceededError, describeApiError, type AnalysisDocument, type StoredAnalysis } from "./equity-analysis";
 import { useAiAnalysis, useAnalysisRunning, useRunAnalysis } from "./queries";
+import { approxSnapshot, sinceAnalysis, snapshotOf } from "./since";
+import type { Analysis } from "@/features/watchlist/analysis";
 import { isKnownCitation, type Cita, type EquityAnalysis } from "./schema";
 
 const POSTURA = {
@@ -180,7 +182,71 @@ function SourcesNote({ stored }: { stored: StoredAnalysis }) {
   );
 }
 
-export function AiAnalysisSection({ securityId }: { securityId: number }) {
+/** Informe más reciente guardado, para avisar si la IA aún no lo ha leído. */
+export interface NewestReport {
+  id: string;
+  form: string;
+  periodEnd: string;
+}
+
+/**
+ * Precio y valoración de hoy frente a los del día del análisis. Es un cálculo
+ * propio: la IA no se vuelve a llamar por mucho que cambie el precio.
+ */
+function SinceStrip({ stored, createdAt, current, newest }: { stored: StoredAnalysis; createdAt: string; current: Analysis; newest?: NewestReport | null }) {
+  const now = snapshotOf(current);
+  const then = stored.snapshot ?? (now.price ? approxSnapshot(current.monthly, createdAt, now.price.currency) : null);
+  const unread = newest && !stored.documents.some((d) => d.id === newest.id) ? newest : null;
+  if (!then && !unread) return null;
+  const s = then ? sinceAnalysis(then, now) : null;
+  const up = (s?.priceChange ?? 0) >= 0;
+  const Arrow = up ? ArrowUpRight : ArrowDownRight;
+  const money = (p: { value: number; currency: string }) => formatCurrency(p.value, p.currency);
+
+  return (
+    <div role="note" aria-label="Cambios desde el análisis" className="mt-5 rounded-xl border border-border bg-surface px-4 py-3 text-[13px]">
+      <p className="flex items-center gap-1.5 text-[11.5px] font-semibold tracking-wide text-muted uppercase">
+        <History className="size-3.5" aria-hidden /> Desde este análisis ({formatDate(createdAt)})
+      </p>
+      <ul className="mt-1.5 space-y-1">
+        {s && s.priceChange !== null && s.then.price && s.now.price && (
+          <li className="flex items-start gap-1.5">
+            <Arrow className={cn("mt-0.5 size-3.5 shrink-0", s.bigMove ? "text-warning-text" : "text-muted")} aria-hidden />
+            {Math.abs(s.priceChange) < 0.0005 ? (
+              <span>El precio no ha cambiado (<span className="tabular">{money(s.now.price)}</span>).</span>
+            ) : <span>
+              El precio ha {up ? "subido" : "bajado"} un <strong className="tabular">{formatPercent(Math.abs(s.priceChange))}</strong> (de{" "}
+              <span className="tabular">{money(s.then.price)}</span>
+              {s.then.approx ? ", cierre de ese mes," : ""} a <span className="tabular">{money(s.now.price)}</span> el {formatDate(s.now.price.date)}).
+            </span>}
+          </li>
+        )}
+        {s && s.now.verdict && (
+          <li className="pl-5">
+            {s.verdictChanged
+              ? <>Frente a su historia ha pasado de <strong>{s.then.verdict}</strong> a <strong>{s.now.verdict}</strong>.</>
+              : s.then.verdict
+                ? <>Frente a su historia sigue <strong>{s.now.verdict}</strong>.</>
+                : <>Hoy está <strong>{s.now.verdict}</strong> frente a su historia.</>}
+          </li>
+        )}
+        {unread && (
+          <li className="flex items-start gap-1.5 text-warning-text">
+            <FileText className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+            Hay un informe más reciente ({docLabel({ id: unread.id, form: unread.form, periodEnd: unread.periodEnd, filedAt: null, url: null, sections: [] }, unread.id)}) que la IA aún no ha leído.
+          </li>
+        )}
+      </ul>
+      <p className="mt-2 text-[12px] text-muted">
+        {s?.suggestRefresh || unread
+          ? "El texto de abajo se escribió con los datos de entonces. Si quieres actualizarlo, pulsa «Re-analizar»; la app no lo hace sola."
+          : "Las cifras y los indicadores de arriba ya están al día. El cambio es pequeño, así que no hace falta pagar un análisis nuevo."}
+      </p>
+    </div>
+  );
+}
+
+export function AiAnalysisSection({ securityId, current, newest }: { securityId: number; current?: Analysis | null; newest?: NewestReport | null }) {
   const { data, isLoading } = useAiAnalysis(securityId);
   const run = useRunAnalysis(securityId);
   const running = useAnalysisRunning(securityId);
@@ -252,6 +318,7 @@ export function AiAnalysisSection({ securityId }: { securityId: number }) {
       {data && !stored && !running && (
         <p className="mt-5 text-[13px] text-negative-text">El análisis guardado no se puede leer. Pulsa «Re-analizar».</p>
       )}
+      {stored && !running && data && current && <SinceStrip stored={stored} createdAt={data.row.created_at} current={current} newest={newest} />}
       {stored && !running && (
         <div className="mt-6">
           <AnalysisBody a={stored.analysis} docs={stored.documents} />

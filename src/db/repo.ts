@@ -17,24 +17,28 @@ export interface UsSecurityInput {
 
 const now = () => new Date().toISOString();
 
-/** Alta o actualización de un valor de EE. UU. (identificado por su CIK). Lo añade a la watchlist. */
-export async function upsertUsSecurity(db: Db, s: UsSecurityInput): Promise<number> {
+/**
+ * Alta o actualización de un valor de EE. UU. (identificado por su CIK). Lo añade
+ * a la watchlist, salvo los competidores (`watchlist = false`), que se guardan
+ * aparte; un valor que ya estaba en la watchlist no sale de ella.
+ */
+export async function upsertUsSecurity(db: Db, s: UsSecurityInput, watchlist = true): Promise<number> {
   const existing = await db.select<{ id: number }>("SELECT id FROM securities WHERE cik = ?", [s.cik]);
   const values = [s.ticker, s.name, s.exchange, s.currency, s.sic, s.sicDescription, s.fiscalYearEnd, s.filerType, s.reportingCurrency];
   if (existing[0]) {
     await db.execute(
       `UPDATE securities SET ticker = ?, name = ?, exchange = ?, currency = ?, sic = ?, sic_description = ?,
-         fiscal_year_end = ?, filer_type = ?, reporting_currency = ?, market = 'US', in_watchlist = 1, updated_at = ?
+         fiscal_year_end = ?, filer_type = ?, reporting_currency = ?, market = 'US', in_watchlist = MAX(in_watchlist, ?), updated_at = ?
        WHERE id = ?`,
-      [...values, now(), existing[0].id],
+      [...values, watchlist ? 1 : 0, now(), existing[0].id],
     );
     return existing[0].id;
   }
   await db.execute(
     `INSERT INTO securities (ticker, name, exchange, currency, sic, sic_description, fiscal_year_end, filer_type,
        reporting_currency, cik, kind, market, in_watchlist)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'stock', 'US', 1)`,
-    [...values, s.cik],
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'stock', 'US', ?)`,
+    [...values, s.cik, watchlist ? 1 : 0],
   );
   const rows = await db.select<{ id: number }>("SELECT id FROM securities WHERE cik = ?", [s.cik]);
   return rows[0]!.id;
@@ -211,12 +215,28 @@ export function getGaps(db: Db, securityId: number): Promise<{ filing_id: number
   return db.select("SELECT filing_id, concept FROM concept_gaps WHERE security_id = ?", [securityId]);
 }
 
-/** Quita un valor de la watchlist. Si no está en la cartera, se borran también sus datos. */
+/**
+ * Quita un valor de la watchlist. Si no está en la cartera ni es competidor de
+ * otro valor guardado, se borran también sus datos (y los de sus competidores
+ * que ya no hagan falta).
+ */
 export async function removeFromWatchlist(db: Db, id: number): Promise<void> {
-  const tx = await db.select<{ n: number }>("SELECT COUNT(*) AS n FROM transactions WHERE security_id = ?", [id]);
-  if ((tx[0]?.n ?? 0) > 0) await db.execute("UPDATE securities SET in_watchlist = 0 WHERE id = ?", [id]);
-  else await db.execute("DELETE FROM securities WHERE id = ?", [id]);
+  const peers = await db.select<{ peer_id: number }>("SELECT peer_id FROM peers WHERE security_id = ?", [id]);
+  await db.execute("UPDATE securities SET in_watchlist = 0 WHERE id = ?", [id]);
+  await db.execute("DELETE FROM peers WHERE security_id = ?", [id]);
+  for (const sid of [id, ...peers.map((p) => p.peer_id)]) await deleteIfUnused(db, sid);
 }
+
+/** Borra un valor si ya no se usa (fuera de la watchlist, sin operaciones y sin ser competidor de nadie). */
+export async function deleteIfUnused(db: Db, id: number): Promise<void> {
+  await db.execute(
+    `DELETE FROM securities WHERE id = ? AND in_watchlist = 0
+       AND id NOT IN (SELECT security_id FROM transactions)
+       AND id NOT IN (SELECT peer_id FROM peers)`,
+    [id],
+  );
+}
+
 
 export interface QuoteInput {
   securityId: number;
@@ -241,8 +261,23 @@ export async function saveQuote(db: Db, q: QuoteInput): Promise<void> {
   );
 }
 
-export function listPriceTargets(db: Db): Promise<{ id: number; ticker: string; currency: string }[]> {
-  return db.select("SELECT id, ticker, currency FROM securities WHERE ticker IS NOT NULL AND market = 'US' ORDER BY ticker");
+export interface PriceTarget {
+  id: number;
+  ticker: string;
+  currency: string;
+  /** Solo es competidor de otro valor (ni watchlist ni cartera). */
+  peer_only: number;
+  /** Cuándo se pidió su última cotización. */
+  quote_fetched_at: string | null;
+}
+
+export function listPriceTargets(db: Db): Promise<PriceTarget[]> {
+  return db.select(
+    `SELECT s.id, s.ticker, s.currency,
+       (s.in_watchlist = 0 AND s.id NOT IN (SELECT security_id FROM transactions)) AS peer_only,
+       (SELECT MAX(fetched_at) FROM prices p WHERE p.security_id = s.id AND p.interval = '1d') AS quote_fetched_at
+     FROM securities s WHERE s.ticker IS NOT NULL AND s.market = 'US' ORDER BY s.ticker`,
+  );
 }
 
 export interface BarRow {
@@ -455,4 +490,9 @@ export async function resolveDocumentRequest(db: Db, id: number, status: "fulfil
 
 export function countPendingRequests(db: Db): Promise<{ security_id: number; n: number }[]> {
   return db.select("SELECT security_id, COUNT(*) AS n FROM document_requests WHERE status = 'pending' GROUP BY security_id");
+}
+
+/** Copia local de un informe de la SEC ya descargado (CLAUDE.md §7: no volver a pedirlo). */
+export async function setFilingLocalPath(db: Db, url: string, path: string): Promise<void> {
+  await db.execute("UPDATE filings SET local_path = ? WHERE url = ? AND source = 'sec-edgar'", [path, url]);
 }

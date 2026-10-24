@@ -2,6 +2,7 @@ import { useIsMutating, useMutation, useQuery, useQueryClient, type QueryClient 
 import { createClaudeClient } from "@/data/claude/client";
 import { fetchSecDocument } from "@/data/sec-edgar/client";
 import { getLatestAnalysis, latestEurUsd, monthSpend } from "@/db/ai-repo";
+import { setFilingLocalPath } from "@/db/repo";
 import { secUserAgent } from "@/features/settings/schema";
 import { appDb } from "@/platform/database";
 import { secrets } from "@/platform/secrets";
@@ -38,11 +39,16 @@ export async function analyzeSecurity(securityId: number, opts: RunOptions = {})
   if (!(await secrets.has("anthropic_api_key"))) throw new AiAnalysisError("Falta la clave de Claude. Añádela en Ajustes.");
   const ua = secUserAgent(settings);
   if (!ua) throw new AiAnalysisError("Falta tu nombre y email para la SEC. Añádelos en Ajustes.");
+  const db = await appDb();
   return runEquityAnalysis(
     {
-      db: await appDb(),
+      db,
       client: createClaudeClient(),
-      fetchDocument: (url) => fetchSecDocument(url, ua),
+      fetchDocument: async (url) => {
+        const doc = await fetchSecDocument(url, ua);
+        if (doc.path) await setFilingLocalPath(db, url, doc.path);
+        return doc.html;
+      },
       model: settings.aiModelAnalysis,
       budgetEur: settings.aiMonthlyBudgetEur,
     },
@@ -77,7 +83,7 @@ export function useAnalysisRunning(securityId: number): boolean {
  * Análisis inicial al dar de alta un valor (CLAUDE.md §7). Corre en segundo
  * plano; sin clave, sin presupuesto o con error, la ficha ofrece el botón.
  */
-export function startInitialAnalysis(qc: QueryClient, securityId: number): void {
+export function startInitialAnalysis(qc: QueryClient, securityId: number, then?: () => void): void {
   void (async () => {
     if (!(await secrets.has("anthropic_api_key"))) return;
     const mutation = qc.getMutationCache().build(qc, {
@@ -86,5 +92,7 @@ export function startInitialAnalysis(qc: QueryClient, securityId: number): void 
       onSettled: () => invalidateAfterRun(qc, securityId),
     });
     await mutation.execute(undefined).catch((e: unknown) => console.warn("[ia] análisis inicial no realizado:", e instanceof Error ? e.message : e));
+    // Después (con el modelo de negocio ya escrito), lo siguiente: p. ej. los competidores
+    then?.();
   })();
 }

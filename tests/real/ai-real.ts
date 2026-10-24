@@ -9,41 +9,24 @@
  *   en una cabecera y NUNCA se escribe ni se muestra.
  * - Guarda en <carpeta>/ai el análisis validado, la petición enviada (sin clave) y el coste.
  *
- * Se empaqueta con `npm run build:ai-real` (vite.real.config.ts).
+ * Se empaqueta con `npm run build:real` (vite.real.config.ts).
  */
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import { createClaudeClient } from "@/data/claude/client";
 import { parseTiingoHistory, parseTiingoQuote, type PriceProvider } from "@/data/prices/provider";
 import type { SecClient } from "@/data/sec-edgar/client";
 import { companyFactsSchema, submissionsSchema } from "@/data/sec-edgar/schemas";
-import type { Db } from "@/db/client";
 import { getFilings } from "@/db/repo";
 import { analysisFilings, parseStored, runEquityAnalysis } from "@/features/ai/equity-analysis";
 import { refreshPrices } from "@/features/prices/refresh";
 import { importUsTicker } from "@/features/watchlist/import-us";
-import m1 from "../../src/db/migrations/0001_init.sql?raw";
-import m2 from "../../src/db/migrations/0002_sec.sql?raw";
-import m3 from "../../src/db/migrations/0003_ficha.sql?raw";
+import { memoryDb } from "./memory-db";
 
 const [ua, out = "af-fixtures", tickers = "MU,GOOG"] = process.argv.slice(2);
 if (!ua || !/@/.test(ua)) throw new Error('Uso: node ai-real.mjs "Nombre email" [carpeta] [MU,GOOG]');
 const CIKS: Record<string, [number, string]> = { MU: [723125, "MICRON TECHNOLOGY INC"], GOOG: [1652044, "Alphabet Inc."] };
-
-function memoryDb(): Db {
-  const raw = new DatabaseSync(":memory:");
-  for (const m of [m1, m2, m3]) raw.exec(m);
-  raw.exec("PRAGMA foreign_keys = ON");
-  return {
-    execute: async (sql, params = []) => {
-      const r = raw.prepare(sql).run(...(params as SQLInputValue[]));
-      return { rowsAffected: Number(r.changes), lastInsertId: Number(r.lastInsertRowid) };
-    },
-    select: async <T>(sql: string, params: unknown[] = []) => raw.prepare(sql).all(...(params as SQLInputValue[])) as T[],
-  };
-}
 
 const read = (...p: string[]) => readFileSync(join(out, ...p), "utf8");
 

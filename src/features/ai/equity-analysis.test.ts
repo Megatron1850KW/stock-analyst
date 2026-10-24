@@ -59,6 +59,8 @@ describe("análisis con IA (respuestas FICTICIAS)", () => {
     expect(stored.analysis.veredicto.postura).toBe("Neutral");
     expect(stored.documents.map((d) => d.form).sort()).toEqual(["10-K", "10-Q"]);
     expect(r.row.prompt_version).toBe("equity-analysis@1");
+    // Foto del día para comparar después sin volver a llamar a la IA
+    expect(stored.snapshot).toHaveProperty("verdict");
 
     // 30.000 tokens de entrada × 2 $ + 4.000 de salida × 10 $ por millón = 0,10 $
     expect(r.row.cost_eur).toBeCloseTo(0.1, 6);

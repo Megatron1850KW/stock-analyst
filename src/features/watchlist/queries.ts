@@ -4,6 +4,7 @@ import { providerFor } from "@/data/prices/provider";
 import { tauriSecClient } from "@/data/sec-edgar/client";
 import { listWatchlist, removeFromWatchlist } from "@/db/repo";
 import { startInitialAnalysis } from "@/features/ai/queries";
+import { startInitialPeers } from "@/features/peers/queries";
 import { refreshPrices } from "@/features/prices/refresh";
 import { secUserAgent } from "@/features/settings/schema";
 import { loadSettings } from "@/platform/settings-store";
@@ -53,7 +54,7 @@ export function useAddTicker() {
     },
     onSuccess: (r) => {
       void qc.invalidateQueries({ queryKey: ["security", r.securityId] });
-      startInitialAnalysis(qc, r.securityId);
+      startInitialAnalysis(qc, r.securityId, () => startInitialPeers(qc, r.securityId));
     },
   });
   return { ...mutation, step };
@@ -64,6 +65,7 @@ export function useRemoveSecurity() {
   return useMutation({
     mutationFn: async (id: number) => removeFromWatchlist(await appDb(), id),
     onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["peers"] });
       void qc.invalidateQueries({ queryKey: watchlistKey });
       void qc.invalidateQueries({ queryKey: ["comparison"] });
     },

@@ -25,22 +25,41 @@ export interface MockOptions {
   realSec?: boolean;
   /** Respuesta de la IA (por defecto, el análisis FICTICIO de tests/helpers/fake-claude). */
   analysis?: unknown;
+  /** Competidores que propone la IA (por defecto, los REALES guardados o dos FICTICIOS). */
+  peers?: unknown;
 }
 
-const REAL_CIKS: Record<string, string> = { "723125": "MU", "1652044": "GOOG" };
-const realTickers = JSON.stringify({
-  fields: ["cik", "name", "ticker", "exchange"],
-  data: [
-    [723125, "MICRON TECHNOLOGY INC", "MU", "Nasdaq"],
-    [1652044, "Alphabet Inc.", "GOOG", "Nasdaq"],
+/** Propuesta FICTICIA de competidores (existen en tests/fixtures/ficticio/tickers.json). */
+const FAKE_PEERS = {
+  competidores: [
+    { ticker: "OTRF", nombre: "Otra Ficticia", motivo: "También vende piezas industriales (ficticio)." },
+    { ticker: "FIC.B", nombre: "Ficticia clase B", motivo: "Negocio parecido (ficticio)." },
   ],
-});
+  nota: "",
+};
+
+/** Lee un fixture REAL, en claro o comprimido (.gz), si existe. */
+function readReal(path: string): string | null {
+  if (existsSync(path)) return readFileSync(path, "utf8");
+  if (existsSync(`${path}.gz`)) return gunzipSync(readFileSync(`${path}.gz`)).toString("utf8");
+  return null;
+}
+const secDir = join(root, "tests/fixtures/sec");
+/** Empresas REALES guardadas (MU, GOOG y sus competidores): CIK → ticker. */
+const REAL_CIKS: Record<string, string> = {};
+const realNames: [number, string, string, string][] = [];
+for (const f of readdirSync(secDir).filter((x) => /-submissions\.json(\.gz)?$/.test(x))) {
+  const ticker = f.replace(/-submissions\.json(\.gz)?$/, "");
+  const subs = JSON.parse(readReal(join(secDir, `${ticker}-submissions.json`))!) as { cik: string; name: string; exchanges?: string[] };
+  REAL_CIKS[String(Number(subs.cik))] = ticker;
+  realNames.push([Number(subs.cik), subs.name, ticker, subs.exchanges?.[0] ?? "Nasdaq"]);
+}
+const realTickers = JSON.stringify({ fields: ["cik", "name", "ticker", "exchange"], data: realNames });
 /** Precios REALES guardados (tests/fixtures/prices), si existen para ese símbolo. */
 function realPrices(symbol: string, kind: "history" | "splits" | "quote" = "history"): string | null {
-  const file = join(root, "tests/fixtures/prices", `${symbol}-${kind}.json`);
-  return existsSync(file) ? readFileSync(file, "utf8") : null;
+  return readReal(join(root, "tests/fixtures/prices", `${symbol}-${kind}.json`));
 }
-const realFile = (ticker: string, kind: string) => readFileSync(join(root, "tests/fixtures/sec", `${ticker}-${kind}.json`), "utf8");
+const realFile = (ticker: string, kind: string) => readReal(join(secDir, `${ticker}-${kind}.json`))!;
 
 export async function installTauriMock(page: Page, opts: MockOptions = {}) {
   const db = new DatabaseSync(":memory:");
@@ -50,12 +69,14 @@ export async function installTauriMock(page: Page, opts: MockOptions = {}) {
   }
   db.exec("PRAGMA foreign_keys = ON");
   // La app consulta esta tabla para mostrar la versión del esquema
-  db.exec("CREATE TABLE _sqlx_migrations (version INTEGER); INSERT INTO _sqlx_migrations VALUES (1), (2), (3);");
+  db.exec("CREATE TABLE _sqlx_migrations (version INTEGER); INSERT INTO _sqlx_migrations VALUES (1), (2), (3), (4);");
 
   const store = new Map<string, unknown>(opts.settings ? [["settings", opts.settings]] : []);
   const secrets = new Set(opts.secrets ?? []);
   const calls: string[] = [];
   const uploads: string[] = [];
+  /** Qué se pidió a la IA en cada llamada: "analysis" o "peers". */
+  const ai: string[] = [];
 
   await page.exposeFunction("__pwInvoke", (cmd: string, args: Record<string, unknown>) => {
     calls.push(cmd);
@@ -94,6 +115,8 @@ export async function installTauriMock(page: Page, opts: MockOptions = {}) {
       case "sec_fetch": {
         if (opts.realSec) {
           if (args.resource === "tickers") return realTickers;
+          // Páginas antiguas de presentaciones: no se guardan (META las pide); se sirve una vacía
+          if (args.resource === "submissions_file") return JSON.stringify({ accessionNumber: [], filingDate: [], reportDate: [], form: [], primaryDocument: [] });
           const ticker = REAL_CIKS[String(Number(args.cik))];
           if (!ticker) throw new Error("CIK no guardado");
           return realFile(ticker, args.resource === "submissions" ? "submissions" : "companyfacts");
@@ -137,15 +160,25 @@ export async function installTauriMock(page: Page, opts: MockOptions = {}) {
         const m = /data\/(\d+)\/(\d{18})\//.exec(args.url as string);
         const ticker = m ? REAL_CIKS[m[1]!] : undefined;
         const file = ticker && join(root, "tests/fixtures/sec-docs", `${ticker}-${m![2]}.htm.gz`);
-        return file && existsSync(file) ? gunzipSync(readFileSync(file)).toString("utf8") : fakeReportHtml("10-K");
+        const html = file && existsSync(file) ? gunzipSync(readFileSync(file)).toString("utf8") : fakeReportHtml("10-K");
+        return { html, path: `/simulado/documents/sec/${m?.[1]}/${m?.[2]}/informe.htm`, cached: false };
       }
       case "claude_request": {
         if (!secrets.has("anthropic_api_key")) throw "Falta la clave de Claude. Añádela en Ajustes.";
-        const body = JSON.parse(args.body as string) as { model: string; messages: { content: string }[] };
-        // Análisis REAL guardado (Claude Sonnet 5.5, 24-10-2026) para MU y GOOG; FICTICIO para el resto
-        const ticker = /"ticker": "([A-Z]+)"/.exec(body.messages[0]!.content)?.[1];
-        const realAi = ticker && join(root, "tests/fixtures/ai", `${ticker}-analysis.json`);
-        const analysis = opts.analysis ?? (realAi && existsSync(realAi) ? JSON.parse(readFileSync(realAi, "utf8")).analysis : FAKE_ANALYSIS);
+        const body = JSON.parse(args.body as string) as { model: string; system: { text: string }[]; messages: { content: string }[] };
+        const ticker = /"ticker": ?"([A-Z.-]+)"/.exec(body.messages[0]!.content)?.[1];
+        const isPeers = body.system[0]!.text.includes("competidores");
+        ai.push(isPeers ? "peers" : "analysis");
+        let analysis: unknown;
+        if (isPeers) {
+          // Propuesta REAL guardada (Claude Haiku 5.5) para MU y GOOG; FICTICIA para el resto
+          const realPeers = ticker && join(root, "tests/fixtures/ai", `${ticker}-peers.json`);
+          analysis = opts.peers ?? (realPeers && existsSync(realPeers) ? JSON.parse(readFileSync(realPeers, "utf8")).proposal : FAKE_PEERS);
+        } else {
+          // Análisis REAL guardado (Claude Sonnet 5.5, 24-10-2026) para MU y GOOG; FICTICIO para el resto
+          const realAi = ticker && join(root, "tests/fixtures/ai", `${ticker}-analysis.json`);
+          analysis = opts.analysis ?? (realAi && existsSync(realAi) ? JSON.parse(readFileSync(realAi, "utf8")).analysis : FAKE_ANALYSIS);
+        }
         const message = {
           id: "msg_ficticio",
           type: "message",
@@ -154,7 +187,9 @@ export async function installTauriMock(page: Page, opts: MockOptions = {}) {
           content: [{ type: "text", text: JSON.stringify(analysis) }],
           stop_reason: "end_turn",
           stop_sequence: null,
-          usage: { input_tokens: 30_000, output_tokens: 4_000, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
+          usage: isPeers
+            ? { input_tokens: 800, output_tokens: 300, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 }
+            : { input_tokens: 30_000, output_tokens: 4_000, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
         };
         return { status: 200, headers: { "content-type": "application/json" }, body: JSON.stringify(message) };
       }
@@ -186,5 +221,5 @@ export async function installTauriMock(page: Page, opts: MockOptions = {}) {
     };
   });
 
-  return { db, calls, uploads };
+  return { db, calls, uploads, ai };
 }

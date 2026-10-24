@@ -48,7 +48,10 @@ export async function importUsTicker(
   rawTicker: string,
   onStep: (step: ImportStep) => void = () => {},
   today: Date = new Date(),
+  /** Competidor: se guardan sus datos sin añadirlo a la watchlist ni pedirte sus informes. */
+  opts: { watchlist?: boolean } = {},
 ): Promise<ImportResult> {
+  const watchlist = opts.watchlist ?? true;
   onStep("ticker");
   const match = findTicker(await sec.tickers(), rawTicker);
   if (!match) {
@@ -88,7 +91,7 @@ export async function importUsTicker(
     // Cotiza en EE. UU.: el precio va en dólares aunque los estados vengan en otra divisa
     currency: "USD",
     reportingCurrency: normalized.currency,
-  });
+  }, watchlist);
   const toSave = [
     ...chosen.map((f) => ({ f, role: "core" as const })),
     ...history.map((f) => ({ f, role: "history" as const })),
@@ -108,7 +111,7 @@ export async function importUsTicker(
 
   const gapsByAccession = new Map<string, string[]>();
   for (const g of normalized.gaps) gapsByAccession.set(g.accession, [...(gapsByAccession.get(g.accession) ?? []), g.concept]);
-  const requests = missingReportRequests({
+  const requests = !watchlist ? [] : missingReportRequests({
     filerType: selection.filerType,
     annual: selection.annual,
     interim: selection.interim,
