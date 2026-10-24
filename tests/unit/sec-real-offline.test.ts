@@ -12,7 +12,7 @@ import { companyFactsSchema, submissionsSchema } from "@/data/sec-edgar/schemas"
 import { getFacts, getFilings } from "@/db/repo";
 import { currentGetter, fundamentals, yearlyFundamentals } from "@/domain/fundamentals/metrics";
 import { ownPeriodFact } from "@/domain/fundamentals/period-value";
-import { qualityScore } from "@/domain/scoring/quality-score";
+import { marginsAtPeak, qualityScore } from "@/domain/scoring/quality-score";
 import { importUsTicker } from "@/features/watchlist/import-us";
 import { memoryDb } from "../helpers/sqlite-db";
 
@@ -129,5 +129,9 @@ describe("calidad con datos reales (sin conexión)", () => {
     expect(qGoog.parts.find((p) => p.id === "dilution")?.explanation).toMatch(/Recompra acciones/);
     // Capex récord en 2026: la caja libre de los últimos 12 meses cae más de un 25 %
     expect(qGoog.signals.filter((s) => s.active).map((s) => s.id)).toEqual(["fcfWeak"]);
+
+    // Micron en máximos del ciclo de memoria (margen 75 %); Alphabet, no
+    expect(marginsAtPeak(mu.current, mu.years)).toBe(true);
+    expect(marginsAtPeak(goog.current, goog.years)).toBe(false);
   });
 });

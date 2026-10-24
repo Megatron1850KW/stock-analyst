@@ -115,6 +115,8 @@ export async function installTauriMock(page: Page, opts: MockOptions = {}) {
       case "sec_fetch": {
         if (opts.realSec) {
           if (args.resource === "tickers") return realTickers;
+          // Páginas antiguas de presentaciones: no se guardan (META las pide); se sirve una vacía
+          if (args.resource === "submissions_file") return JSON.stringify({ accessionNumber: [], filingDate: [], reportDate: [], form: [], primaryDocument: [] });
           const ticker = REAL_CIKS[String(Number(args.cik))];
           if (!ticker) throw new Error("CIK no guardado");
           return realFile(ticker, args.resource === "submissions" ? "submissions" : "companyfacts");

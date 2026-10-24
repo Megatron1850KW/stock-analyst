@@ -52,4 +52,11 @@ describe("opportunityVerdict (§8.3)", () => {
     expect(opportunityVerdict({ history: "Justa", peers: null, activeSignals: [] }).reason).toMatch(/falta compararla/);
     expect(opportunityVerdict({ history: null, peers: null, activeSignals: [] }).outcome).toBeNull();
   });
+
+  it("con márgenes en máximos avisa del ciclo sin cambiar el veredicto", () => {
+    const v = opportunityVerdict({ history: "Barata", peers: cheapPeers, activeSignals: [], peakMargins: true });
+    expect(v.outcome).toBe("Oportunidad");
+    expect(v.caution).toMatch(/cíclico/);
+    expect(opportunityVerdict({ history: "Cara", peers: null, activeSignals: [], peakMargins: true }).caution).toBeUndefined();
+  });
 });

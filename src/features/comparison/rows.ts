@@ -34,12 +34,13 @@ export interface ComparisonRow {
   /** Nota de calidad 0–100 (§8.2). */
   quality: number | null;
   /** ¿Oportunidad o trampa? (§8.3) y cómo está frente a sus competidores. */
-  verdict: { outcome: Outcome | null; reason: string; vsPeers: Verdict | null; peers: number };
+  verdict: PeerSummary;
 }
 
 export interface PeerSummary {
   outcome: Outcome | null;
   reason: string;
+  caution?: string;
   vsPeers: Verdict | null;
   peers: number;
 }

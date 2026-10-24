@@ -1,0 +1,77 @@
+{
+ "proposal": {
+  "competidores": [
+   {
+    "ticker": "SK",
+    "nombre": "SK Hynix",
+    "motivo": "Sería la comparación directa, pero no cotiza en EE. UU. como tal; no es válida como ticker estadounidense"
+   },
+   {
+    "ticker": "WDC",
+    "nombre": "Western Digital",
+    "motivo": "Fabrica y vende discos duros y SSD de almacenamiento NAND, y compite en el mismo mercado de almacenamiento para centros de datos"
+   },
+   {
+    "ticker": "STX",
+    "nombre": "Seagate Technology",
+    "motivo": "Vende almacenamiento masivo para centros de datos y sufre también ciclos de demanda muy marcados"
+   },
+   {
+    "ticker": "INTC",
+    "nombre": "Intel",
+    "motivo": "Fabrica chips para ordenadores y centros de datos, y compite con Micron en el mercado de procesadores y aceleradores que usan su memoria"
+   },
+   {
+    "ticker": "NVDA",
+    "nombre": "NVIDIA",
+    "motivo": "Es el principal cliente de HBM de Micron para IA, por lo que sus ingresos dependen de la misma demanda de centros de datos, aunque no compite en memoria"
+   },
+   {
+    "ticker": "TXN",
+    "nombre": "Texas Instruments",
+    "motivo": "Fabrica semiconductores para automoción e industria, el mismo tipo de cliente que AEBU, aunque con productos distintos"
+   }
+  ],
+  "nota": "Micron tiene pocos competidores cotizados en EE. UU. que hagan exactamente lo mismo. SK Hynix no cotiza en EE. UU. y se ha incluido solo como referencia, por lo que conviene revisar esa entrada. Las demás propuestas son comparables en parte del negocio, pero no en la memoria DRAM o NAND en sí."
+ },
+ "accepted": [
+  {
+   "cik": "106040",
+   "name": "WESTERN DIGITAL CORP",
+   "ticker": "WDC",
+   "exchange": "Nasdaq",
+   "reason": "Fabrica y vende discos duros y SSD de almacenamiento NAND, y compite en el mismo mercado de almacenamiento para centros de datos"
+  },
+  {
+   "cik": "1137789",
+   "name": "Seagate Technology Holdings plc",
+   "ticker": "STX",
+   "exchange": "Nasdaq",
+   "reason": "Vende almacenamiento masivo para centros de datos y sufre también ciclos de demanda muy marcados"
+  },
+  {
+   "cik": "50863",
+   "name": "INTEL CORP",
+   "ticker": "INTC",
+   "exchange": "Nasdaq",
+   "reason": "Fabrica chips para ordenadores y centros de datos, y compite con Micron en el mercado de procesadores y aceleradores que usan su memoria"
+  },
+  {
+   "cik": "1045810",
+   "name": "NVIDIA CORP",
+   "ticker": "NVDA",
+   "exchange": "Nasdaq",
+   "reason": "Es el principal cliente de HBM de Micron para IA, por lo que sus ingresos dependen de la misma demanda de centros de datos, aunque no compite en memoria"
+  }
+ ],
+ "rejected": [
+  {
+   "ticker": "SK",
+   "why": "No aparece entre las empresas que presentan en la SEC."
+  },
+  {
+   "ticker": "TXN",
+   "why": "Ya hay 4 competidores más parecidos."
+  }
+ ]
+}

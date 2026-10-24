@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { ArrowDownRight, ArrowUpRight, ChevronRight, CircleAlert, CircleCheck, CircleMinus, Layers, Plus, Sparkles, WalletCards } from "lucide-react";
+import { AlertTriangle, ArrowDownRight, ArrowUpRight, CircleAlert, CircleCheck, CircleMinus, Layers, Plus, Sparkles, WalletCards } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router";
 import { AnimatedLogo } from "@/app/AnimatedLogo";
@@ -41,6 +41,7 @@ function useComparison() {
           return comparisonRow(detail, ai.get(w.id) ?? null, {
             outcome: group.verdict.outcome,
             reason: group.verdict.reason,
+            caution: group.verdict.caution,
             vsPeers: group.comparison?.verdict ?? null,
             peers: group.comparison?.peersWithData ?? 0,
           });
@@ -65,7 +66,7 @@ function ValuationCell({ r }: { r: ComparisonRow }) {
   const pos = (Math.max(-RANGE, Math.min(RANGE, deviation)) + RANGE) / (2 * RANGE);
   const band = (VALUATION_CONFIG.expensiveAbove - VALUATION_CONFIG.cheapBelow) / (2 * RANGE);
   return (
-    <div className="w-[168px]">
+    <div className="w-[140px]">
       <div className="flex items-center justify-between gap-2">
         <VerdictBadge value={verdict} />
         <span className="font-mono text-[11px] text-muted tabular">{score !== null ? `${score}/100` : ""}</span>
@@ -91,10 +92,10 @@ function CashCell({ r }: { r: ComparisonRow }) {
   const v = r.fcfYield;
   const width = Math.max(0, Math.min(1, v / 0.1));
   return (
-    <div className="w-[132px]">
+    <div className="w-[112px]">
       <p className="text-[13px]">
         <span className="font-semibold tabular">{formatNumber(v * 100, 1)} €</span>
-        <span className="text-muted"> de cada 100 €</span>
+        <span className="text-muted"> / 100 €</span>
       </p>
       <div className="mt-1.5 h-1.5 rounded-full bg-surface" aria-hidden>
         <div className={cn("h-full rounded-full", v > 0 ? "bg-[var(--chart-1)]" : "bg-negative")} style={{ width: `${v > 0 ? width * 100 : 100}%` }} />
@@ -106,7 +107,7 @@ function CashCell({ r }: { r: ComparisonRow }) {
 function DebtCell({ r }: { r: ComparisonRow }) {
   if (!r.debt.level) return <span className="text-[12px] text-muted">{SIN_DATO}</span>;
   return (
-    <div>
+    <div className="w-[112px]">
       <VerdictBadge value={r.debt.level} />
       <p className="mt-1 text-[11.5px] text-muted">
         {r.debt.netCash ? "Más caja que deuda" : r.debt.years !== null ? `${yearsText(r.debt.years)} para pagarla` : "Sin caja libre para pagarla"}
@@ -117,7 +118,7 @@ function DebtCell({ r }: { r: ComparisonRow }) {
 
 function Sparkline({ values }: { values: number[] }) {
   if (values.length < 2) return null;
-  const w = 64;
+  const w = 48;
   const h = 22;
   const min = Math.min(...values);
   const max = Math.max(...values);
@@ -162,9 +163,12 @@ function VerdictCell({ r }: { r: ComparisonRow }) {
   const v = r.verdict;
   if (!v.outcome) return <span className="text-[12px] text-muted">{SIN_DATO}</span>;
   return (
-    <Tooltip content={v.reason}>
-      <div className="w-[150px]">
-        <OutcomeBadge outcome={v.outcome} />
+    <Tooltip content={v.caution ? `${v.reason} ${v.caution}` : v.reason}>
+      <div className="w-[128px]">
+        <span className="inline-flex items-center gap-1">
+          <OutcomeBadge outcome={v.outcome} />
+          {v.caution && <AlertTriangle className="size-3.5 text-warning-text" aria-label="Márgenes en máximos: ojo al ciclo" />}
+        </span>
         <p className="mt-1 text-[11.5px] text-muted">
           {v.vsPeers ? `${v.vsPeers} frente a ${v.peers} competidores` : "Sin competidores aún"}
         </p>
@@ -278,9 +282,7 @@ function ComparisonTable({ rows }: { rows: ComparisonRow[] }) {
             <th scope="col" className={head}>¿Genera caja?</th>
             <th scope="col" className={head}>¿Tiene mucha deuda?</th>
             <th scope="col" className={head}>¿Crece? (ventas)</th>
-            <th scope="col" className={head}>Margen operativo</th>
             <th scope="col" className={head}>Analista</th>
-            <th scope="col" className="w-8"><span className="sr-only">Abrir</span></th>
           </tr>
         </thead>
         <tbody>
@@ -294,20 +296,16 @@ function ComparisonTable({ rows }: { rows: ComparisonRow[] }) {
                 <Link to={`/watchlist/${r.id}`} onClick={(e) => e.stopPropagation()} className="font-serif text-[17px] font-semibold tracking-tight hover:underline">
                   {r.ticker}
                 </Link>
-                <p className="max-w-[200px] truncate text-[12px] text-muted" title={r.name}>{r.name}</p>
+                <p className="max-w-[150px] truncate text-[12px] text-muted" title={r.name}>{r.name}</p>
                 <p className="text-[12px] tabular">{r.price ? formatCurrency(r.price.value, r.price.currency) : <span className="text-muted">Sin precio</span>}</p>
               </th>
-              <td className="px-3 py-3"><VerdictCell r={r} /></td>
-              <td className="px-3 py-3"><ValuationCell r={r} /></td>
-              <td className="px-3 py-3"><QualityCell r={r} /></td>
-              <td className="px-3 py-3"><CashCell r={r} /></td>
-              <td className="px-3 py-3"><DebtCell r={r} /></td>
-              <td className="px-3 py-3"><GrowthCell r={r} /></td>
-              <td className="px-3 py-3 text-[13px] tabular">
-                {r.operatingMargin === null ? <span className="text-muted">{SIN_DATO}</span> : formatPercent(r.operatingMargin, 0)}
-              </td>
-              <td className="px-3 py-3"><AiCell r={r} /></td>
-              <td className="pr-4"><ChevronRight className="size-4 text-muted" aria-hidden /></td>
+              <td className="px-2.5 py-3"><VerdictCell r={r} /></td>
+              <td className="px-2.5 py-3"><ValuationCell r={r} /></td>
+              <td className="px-2.5 py-3"><QualityCell r={r} /></td>
+              <td className="px-2.5 py-3"><CashCell r={r} /></td>
+              <td className="px-2.5 py-3"><DebtCell r={r} /></td>
+              <td className="px-2.5 py-3"><GrowthCell r={r} /></td>
+              <td className="px-2.5 py-3"><AiCell r={r} /></td>
             </tr>
           ))}
         </tbody>
@@ -325,7 +323,7 @@ export function ComparisonPage() {
   const tops = rows ? highlights(rows) : [];
 
   return (
-    <div className="mx-auto max-w-[1180px] px-8 pb-10">
+    <div className="mx-auto max-w-[1260px] px-8 pb-10">
       <header className="flex flex-wrap items-end justify-between gap-6 pt-2 pb-6">
         <div className="flex items-center gap-4">
           <AnimatedLogo className="size-[64px] drop-shadow-[0_6px_16px_rgba(181,96,63,0.25)]" />

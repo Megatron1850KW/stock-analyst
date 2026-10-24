@@ -68,6 +68,12 @@ export const QUALITY_CONFIG = {
     /** Hacen falta 2 o más señales para hablar de trampa. */
     minSignals: 2,
   },
+  /**
+   * Márgenes en máximos (aviso de ciclo): margen operativo actual al menos 1,5 veces
+   * la mediana de sus últimos 5 ejercicios y 10 puntos por encima. En empresas
+   * cíclicas, un PER bajo con márgenes récord puede engañar.
+   */
+  peak: { years: 5, ratio: 1.5, minGap: 0.1 },
 };
 
 /** Competidores (§5.1.6): los 3–4 más cercanos. */

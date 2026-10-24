@@ -1,6 +1,7 @@
 import type { Db } from "@/db/client";
 import { getPeerProposal, listPeers, type PeerRow, type PeerSource } from "@/db/peers-repo";
 import type { DebtLevel } from "@/domain/scoring/debt-level";
+import { marginsAtPeak } from "@/domain/scoring/quality-score";
 import { comparePeers, opportunityVerdict, type Comparable, type OpportunityVerdict, type PeerComparison } from "@/domain/scoring/peer-verdict";
 import type { Verdict } from "@/domain/scoring/valuation-score";
 import type { Analysis } from "@/features/watchlist/analysis";
@@ -16,6 +17,8 @@ export interface PeerCompareRow {
   source: PeerSource | null;
   reason: string | null;
   inWatchlist: boolean;
+  /** Beneficio de los últimos 12 meses negativo: el PER no tiene sentido. */
+  lossMaking?: boolean;
   /** Sin informes o sin análisis guardado: la fila sale vacía con el motivo. */
   missing?: string;
   price: { value: number; currency: string; date: string } | null;
@@ -56,6 +59,7 @@ export function compareRow(a: Analysis | null, base: Pick<PeerCompareRow, "id" |
     debt: { level: a.debt, netCash: netDebt !== null && netDebt <= 0, years: netDebt !== null && netDebt > 0 ? a.current.debtYears.value : null },
     quality: a.quality.score,
     historyVerdict: a.valuation?.verdict ?? null,
+    lossMaking: (a.current.netIncome?.value ?? 1) <= 0,
     missing: a.price ? undefined : "Sin precio",
   };
 }
@@ -101,6 +105,11 @@ export async function loadPeerGroup(db: Db, securityId: number, target?: Analysi
     proposal: proposalRow ? { stored: parseStoredPeers(proposalRow.result_json), createdAt: proposalRow.created_at, costEur: proposalRow.cost_eur } : null,
     rows: [targetRow, ...peerRows],
     comparison,
-    verdict: opportunityVerdict({ history: analysis?.valuation?.verdict ?? null, peers: comparison, activeSignals: active }),
+    verdict: opportunityVerdict({
+      history: analysis?.valuation?.verdict ?? null,
+      peers: comparison,
+      activeSignals: active,
+      peakMargins: analysis ? marginsAtPeak(analysis.current, analysis.years) : false,
+    }),
   };
 }

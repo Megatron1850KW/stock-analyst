@@ -140,11 +140,11 @@ function PeerTable({ group, onRemove, removing }: { group: PeerGroup; onRemove: 
   const peers = group.rows.filter((r) => !r.isTarget);
   const med = (f: (r: PeerCompareRow) => number | null) => median(peers.map(f).filter((v): v is number => v !== null && Number.isFinite(v)));
   const cells = (r: PeerCompareRow) => [
-    multiple(r.pe),
+    r.pe === null && r.lossMaking ? "Pérdidas" : multiple(r.pe),
     multiple(r.evEbit),
     r.fcfYield === null ? SIN_DATO : formatPercent(r.fcfYield, 1),
     r.growth === null ? SIN_DATO : signedPercent(r.growth),
-    r.operatingMargin === null ? SIN_DATO : formatPercent(r.operatingMargin, 0),
+    r.operatingMargin === null ? SIN_DATO : formatPercent(Math.abs(r.operatingMargin) < 0.005 ? 0 : r.operatingMargin, 0),
   ];
   return (
     <div className="overflow-x-auto">
@@ -187,7 +187,7 @@ function PeerTable({ group, onRemove, removing }: { group: PeerGroup; onRemove: 
                 {r.missing && <p className="text-[11.5px] text-warning-text">{r.missing}</p>}
               </td>
               {cells(r).map((c, i) => (
-                <td key={i} className={cn("px-3 py-2.5 text-right font-mono text-[12.5px] whitespace-nowrap tabular", c === SIN_DATO && "font-sans text-[12px] text-muted")}>
+                <td key={i} className={cn("px-3 py-2.5 text-right font-mono text-[12.5px] whitespace-nowrap tabular", (c === SIN_DATO || c === "Pérdidas") && "font-sans text-[12px] text-muted")}>
                   {c}
                 </td>
               ))}
@@ -293,6 +293,11 @@ export function PeerSection({ securityId }: { securityId: number }) {
             )}
           </div>
           <p className="mt-2 text-[14px] leading-relaxed">{group.verdict.reason}</p>
+          {group.verdict.caution && (
+            <p className="mt-2 flex gap-2 rounded-lg bg-warning/8 px-3 py-2 text-[13px] leading-relaxed">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning-text" aria-hidden /> {group.verdict.caution}
+            </p>
+          )}
           {line && <p className="mt-1 text-[13px] text-muted">{line}</p>}
           {group.comparison?.note && hasPeers && <p className="mt-1 text-[12.5px] text-warning-text">{group.comparison.note}</p>}
         </div>
@@ -367,7 +372,7 @@ export function PeerSection({ securityId }: { securityId: number }) {
                 ? `Lista propuesta por la IA el ${formatDate(proposal.createdAt)}${proposal.costEur !== null ? ` (coste ${formatCurrency(proposal.costEur, "EUR", proposal.costEur < 0.01 ? 4 : 2)})` : ""} y comprobada en la SEC. `
                 : ""}
               Las cifras de la tabla son cálculos propios con los informes oficiales de cada empresa. Los competidores no entran en tu watchlist; su precio se actualiza como mucho una vez por semana.
-              {proposal?.stored?.rejected.length ? ` Descartados: ${proposal.stored.rejected.map((r) => `${r.ticker} (${r.why.toLowerCase().replace(/\.$/, "")})`).join(", ")}.` : ""}
+              {proposal?.stored?.rejected.length ? ` Descartados: ${proposal.stored.rejected.map((r) => `${r.ticker} (${r.why.charAt(0).toLowerCase()}${r.why.slice(1).replace(/\.$/, "")})`).join(", ")}.` : ""}
             </p>
           </div>
         </>

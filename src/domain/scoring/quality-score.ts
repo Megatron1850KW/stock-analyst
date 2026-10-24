@@ -206,3 +206,13 @@ export function qualityScore(current: Fundamentals, ys: YearFundamentals[], debt
   const score = scored.reduce((a, p) => a + p.score! * cfg.weights[p.id], 0) / w;
   return { score, parts, signals, activeSignals };
 }
+
+/** ¿Márgenes muy por encima de lo normal en esta empresa? Aviso para cíclicas en máximos. */
+export function marginsAtPeak(current: Fundamentals, ys: YearFundamentals[], cfg: Cfg = QUALITY_CONFIG): boolean {
+  const now = current.operatingMargin.value;
+  const past = ys.slice(-cfg.peak.years).map((y) => y.operatingMargin.value).filter((x): x is number => x !== null);
+  if (now === null || past.length < 3) return false;
+  const sorted = [...past].sort((a, b) => a - b);
+  const mid = sorted.length % 2 ? sorted[(sorted.length - 1) / 2]! : (sorted[sorted.length / 2 - 1]! + sorted[sorted.length / 2]!) / 2;
+  return now - mid >= cfg.peak.minGap && (mid <= 0 || now >= mid * cfg.peak.ratio);
+}

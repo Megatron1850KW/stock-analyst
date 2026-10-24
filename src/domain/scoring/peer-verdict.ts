@@ -72,7 +72,12 @@ export interface OpportunityVerdict {
   outcome: Outcome | null;
   /** Frase en llano con el porqué. */
   reason: string;
+  /** Aviso que no cambia el veredicto pero conviene leer (p. ej. márgenes en máximos de ciclo). */
+  caution?: string;
 }
+
+const PEAK_CAUTION =
+  "Ojo: sus márgenes están muy por encima de su media de los últimos años. Si el negocio es cíclico, un precio bajo frente a los beneficios de hoy puede engañar cuando el ciclo se dé la vuelta.";
 
 /**
  * §8.3. Trampa: barata (frente a su historia o a la competencia) y con 2 o más
@@ -84,8 +89,16 @@ export function opportunityVerdict(input: {
   history: Verdict | null;
   peers: PeerComparison | null;
   activeSignals: string[];
+  /** Márgenes en máximos (ver marginsAtPeak). */
+  peakMargins?: boolean;
   minSignals?: number;
 }): OpportunityVerdict {
+  const v = baseVerdict(input);
+  const cheap = input.history === "Barata" || input.peers?.verdict === "Barata";
+  return input.peakMargins && cheap && v.outcome !== "Trampa de valor" ? { ...v, caution: PEAK_CAUTION } : v;
+}
+
+function baseVerdict(input: { history: Verdict | null; peers: PeerComparison | null; activeSignals: string[]; minSignals?: number }): OpportunityVerdict {
   const { history, peers, activeSignals } = input;
   const minSignals = input.minSignals ?? QUALITY_CONFIG.trap.minSignals;
   const vsPeers = peers?.verdict ?? null;

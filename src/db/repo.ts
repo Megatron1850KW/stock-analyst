@@ -221,19 +221,22 @@ export function getGaps(db: Db, securityId: number): Promise<{ filing_id: number
  * que ya no hagan falta).
  */
 export async function removeFromWatchlist(db: Db, id: number): Promise<void> {
+  const peers = await db.select<{ peer_id: number }>("SELECT peer_id FROM peers WHERE security_id = ?", [id]);
   await db.execute("UPDATE securities SET in_watchlist = 0 WHERE id = ?", [id]);
   await db.execute("DELETE FROM peers WHERE security_id = ?", [id]);
-  await pruneUnusedSecurities(db);
+  for (const sid of [id, ...peers.map((p) => p.peer_id)]) await deleteIfUnused(db, sid);
 }
 
-/** Borra los valores que ya no se usan: fuera de la watchlist, sin operaciones y sin ser competidor de nadie. */
-export async function pruneUnusedSecurities(db: Db): Promise<void> {
+/** Borra un valor si ya no se usa (fuera de la watchlist, sin operaciones y sin ser competidor de nadie). */
+export async function deleteIfUnused(db: Db, id: number): Promise<void> {
   await db.execute(
-    `DELETE FROM securities WHERE in_watchlist = 0
+    `DELETE FROM securities WHERE id = ? AND in_watchlist = 0
        AND id NOT IN (SELECT security_id FROM transactions)
        AND id NOT IN (SELECT peer_id FROM peers)`,
+    [id],
   );
 }
+
 
 export interface QuoteInput {
   securityId: number;

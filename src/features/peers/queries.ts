@@ -3,7 +3,7 @@ import { createClaudeClient } from "@/data/claude/client";
 import { providerFor } from "@/data/prices/provider";
 import { tauriSecClient } from "@/data/sec-edgar/client";
 import { removePeer } from "@/db/peers-repo";
-import { pruneUnusedSecurities } from "@/db/repo";
+import { deleteIfUnused } from "@/db/repo";
 import { aiSpendKey } from "@/features/ai/queries";
 import { AiAnalysisError } from "@/features/ai/equity-analysis";
 import { secUserAgent } from "@/features/settings/schema";
@@ -86,7 +86,7 @@ export function useRemovePeer(securityId: number) {
     mutationFn: async (peerId: number) => {
       const db = await appDb();
       await removePeer(db, securityId, peerId);
-      await pruneUnusedSecurities(db);
+      await deleteIfUnused(db, peerId);
     },
     onSettled: () => invalidate(qc, securityId),
   });
