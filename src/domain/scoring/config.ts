@@ -82,3 +82,17 @@ export const PEERS_CONFIG = {
   /** Hacen falta al menos 2 con datos para dar un veredicto frente a la competencia. */
   minForVerdict: 2,
 };
+
+/** Recomendación de cartera Comprar más / Mantener (§8.4). */
+export const PORTFOLIO_CONFIG = {
+  /** Peso máximo de una posición antes de dejar de sumar (15 %). */
+  maxPosition: 0.15,
+  /** Peso máximo de un sector (35 %). */
+  maxSector: 0.35,
+  /** Por debajo de esta calidad (0–100) la posición se marca «Mantener — vigilar». */
+  watchQualityBelow: 40,
+  /** Una acción a precio justo solo se recomienda comprar con calidad igual o superior a esta. */
+  buyFairQualityFrom: 60,
+  /** Tendencia de fondo de ETFs/ETCs: precio frente a su media de 10 meses (§5.3). */
+  trendMonths: 10,
+};
