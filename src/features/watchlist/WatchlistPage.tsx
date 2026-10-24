@@ -17,7 +17,7 @@ import { secUserAgent } from "@/features/settings/schema";
 import { useSettings } from "@/features/settings/queries";
 import { formatCurrency, SIN_DATO } from "@/lib/format";
 import { inDesktopApp } from "@/platform/runtime";
-import { EU_STEP_LABELS } from "./import-eu";
+import { EU_STEP_LABELS, EXCHANGE_NAMES } from "./import-eu";
 import { IMPORT_STEP_LABELS, looksLikeIsin, type ImportStep } from "./import-us";
 import { describeError, useAddTicker, useWatchlist } from "./queries";
 
@@ -106,7 +106,7 @@ function WatchlistTable({ rows }: { rows: WatchlistRow[] }) {
                 </Link>
                 <div className="text-[12px] text-muted">{r.name}</div>
               </td>
-              <td className="px-3 py-3 text-muted">{r.exchange ?? SIN_DATO}</td>
+              <td className="px-3 py-3 text-muted">{(r.market === "EU" && r.exchange && EXCHANGE_NAMES[r.exchange]) || r.exchange || SIN_DATO}</td>
               <td className="px-3 py-3 text-right tabular" onClick={(e) => e.stopPropagation()}>
                 {r.price != null ? (
                   <SourceValue
@@ -123,7 +123,7 @@ function WatchlistTable({ rows }: { rows: WatchlistRow[] }) {
                 )}
               </td>
               <td className="px-3 py-3 text-muted">
-                {r.annual_count} anuales · {r.interim_count} trimestrales
+                {r.annual_count} anuales · {r.interim_count} {r.market === "EU" ? "intermedios" : "trimestrales"}
               </td>
               <td className="px-3 py-3">
                 {r.gap_count > 0 ? (

@@ -115,7 +115,7 @@ test("una europea (ficticia) se analiza con su informe ESEF y se compara con una
     competidores: [{ ticker: "FMD", nombre: "Ficticia Moda", mercado: "Europa", isin: "FR0000000010", motivo: "También vende ropa (ficticio)." }],
     nota: "",
   };
-  const { ai, calls } = await installTauriMock(page, { secrets: ["prices_api_key", "anthropic_api_key"], peers });
+  const { ai, calls } = await installTauriMock(page, { secrets: ["prices_api_key", "alphavantage_api_key", "anthropic_api_key"], peers });
   await page.goto("/#/watchlist");
   await page.getByLabel("Ticker o ISIN").fill("ES0000000010");
   await page.getByRole("button", { name: "Añadir" }).click();

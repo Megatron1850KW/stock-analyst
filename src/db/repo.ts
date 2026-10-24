@@ -156,6 +156,7 @@ export interface WatchlistRow {
   name: string;
   exchange: string | null;
   currency: string;
+  market: string | null;
   filer_type: string | null;
   annual_count: number;
   interim_count: number;
@@ -169,7 +170,7 @@ export interface WatchlistRow {
 
 export function listWatchlist(db: Db): Promise<WatchlistRow[]> {
   return db.select<WatchlistRow>(
-    `SELECT s.id, s.ticker, s.name, s.exchange, s.currency, s.filer_type, s.updated_at,
+    `SELECT s.id, s.ticker, s.name, s.exchange, s.currency, s.market, s.filer_type, s.updated_at,
        (SELECT COUNT(*) FROM filings f WHERE f.security_id = s.id AND f.role = 'core' AND f.period_type = 'annual') AS annual_count,
        (SELECT COUNT(*) FROM filings f WHERE f.security_id = s.id AND f.role = 'core' AND f.period_type = 'interim') AS interim_count,
        (SELECT COUNT(DISTINCT g.concept) FROM concept_gaps g
