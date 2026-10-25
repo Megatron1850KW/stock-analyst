@@ -38,7 +38,7 @@ export const FLOW_CONCEPTS = [
   "operating_cash_flow", "capex", "shares_diluted", "eps_diluted", "eps_basic",
 ] as const;
 export const INSTANT_CONCEPTS = [
-  "cash", "short_term_investments", "debt_total", "debt_noncurrent", "debt_current",
+  "cash", "short_term_investments", "debt_total", "debt_noncurrent", "debt_current", "bonds_noncurrent",
   "short_term_borrowings", "commercial_paper", "equity",
 ] as const;
 export const STATEMENT_CONCEPTS: string[] = [...FLOW_CONCEPTS, ...INSTANT_CONCEPTS];
@@ -152,11 +152,18 @@ export function grossDebt(get: Getter): Metric {
   } else {
     const nc = get("debt_noncurrent");
     const cur = get("debt_current");
+    const bonds = get("bonds_noncurrent");
     if (nc) parts.push(nc);
+    formula = "Deuda a largo";
+    // Si los bonos son más que toda la deuda a largo, no están dentro: van aparte (TSMC)
+    if (bonds && (!nc || bonds.value > nc.value)) {
+      parts.push(bonds);
+      formula += " + Bonos a largo";
+    }
     if (cur) parts.push(cur);
-    formula = "Deuda a largo + Deuda que vence en 12 meses";
+    formula += " + Deuda que vence en 12 meses";
   }
-  const includesShort = parts.some((p) => p.sources.some((s) => s.tag && TOTAL_INCLUDES_SHORT_TERM.includes(s.tag)));
+  const includesShort = parts.some((p) => p.sources.some((s) => s.tag && TOTAL_INCLUDES_SHORT_TERM.includes(s.tag.split(" ")[0]!)));
   if (!includesShort) {
     for (const c of ["short_term_borrowings", "commercial_paper"]) {
       const x = get(c);

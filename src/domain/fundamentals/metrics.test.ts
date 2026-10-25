@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { currentGetter, fundamentals, yearlyFundamentals } from "./metrics";
+import { currentGetter, fundamentals, grossDebt, yearlyFundamentals } from "./metrics";
 import { lastQuarterGrowth, ttmFlow, type FactInfo, type FilingInfo } from "./statements";
 
 /*
@@ -130,5 +130,20 @@ describe("acciones diluidas (datos ficticios)", () => {
     const get = (c: string) =>
       c === "net_income" ? { label: "Beneficio", value: 100 * M, unit: "USD", sources: [s] } : c === "eps_diluted" ? { label: "BPA", value: 2, unit: "USD/shares", sources: [s] } : null;
     expect(dilutedShares(get)).toMatchObject({ value: 50 * M, note: expect.stringMatching(/beneficio neto ÷ beneficio por acción/) });
+  });
+});
+
+describe("deuda con bonos aparte (cifras FICTICIAS al estilo de TSMC)", () => {
+  const getter = (v: Record<string, number>) => (c: string) =>
+    v[c] === undefined ? null : { label: c, value: v[c]!, unit: "USD", sources: [] };
+
+  it("suma los bonos cuando no caben dentro de la deuda a largo", () => {
+    const d = grossDebt(getter({ debt_noncurrent: 1_270, bonds_noncurrent: 27_295, debt_current: 4_365 }));
+    expect(d.value).toBe(1_270 + 27_295 + 4_365);
+    expect(d.formula).toBe("Deuda a largo + Bonos a largo + Deuda que vence en 12 meses");
+  });
+
+  it("no los cuenta dos veces si la deuda a largo ya los incluye", () => {
+    expect(grossDebt(getter({ debt_noncurrent: 30_000, bonds_noncurrent: 27_295, debt_current: 4_365 })).value).toBe(34_365);
   });
 });
