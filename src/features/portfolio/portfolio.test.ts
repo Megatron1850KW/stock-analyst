@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createClaudeClient } from "@/data/claude/client";
 import type { FxClient } from "@/data/fx/frankfurter";
 import { parseFxSeries } from "@/data/fx/frankfurter";
-import { insertTransaction, listPortfolioSecurities } from "@/db/portfolio-repo";
+import { insertTransaction, listPortfolioSecurities, upsertFundSecurity } from "@/db/portfolio-repo";
 import { getDocumentRequests, getFxCoverage, isTracked, removeFromWatchlist, saveQuote } from "@/db/repo";
 import { refreshFx } from "@/features/fx/refresh";
 import { fakeClaudeFetch } from "../../../tests/helpers/fake-claude";
@@ -88,6 +88,24 @@ describe("cartera (datos FICTICIOS)", () => {
     const { deps } = await setup();
     await expect(findOrImportHolding(deps, "VWCE", "etf")).rejects.toThrow(/ISIN/);
     expect(pickFundListing(etfFigi)?.exchCode).toBe("GY");
+    // Xetra solo con el código compuesto de Alemania (GR): mejor que París
+    const onlyGr = [
+      { figi: "BBG0FICT0FP", ticker: "FCOM", exchCode: "FP", marketSector: "Equity", securityType: "ETP" },
+      { figi: "BBG0FICT0GR", ticker: "FXRS", exchCode: "GR", marketSector: "Equity", securityType: "ETP" },
+    ];
+    expect(pickFundListing(onlyGr)?.ticker).toBe("FXRS");
+  });
+
+  it("si un fondo cambia de bolsa, su símbolo de precio se vuelve a buscar", async () => {
+    const db = memoryDb();
+    const base = { isin: "IE000FICT001", figi: "BBG0FICT0FP", ticker: "FCOM", name: "FONDO FICTICIO", exchange: "FP", currency: "EUR", kind: "etf" as const, watchlist: true };
+    const id = await upsertFundSecurity(db, base);
+    await db.execute("UPDATE securities SET price_symbol = 'alphavantage:FCOM.PAR' WHERE id = ?", [id]);
+    await upsertFundSecurity(db, base);
+    const sym = async () => (await db.select<{ price_symbol: string | null }>("SELECT price_symbol FROM securities WHERE id = ?", [id]))[0]!.price_symbol;
+    expect(await sym()).toBe("alphavantage:FCOM.PAR");
+    await upsertFundSecurity(db, { ...base, figi: "BBG0FICT0GR", ticker: "FXRS", exchange: "GR" });
+    expect(await sym()).toBeNull();
   });
 
   it("tipos del BCE: solo las divisas que hacen falta y solo lo que falta", async () => {

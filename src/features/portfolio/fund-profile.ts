@@ -176,6 +176,40 @@ export async function saveFundProfileEdit(db: Db, securityId: number, profile: F
   await resolveFundSheetRequests(db, securityId, now);
 }
 
+/** Qué fondo es y qué sectores admite la app: lo mismo para la API y para claude.ai. */
+export function fundUserText(security: { name: string; isin: string | null }, kind: string): string {
+  return [
+    "<fondo>",
+    JSON.stringify({ nombre: security.name, isin: security.isin, tipo: kind === "etc" ? "ETC" : "ETF", sectores_admitidos: SECTOR_NAMES }),
+    "</fondo>",
+    "Copia los datos siguiendo las instrucciones y el esquema de salida.",
+  ].join("\n");
+}
+
+/** Guarda la ficha ya validada por el esquema (comprobaciones deterministas en toFundProfile). */
+export async function saveFundExtraction(
+  db: Db,
+  securityId: number,
+  doc: FundDoc,
+  data: EtfExtraction,
+  pages: number,
+  meta: { model: string; promptKey: string; costEur: number | null; now?: Date; name: string },
+): Promise<FundProfile> {
+  if (!data.coincide) throw new AiAnalysisError(`Este PDF no parece la ficha de ${meta.name}. ${data.notas}`.trim());
+  const profile = toFundProfile(data, pages);
+  const now = (meta.now ?? new Date()).toISOString();
+  await db.execute(
+    `INSERT INTO fund_profiles (security_id, profile_json, origin, doc_path, doc_name, doc_sha256, model, prompt_version, cost_eur, extracted_at, edited_at)
+     VALUES (?, ?, 'pdf-extraction', ?, ?, ?, ?, ?, ?, ?, NULL)
+     ON CONFLICT (security_id) DO UPDATE SET profile_json = excluded.profile_json, origin = excluded.origin, doc_path = excluded.doc_path,
+       doc_name = excluded.doc_name, doc_sha256 = excluded.doc_sha256, model = excluded.model, prompt_version = excluded.prompt_version,
+       cost_eur = excluded.cost_eur, extracted_at = excluded.extracted_at, edited_at = NULL`,
+    [securityId, JSON.stringify(profile), doc.path, doc.name, doc.sha256, meta.model, meta.promptKey, meta.costEur, now],
+  );
+  await resolveFundSheetRequests(db, securityId, now);
+  return profile;
+}
+
 export interface FundDoc {
   path: string;
   name: string;
@@ -224,12 +258,7 @@ export async function extractFundProfile(
 
   const bytes = await deps.readPdf(doc.path);
   const pages = await countPdfPages(bytes);
-  const userText = [
-    "<fondo>",
-    JSON.stringify({ nombre: security.name, isin: security.isin, tipo: kindRow.kind === "etc" ? "ETC" : "ETF", sectores_admitidos: SECTOR_NAMES }),
-    "</fondo>",
-    "Copia los datos siguiendo las instrucciones y el esquema de salida.",
-  ].join("\n");
+  const userText = fundUserText(security, kindRow.kind);
 
   const rate = await checkBudget(db, {
     budgetEur: deps.budgetEur,
@@ -278,20 +307,12 @@ export async function extractFundProfile(
     console.error("[ia] ficha de ETF no válida:", checked.error?.message ?? response.stop_reason);
     throw new AiAnalysisError("La IA devolvió la ficha con un formato inesperado. No se ha guardado nada.");
   }
-  if (!checked.data.coincide) {
-    throw new AiAnalysisError(`Este PDF no parece la ficha de ${security.name}. ${checked.data.notas}`.trim());
-  }
-
-  const profile = toFundProfile(checked.data, pages);
-  const now = (deps.now ?? new Date()).toISOString();
-  await db.execute(
-    `INSERT INTO fund_profiles (security_id, profile_json, origin, doc_path, doc_name, doc_sha256, model, prompt_version, cost_eur, extracted_at, edited_at)
-     VALUES (?, ?, 'pdf-extraction', ?, ?, ?, ?, ?, ?, ?, NULL)
-     ON CONFLICT (security_id) DO UPDATE SET profile_json = excluded.profile_json, origin = excluded.origin, doc_path = excluded.doc_path,
-       doc_name = excluded.doc_name, doc_sha256 = excluded.doc_sha256, model = excluded.model, prompt_version = excluded.prompt_version,
-       cost_eur = excluded.cost_eur, extracted_at = excluded.extracted_at, edited_at = NULL`,
-    [securityId, JSON.stringify(profile), doc.path, doc.name, doc.sha256, response.model, prompt.key, cost.eur, now],
-  );
-  await resolveFundSheetRequests(db, securityId, now);
+  const profile = await saveFundExtraction(db, securityId, doc, checked.data, pages, {
+    model: response.model,
+    promptKey: prompt.key,
+    costEur: cost.eur,
+    now: deps.now,
+    name: security.name,
+  });
   return { status: "created", profile, costEur: cost.eur };
 }

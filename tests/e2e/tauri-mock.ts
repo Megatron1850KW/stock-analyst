@@ -74,7 +74,7 @@ const FAKE_ETF_FIGI = [
   { figi: "BBG000ETF0GY", name: "FICTICIO MSCI WORLD", ticker: "FWRL", exchCode: "GY", marketSector: "Equity", securityType: "ETP", securityType2: "Mutual Fund" },
 ];
 /** Ficha FICTICIA de ese ETF, como la devolvería Haiku. */
-const FAKE_ETF_SHEET = {
+export const FAKE_ETF_SHEET = {
   coincide: true,
   ter: 0.2,
   indice: "MSCI World (ficticio)",

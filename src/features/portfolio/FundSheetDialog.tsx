@@ -13,7 +13,38 @@ import { formatDate, formatNumber, formatPercent, parseDecimal, SIN_DATO } from 
 import { REPLICATION, type FundProfile } from "./fund-profile";
 import { justEtfUrl } from "@/features/watchlist/import-fund";
 import type { FundProfileRow } from "./fund-profile";
-import { useSaveFundProfile, useUploadFundSheet } from "./queries";
+import { ClaudeAiSteps } from "@/features/ai/ManualAnalysisPanel";
+import { MANUAL_MODEL } from "@/features/ai/manual";
+import { revealDocument } from "@/platform/documents";
+import type { FundDoc } from "./fund-profile";
+import { useManualFundPrompt, useSaveFundProfile, useSaveManualFund, useUploadFundSheet } from "./queries";
+
+/** Modo manual: la ficha ya está guardada en tu Mac y se lee en claude.ai. */
+function ManualFundSteps({ securityId, doc, onDone }: { securityId: number; doc: FundDoc; onDone: () => void }) {
+  const prompt = useManualFundPrompt(securityId);
+  const save = useSaveManualFund(securityId);
+  if (prompt.error) return <p role="alert" className="text-[12.5px] text-negative-text">{describeError(prompt.error)}</p>;
+  if (!prompt.data) return <div className="h-24 animate-pulse rounded-xl bg-surface" aria-busy />;
+  return (
+    <ClaudeAiSteps
+      label={`Leer ${doc.name} con Claude.ai`}
+      text={prompt.data}
+      textHint="Lleva las instrucciones y el formato de la ficha."
+      attach={
+        <p className="mt-1 text-[12.5px]">
+          Adjunta el PDF con el botón <strong>+</strong> de claude.ai o arrastrándolo.{" "}
+          <button type="button" className="text-accent-text hover:underline" onClick={() => void revealDocument(doc.path)}>
+            Mostrar el PDF en el Finder
+          </button>
+        </p>
+      }
+      saving={save.isPending}
+      error={save.error}
+      onSave={(answer) => save.mutate({ doc, answer }, { onSuccess: onDone })}
+      onCancel={onDone}
+    />
+  );
+}
 
 const EMPTY: FundProfile = {
   ter: null, index: null, replication: null, domicile: null, aumMillions: null, aumCurrency: null, fundCurrency: null,
@@ -88,6 +119,7 @@ export function FundSheetDialog({ h, onClose }: { h: FundSheetSubject | null; on
   }
 
   const over = upload.error instanceof BudgetExceededError ? upload.error : null;
+  const manualDoc = upload.data?.status === "manual" ? upload.data.doc : null;
   const meta = h?.fund;
 
   return (
@@ -114,10 +146,11 @@ export function FundSheetDialog({ h, onClose }: { h: FundSheetSubject | null; on
           e.target.value = "";
         }}
       />
-      {profile && !editing && (
+      {manualDoc && <ManualFundSteps securityId={id} doc={manualDoc} onDone={() => upload.reset()} />}
+      {profile && !editing && !manualDoc && (
         <div className="space-y-4">
           <div className="flex flex-wrap items-center gap-2 text-[12px] text-muted">
-            {meta?.origin === "pdf-extraction" && <Badge tone="accent"><Sparkles aria-hidden /> Leída por IA de {meta.doc_name}</Badge>}
+            {meta?.origin === "pdf-extraction" && <Badge tone="accent"><Sparkles aria-hidden /> Leída {meta.model === MANUAL_MODEL ? "en claude.ai" : "por IA"} de {meta.doc_name}</Badge>}
             {meta?.edited_at && <Badge>Corregida por ti</Badge>}
             {profile.asOf && <span>Datos a {formatDate(profile.asOf)}</span>}
             {meta?.cost_eur != null && <span>· coste {meta.cost_eur < 0.01 ? "menos de 1 céntimo" : `${formatNumber(meta.cost_eur, 2)} €`}</span>}
@@ -163,9 +196,9 @@ export function FundSheetDialog({ h, onClose }: { h: FundSheetSubject | null; on
           <label className="grid gap-1"><span className="font-medium">Domicilio (código de país)</span><Input value={draft.domicile} onChange={(e) => setDraft({ ...draft, domicile: e.target.value })} placeholder="IE" className="uppercase" /></label>
         </div>
       )}
-      {!profile && !editing && !upload.isPending && (
+      {!profile && !editing && !upload.isPending && !manualDoc && (
         <div className="rounded-lg border border-dashed border-border px-5 py-8 text-center text-[13px] text-muted">
-          Sin ficha todavía. Sube el PDF y la IA copiará su coste, índice, réplica, tamaño y reparto por sectores y países, con la página de cada dato. Cuesta unos céntimos y se hace una sola vez.
+          Sin ficha todavía. Sube el PDF y Claude copiará su coste, índice, réplica, tamaño y reparto por sectores y países, con la página de cada dato. Se hace una sola vez.
         </div>
       )}
       {upload.isPending && (

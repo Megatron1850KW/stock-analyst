@@ -33,8 +33,12 @@ export interface HoldingResult {
   imported: ImportResult | null;
 }
 
-/** Bolsas preferidas para un ETF/ETC: las europeas en euros primero (Londres cotiza en varias divisas). */
-const FUND_EXCHANGES = ["GY", "NA", "IM", "FP", "SM", "BB", "SW", "LN"];
+/**
+ * Bolsas preferidas para un ETF/ETC: las europeas en euros primero (Londres
+ * cotiza en varias divisas). OpenFIGI a veces da Xetra solo con el código
+ * compuesto de Alemania (GR), p. ej. el SXRS de iShares (IE00BDFL4P12).
+ */
+const FUND_EXCHANGES = ["GY", "GR", "NA", "IM", "FP", "SM", "BB", "SW", "LN"];
 
 export function pickFundListing(rows: FigiRow[]): FigiRow | null {
   const listed = rows.filter((r) => r.ticker && r.exchCode);
