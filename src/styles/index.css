@@ -14,6 +14,9 @@
   --color-accent: var(--accent);
   --color-accent-text: var(--accent-text);
   --color-accent-soft: var(--accent-soft);
+  --color-accent-fill: var(--accent-fill);
+  --color-accent-fill-hover: var(--accent-fill-hover);
+  --color-on-accent: var(--on-accent);
   --color-sand: var(--sand);
   --color-positive: var(--positive);
   --color-positive-text: var(--positive-text);

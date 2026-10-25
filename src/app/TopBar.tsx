@@ -40,7 +40,7 @@ export function TopBar() {
         <NavLink to="/calendario" className={navClass}>
           <CalendarDays className="size-4" aria-hidden /> Calendario
           {fresh > 0 && (
-            <span className="ml-0.5 grid h-4.5 min-w-4.5 place-items-center rounded-full bg-accent px-1 text-[10.5px] font-semibold text-white tabular" aria-label={`${fresh} informes nuevos`}>
+            <span className="ml-0.5 grid h-4.5 min-w-4.5 place-items-center rounded-full bg-accent-fill px-1 text-[10.5px] font-semibold text-on-accent tabular" aria-label={`${fresh} informes nuevos`}>
               {fresh}
             </span>
           )}
