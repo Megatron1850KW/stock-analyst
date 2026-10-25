@@ -19,7 +19,8 @@ import { appDb } from "@/platform/database";
 import { readPdf, storeDocument } from "@/platform/documents";
 import { loadSettings } from "@/platform/settings-store";
 import { findOrImportHolding, type HoldingKind } from "./add-holding";
-import { extractFundProfile, saveFundProfileEdit, type FundProfile } from "./fund-profile";
+import { extractFundProfile, saveFundProfileEdit, type FundDoc, type FundExtractResult, type FundProfile } from "./fund-profile";
+import { buildManualFundPrompt, saveManualFund } from "./manual-fund";
 import { loadPortfolio } from "./load";
 
 export const portfolioKey = ["portfolio"] as const;
@@ -126,8 +127,13 @@ export function useUploadFundSheet(securityId: number) {
   const qc = useQueryClient();
   const invalidate = useInvalidate();
   return useMutation({
-    mutationFn: async ({ file, allowOverBudget }: { file: File; allowOverBudget?: boolean }) => {
+    mutationFn: async ({ file, allowOverBudget }: { file: File; allowOverBudget?: boolean }): Promise<FundUploadResult> => {
       if (!/\.pdf$/i.test(file.name)) throw new AiAnalysisError("Sube la ficha o el KID en PDF.");
+      // Modo manual: se guarda el PDF y se lee en claude.ai (copiar y pegar)
+      if ((await loadSettings()).aiMode === "manual") {
+        const stored = await storeDocument(securityId, file);
+        return { status: "manual", doc: { path: stored.path, name: file.name, sha256: stored.sha256 } };
+      }
       const settings = await requireApi("Rellena tú los datos de la ficha.");
       const stored = await storeDocument(securityId, file);
       return extractFundProfile(
@@ -141,6 +147,21 @@ export function useUploadFundSheet(securityId: number) {
       invalidate();
       void qc.invalidateQueries({ queryKey: aiSpendKey });
     },
+  });
+}
+
+export type FundUploadResult = FundExtractResult | { status: "manual"; doc: FundDoc };
+
+/** Modo manual: texto para claude.ai con las instrucciones y el formato de la ficha. */
+export function useManualFundPrompt(securityId: number) {
+  return useQuery({ queryKey: ["manual-fund-prompt", securityId], queryFn: async () => buildManualFundPrompt(await appDb(), securityId) });
+}
+
+export function useSaveManualFund(securityId: number) {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: async ({ doc, answer }: { doc: FundDoc; answer: string }) => saveManualFund({ db: await appDb(), readPdf }, securityId, doc, answer),
+    onSuccess: invalidate,
   });
 }
 

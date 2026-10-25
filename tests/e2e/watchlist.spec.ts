@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { FAKE_ANALYSIS } from "../helpers/fake-claude";
-import { installTauriMock } from "./tauri-mock";
+import { FAKE_ETF_SHEET, installTauriMock } from "./tauri-mock";
 
 const SCREENSHOTS = process.env.SCREENSHOT_DIR;
 // Ajustes de prueba: identidad FICTICIA para la cabecera de la SEC
@@ -328,4 +328,24 @@ test("añade una lista pegada de golpe (ficticia): acción de EE. UU., ETF por I
   await page.goto("/#/");
   await page.getByRole("tab", { name: /ETFs y ETCs/ }).click();
   await expect(page.getByRole("table", { name: "ETFs y ETCs que sigues" }).getByRole("row", { name: /FWRL/ })).toContainText("En tu watchlist");
+});
+
+test("modo manual: lee la ficha de un ETF (ficticio) con claude.ai pegando la respuesta", async ({ page }) => {
+  const { aiMode: _mode, ...manual } = SETTINGS;
+  const { calls } = await installTauriMock(page, { settings: manual, secrets: ["prices_api_key"] });
+  await page.goto("/#/watchlist");
+  await page.getByLabel("Ticker o ISIN").fill("IE000FICTET1");
+  await page.getByRole("button", { name: "Añadir" }).click();
+  await page.getByRole("link", { name: "FWRL" }).click();
+  await page.getByRole("region", { name: "Ficha del fondo" }).getByRole("button", { name: /Subir/ }).click();
+
+  const dlg = page.getByRole("dialog", { name: /Ficha de FWRL/ });
+  await dlg.locator('input[type="file"]').setInputFiles({ name: "factsheet-ficticio.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.7 /Type /Page /Type /Page FICTICIO") });
+  const steps = dlg.getByLabel("Leer factsheet-ficticio.pdf con Claude.ai");
+  await expect(steps.getByLabel("Texto para Claude")).toHaveValue(/Te adjunto la ficha[\s\S]*IE000FICTET1/);
+  await steps.getByLabel("Respuesta de Claude").fill(JSON.stringify(FAKE_ETF_SHEET));
+  await steps.getByRole("button", { name: "Guardar", exact: true }).click();
+  await expect(dlg).toContainText("MSCI World (ficticio)");
+  await expect(dlg).toContainText("Leída en claude.ai de factsheet-ficticio.pdf");
+  expect(calls).not.toContain("claude_request");
 });
