@@ -28,6 +28,8 @@ export interface ComparisonRow {
   };
   growth: { value: number | null; basis: "quarter" | "year" };
   operatingMargin: number | null;
+  /** Beneficio bruto ÷ ventas (últimos 12 meses o último año). */
+  grossMargin: number | null;
   /** Ventas de los últimos ejercicios (hasta 6), para la mini línea. */
   revenue: number[];
   ai: { postura: EquityAnalysis["veredicto"]["postura"]; date: string } | null;
@@ -67,6 +69,7 @@ export function comparisonRow(
     debt: { level: a.debt, years: netDebt !== null && netDebt > 0 ? a.current.debtYears.value : null, netCash: netDebt !== null && netDebt <= 0, ratio: netDebt !== null && fcf !== null && fcf > 0 ? netDebt / fcf : null },
     growth: { value: a.growth.revenue.value, basis: a.growth.basis },
     operatingMargin: a.current.operatingMargin.value,
+    grossMargin: a.current.grossMargin.value,
     revenue: a.years.slice(-6).map((y) => y.revenue?.value).filter((v): v is number => typeof v === "number"),
     ai: ai?.stored ? { postura: ai.stored.analysis.veredicto.postura, date: ai.createdAt } : null,
     quality: a.quality.score,
@@ -74,7 +77,7 @@ export function comparisonRow(
   };
 }
 
-export type SortKey = "cheapest" | "quality" | "cash" | "debt" | "growth" | "ticker";
+export type SortKey = "cheapest" | "quality" | "cash" | "debt" | "growth" | "margin" | "ticker";
 
 export const SORT_LABELS: Record<SortKey, string> = {
   cheapest: "Más barata frente a su historia",
@@ -82,6 +85,7 @@ export const SORT_LABELS: Record<SortKey, string> = {
   cash: "Más caja libre",
   debt: "Menos deuda",
   growth: "Más crecimiento",
+  margin: "Mayor margen bruto",
   ticker: "Ticker (A-Z)",
 };
 
@@ -97,6 +101,7 @@ export function sortRows(rows: ComparisonRow[], key: SortKey): ComparisonRow[] {
       case "cash": return r.fcfYield === null ? null : -r.fcfYield;
       case "debt": return r.debt.level === null ? null : debtRank(r);
       case "growth": return r.growth.value === null ? null : -r.growth.value;
+      case "margin": return r.grossMargin === null ? null : -r.grossMargin;
       case "ticker": return null;
     }
   };
@@ -112,7 +117,7 @@ export function sortRows(rows: ComparisonRow[], key: SortKey): ComparisonRow[] {
 }
 
 export interface Highlight {
-  key: Exclude<SortKey, "ticker">;
+  key: Exclude<SortKey, "ticker" | "margin">;
   row: ComparisonRow;
 }
 

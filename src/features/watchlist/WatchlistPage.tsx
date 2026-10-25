@@ -1,3 +1,4 @@
+import { FundName } from "@/features/portfolio/FundName";
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, Check, ChevronRight, Eye, Loader2, Plus, RefreshCw, Search } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
@@ -165,12 +166,19 @@ function WatchlistTable({ rows }: { rows: WatchlistItem[] }) {
               className="cursor-pointer border-t border-border transition-colors duration-150 hover:bg-sand/25"
             >
               <td className="px-5 py-3">
-                <Link to={detailPath(r)} onClick={(e) => e.stopPropagation()} className="font-semibold hover:text-accent-text">
-                  {r.ticker}
-                </Link>
-                {r.kind !== "stock" && <Badge className="ml-2">{r.kind.toUpperCase()}</Badge>}
-                {r.kind === "stock" && <StarMark id={r.id} which="watchlist" className="ml-1.5 align-[-2px]" />}
-                <div className="text-[12px] text-muted">{r.name}</div>
+                {r.kind !== "stock" ? (
+                  <Link to={detailPath(r)} onClick={(e) => e.stopPropagation()} className="hover:text-accent-text">
+                    <FundName name={r.name} ticker={r.ticker} isin={r.isin} kind={r.kind} />
+                  </Link>
+                ) : (
+                  <>
+                    <Link to={detailPath(r)} onClick={(e) => e.stopPropagation()} className="font-semibold hover:text-accent-text">
+                      {r.ticker}
+                    </Link>
+                    <StarMark id={r.id} which="watchlist" className="ml-1.5 align-[-2px]" />
+                    <div className="text-[12px] text-muted">{r.name}</div>
+                  </>
+                )}
               </td>
               <td className="px-3 py-3 text-muted">{(r.market === "EU" && r.exchange && EXCHANGE_NAMES[r.exchange]) || r.exchange || SIN_DATO}</td>
               <td className="px-3 py-3 text-right tabular" onClick={(e) => e.stopPropagation()}>

@@ -39,11 +39,11 @@ function Detail({ row }: { row: RiskRow }) {
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="font-serif text-[22px] leading-none font-semibold tracking-tight">{row.ticker}</h2>
+            <h2 className="font-serif text-[22px] leading-none font-semibold tracking-tight">{row.kind === "stock" ? row.ticker : row.name}</h2>
             <RiskBadge level={r.level} />
             {r.trend && <Badge>Tendencia {r.trend.toLowerCase()}</Badge>}
           </div>
-          <p className="mt-1 text-[12.5px] text-muted">{row.name}</p>
+          <p className="mt-1 text-[12.5px] text-muted tabular">{row.kind === "stock" ? row.name : row.isin && row.isin !== row.ticker ? `${row.ticker} : ${row.isin}` : row.ticker}</p>
         </div>
         <div role="tablist" aria-label="Velas" className="inline-flex rounded-lg border border-border bg-surface p-0.5">
           {([["1mo", "Mensuales · 10 años"], ["1w", "Semanales · 5 años"]] as const).map(([id, label]) => (
@@ -135,11 +135,11 @@ export function TechnicalRiskPage() {
                     )}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="font-serif text-[16px] font-semibold tracking-tight">{r.ticker}</span>
+                      <span className={cn("font-serif font-semibold tracking-tight", r.kind === "stock" ? "text-[16px]" : "truncate text-[14px]")} title={r.name}>{r.kind === "stock" ? r.ticker : r.name}</span>
                       <RiskBadge level={r.risk.level} />
                     </div>
                     <p className="mt-0.5 flex items-center gap-1.5 text-[11.5px] text-muted">
-                      <span className="truncate">{r.name}</span>
+                      <span className="truncate">{r.kind === "stock" ? r.name : r.isin && r.isin !== r.ticker ? `${r.ticker} : ${r.isin}` : r.ticker}</span>
                       <span aria-hidden>·</span>
                       <span className="shrink-0">{KIND[r.kind]}{r.inPortfolio ? " en cartera" : ""}</span>
                     </p>

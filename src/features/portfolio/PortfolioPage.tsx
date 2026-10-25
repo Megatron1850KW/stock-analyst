@@ -1,4 +1,4 @@
-import { AlertTriangle, Plus, Trash2, WalletCards } from "lucide-react";
+import { AlertTriangle, FileUp, Plus, Trash2, WalletCards } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { DISCLAIMER } from "@/app/Disclaimer";
 import { EmptyState } from "@/app/EmptyState";
@@ -20,6 +20,7 @@ import { FundSheetDialog } from "./FundSheetDialog";
 import type { Holding, PortfolioView } from "./load";
 import { PositionCard } from "./PositionCard";
 import { useDeleteTransaction, usePortfolio } from "./queries";
+import { ImportDialog } from "./ImportDialog";
 import { TransactionDialog } from "./TransactionDialog";
 
 const section = SECTIONS[1]!;
@@ -238,6 +239,7 @@ export function PortfolioPage() {
   const [dialog, setDialog] = useState<{ input: string } | null>(null);
   const [sheet, setSheet] = useState<Holding | null>(null);
   const [classify, setClassify] = useState<Holding | null>(null);
+  const [importing, setImporting] = useState(false);
   useNewShortcut(useCallback(() => inDesktopApp && setDialog({ input: "" }), []));
   const holdings = view?.holdings ?? [];
   // Refresca el holding abierto cuando cambian los datos (p. ej. tras leer la ficha)
@@ -250,9 +252,14 @@ export function PortfolioPage() {
         title={section.title}
         subtitle={section.subtitle}
         actions={
-          <Button onClick={() => setDialog({ input: "" })} disabled={!inDesktopApp}>
-            <Plus aria-hidden /> Nueva operación <kbd className="ml-1 font-sans text-[11px] opacity-80">⌘N</kbd>
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={() => setImporting(true)} disabled={!inDesktopApp}>
+              <FileUp aria-hidden /> Importar
+            </Button>
+            <Button onClick={() => setDialog({ input: "" })} disabled={!inDesktopApp}>
+              <Plus aria-hidden /> Nueva operación <kbd className="ml-1 font-sans text-[11px] opacity-80">⌘N</kbd>
+            </Button>
+          </div>
         }
       />
       {isLoading && <div className="h-64 animate-pulse rounded-[var(--radius-card)] bg-surface" />}
@@ -265,7 +272,10 @@ export function PortfolioPage() {
           title="Registra tu primera operación"
           description="Apunta tus compras de acciones, ETFs y ETCs con fecha, cantidad, precio y comisiones. Verás tu rentabilidad en euros, el peso de cada posición y una recomendación de Comprar más o Mantener."
         >
-          <Button onClick={() => setDialog({ input: "" })} disabled={!inDesktopApp}><Plus aria-hidden /> Nueva operación</Button>
+          <div className="flex gap-2">
+            <Button onClick={() => setDialog({ input: "" })} disabled={!inDesktopApp}><Plus aria-hidden /> Nueva operación</Button>
+            <Button variant="secondary" onClick={() => setImporting(true)} disabled={!inDesktopApp}><FileUp aria-hidden /> Importar desde un CSV</Button>
+          </div>
         </EmptyState>
       )}
       {view && view.transactions.length > 0 && (
@@ -289,6 +299,7 @@ export function PortfolioPage() {
         </div>
       )}
       <TransactionDialog open={!!dialog} onClose={() => setDialog(null)} holdings={holdings} preset={dialog ?? undefined} />
+      <ImportDialog open={importing} onClose={() => setImporting(false)} />
       <FundSheetDialog h={sheetNow} onClose={() => setSheet(null)} />
       <ClassificationDialog h={classify} onClose={() => setClassify(null)} />
     </div>

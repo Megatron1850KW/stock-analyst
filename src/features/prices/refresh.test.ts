@@ -86,6 +86,24 @@ describe("precios por mercado (datos FICTICIOS)", () => {
     expect(usCalls.filter((c) => c.startsWith("quote:"))).toEqual(["quote:FICT"]);
   });
 
+  it("el respaldo entra cuando el principal no cubre un valor o se agota, y el valor se queda en él", async () => {
+    const { db, ids } = await setup();
+    const euCalls: string[] = [];
+    const backupCalls: string[] = [];
+    const backupBase = fakeEuPrices(backupCalls, { known: ["FTX", "FMD"] });
+    const backup: PriceProvider = { ...backupBase, id: "backup-test", label: "Respaldo ficticio" };
+    // El principal no tiene FTX y se queda sin consultas tras la primera
+    const r = await refreshPrices(db, { US: null, EU: fakeEuPrices(euCalls, { known: ["FMD"], limitAfter: 1 }), EUBackup: backup }, undefined, today);
+    expect(r).toMatchObject({ updated: 2, failed: [] });
+    expect((await getLatestQuote(db, ids.ftx))?.source).toBe("backup-test");
+    expect((await getLatestQuote(db, ids.fmd))?.source).toBe("backup-test");
+
+    // Al día siguiente ya va directo al respaldo: el principal no gasta consultas
+    euCalls.length = 0;
+    await refreshPrices(db, { US: null, EU: fakeEuPrices(euCalls), EUBackup: backup }, undefined, new Date("2026-10-25T08:00:00Z"));
+    expect(euCalls).toEqual([]);
+  });
+
   it("sin proveedor europeo, las europeas de tu watchlist avisan de que falta elegirlo", async () => {
     const { db } = await setup();
     const r = await refreshPrices(db, { US: fakePrices(), EU: null }, undefined, today);

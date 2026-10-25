@@ -19,6 +19,7 @@ import { appDb } from "@/platform/database";
 import { readPdf, storeDocument } from "@/platform/documents";
 import { loadSettings } from "@/platform/settings-store";
 import { findOrImportHolding, type HoldingKind } from "./add-holding";
+import { importTransactions, type ImportOutcome } from "./import-transactions";
 import { extractFundProfile, saveFundProfileEdit, type FundDoc, type FundExtractResult, type FundProfile } from "./fund-profile";
 import { buildManualFundPrompt, saveManualFund } from "./manual-fund";
 import { loadPortfolio } from "./load";
@@ -87,6 +88,38 @@ export function useAddTransaction() {
     },
   });
   return { ...mutation, step, market };
+}
+
+/**
+ * Importación en bloque (CSV ya revisado). Al final, tipos de cambio y precio
+ * de los valores nuevos; sin análisis con IA (se lanza desde su ficha).
+ */
+export function useImportTransactions() {
+  const invalidate = useInvalidate();
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const mutation = useMutation({
+    mutationFn: async (lines: { line: number; tx: NewTransaction }[]): Promise<{ outcomes: ImportOutcome[]; notes: string[] }> => {
+      const settings = await loadSettings();
+      const db = await appDb();
+      const ua = secUserAgent(settings);
+      const outcomes = await importTransactions({ db, eu: tauriEuClient(), sec: ua ? tauriSecClient(ua) : null }, lines, (done, total) => setProgress({ done, total }));
+      const notes: string[] = [];
+      if (outcomes.some((o) => o.status === "added")) {
+        await refreshFx(db, tauriFxClient()).catch((e: unknown) => notes.push(`Tipos de cambio: ${e instanceof Error ? e.message : String(e)}`));
+      }
+      const fresh = [...new Set(outcomes.filter((o) => o.newSecurity && o.securityId !== null).map((o) => o.securityId!))];
+      for (const id of fresh) {
+        const prices = await refreshPrices(db, providersFor(settings), id).catch(() => null);
+        for (const f of prices?.failed ?? []) notes.push(`Precio: ${f.message}`);
+      }
+      return { outcomes, notes };
+    },
+    onSettled: () => {
+      setProgress(null);
+      invalidate();
+    },
+  });
+  return { ...mutation, progress };
 }
 
 /** Borra una operación; si era la última de un valor que no está en la watchlist, el valor se borra también. */

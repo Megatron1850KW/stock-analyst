@@ -69,7 +69,7 @@ const sharesFiledAt = (shares: Input) => shares.sources[0]?.filing.filed_at ?? s
  * ya estaba publicado entonces (sin mirar al futuro), con las acciones
  * pasadas a la base actual si ha habido splits después.
  */
-export function historicalMultiples(years: YearFundamentals[], monthly: PricePoint[], splits: SplitInfo[]): MultiplePoint[] {
+export function historicalMultiples(years: YearFundamentals[], monthly: PricePoint[], splits: SplitInfo[], adrRatio = 1): MultiplePoint[] {
   const usable = years
     .filter((y) => y.shares && y.statement.filing.filed_at)
     .sort((a, b) => a.statement.filing.filed_at!.localeCompare(b.statement.filing.filed_at!));
@@ -79,7 +79,8 @@ export function historicalMultiples(years: YearFundamentals[], monthly: PricePoi
     let year: YearFundamentals | undefined;
     for (const y of usable) if (y.statement.filing.filed_at! <= end) year = y;
     if (!year) continue;
-    const shares = year.shares!.value * splitFactorAfter(splits, sharesFiledAt(year.shares!));
+    // Precio de un ADR: cada uno vale `adrRatio` acciones ordinarias
+    const shares = (year.shares!.value * splitFactorAfter(splits, sharesFiledAt(year.shares!))) / adrRatio;
     const marketCap = bar.close * shares;
     const ev = year.netDebt.value === null ? null : marketCap + year.netDebt.value;
     out.push({
@@ -114,7 +115,7 @@ export interface CurrentMultiples {
 }
 
 /** Múltiplos de hoy: precio actual y cifras de los últimos doce meses. */
-export function currentMultiples(f: Fundamentals, price: PriceInput, splits: SplitInfo[], reportingCurrency: string | null): CurrentMultiples {
+export function currentMultiples(f: Fundamentals, price: PriceInput, splits: SplitInfo[], reportingCurrency: string | null, adrRatio = 1): CurrentMultiples {
   const unit = f.revenue?.unit ?? reportingCurrency ?? price.currency;
   const none = (label: string, kind: Metric["kind"], formula: string, note: string): Metric => ({ label, kind, value: null, formula, inputs: [], note });
   const mismatch = unit !== price.currency;
@@ -126,7 +127,11 @@ export function currentMultiples(f: Fundamentals, price: PriceInput, splits: Spl
     marketCap = none("Capitalización", "money", capFormula, "No hay número de acciones en los informes.");
   } else {
     const factor = splitFactorAfter(splits, sharesFiledAt(f.shares));
-    const shares: Input = factor === 1 ? f.shares : { ...f.shares, value: f.shares.value * factor, note: `Ajustadas por splits posteriores (×${factor}).` };
+    const notes = [
+      factor !== 1 ? `Ajustadas por splits posteriores (×${factor}).` : null,
+      adrRatio !== 1 ? `El precio es el de un ADR, que equivale a ${String(adrRatio).replace(".", ",")} acciones: se cuentan ADR (acciones ÷ ${String(adrRatio).replace(".", ",")}).` : null,
+    ].filter(Boolean);
+    const shares: Input = notes.length === 0 ? f.shares : { ...f.shares, value: (f.shares.value * factor) / adrRatio, note: notes.join(" ") };
     marketCap = {
       label: "Capitalización",
       kind: "money",

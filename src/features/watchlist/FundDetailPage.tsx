@@ -128,12 +128,10 @@ export function FundDetailPage() {
       </Link>
       <header className="flex flex-wrap items-end justify-between gap-6 pb-6">
         <div>
-          <h1 className="font-serif text-[32px] leading-tight font-semibold tracking-tight">
-            {f.name} <span className="text-muted">· {f.ticker}</span>
-          </h1>
+          <h1 className="font-serif text-[32px] leading-tight font-semibold tracking-tight">{f.name}</h1>
           <p className="mt-1 flex flex-wrap items-center gap-2 text-[13px] text-muted">
             <Badge>{label}</Badge>
-            {f.isin && <span className="tabular" data-selectable>{f.isin}</span>}
+            <span className="tabular" data-selectable>{f.isin && f.isin !== f.ticker ? `${f.ticker} : ${f.isin}` : f.ticker}</span>
             {f.exchange && <span>· {EXCHANGE_NAMES[f.exchange] ?? f.exchange}</span>}
             {f.price && <span>· {formatCurrency(f.price.close, f.currency)} ({formatDate(f.price.date)})</span>}
             {f.held && <Badge tone="positive">En tu cartera</Badge>}

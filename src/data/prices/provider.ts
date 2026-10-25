@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { z } from "zod";
 import { alphaVantageProvider } from "./alphavantage";
+import { yahooProvider } from "./yahoo";
 
 /** Proveedor de precios intercambiable (CLAUDE.md §4). */
 export interface Quote {
@@ -224,7 +225,7 @@ export const tiingoProvider: PriceProvider = {
   history: async (symbol, from) => parseTiingoHistory(await invoke<string>("price_history", { provider: "tiingo", symbol, from })),
 };
 
-const PROVIDERS: Record<string, PriceProvider> = { fmp: fmpProvider, tiingo: tiingoProvider, alphavantage: alphaVantageProvider };
+const PROVIDERS: Record<string, PriceProvider> = { fmp: fmpProvider, tiingo: tiingoProvider, alphavantage: alphaVantageProvider, yahoo: yahooProvider };
 
 export function providerFor(id: string | null): PriceProvider | null {
   return (id && PROVIDERS[id]) || null;

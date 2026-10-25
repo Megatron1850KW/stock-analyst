@@ -1,3 +1,4 @@
+import { FundName } from "./FundName";
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -13,6 +14,7 @@ export interface FundLine {
   id: number;
   ticker: string;
   name: string;
+  isin: string | null;
   kind: string;
   profile: FundProfile | null;
   trend: Trend | null;
@@ -21,7 +23,7 @@ export interface FundLine {
 }
 
 export const fundLineOf = (h: Holding): FundLine => ({
-  id: h.row.id, ticker: h.row.ticker, name: h.row.name, kind: h.row.kind, profile: h.fund?.profile ?? null,
+  id: h.row.id, ticker: h.row.ticker, name: h.row.name, isin: h.row.isin, kind: h.row.kind, profile: h.fund?.profile ?? null,
   trend: h.trend, position: h.position, recommendation: h.recommendation,
 });
 
@@ -50,8 +52,7 @@ export function FundsTable({ holdings }: { holdings: FundLine[] }) {
             return (
               <tr key={h.id} className="border-b border-border align-middle last:border-0">
                 <th scope="row" className="py-3 pr-3 pl-5 text-left font-normal">
-                  <span className="font-serif text-[16px] font-semibold tracking-tight">{h.ticker}</span> <Badge>{h.kind.toUpperCase()}</Badge>
-                  <p className="max-w-[200px] truncate text-[12px] text-muted" title={h.name}>{h.name}</p>
+                  <FundName name={h.name} ticker={h.ticker} isin={h.isin} kind={h.kind} className="max-w-[240px]" />
                 </th>
                 <td className="max-w-[200px] truncate px-3 py-3" title={f?.index ?? undefined}>{f?.index ?? <span className="text-muted">{SIN_DATO}</span>}</td>
                 <td className="px-3 py-3 tabular">{f?.ter != null ? formatPercent(f.ter, 2) : <span className="text-muted">{SIN_DATO}</span>}</td>

@@ -1,3 +1,4 @@
+import { adrRatio } from "@/domain/valuation/adr";
 import { providerLabel } from "@/data/prices/provider";
 import type { BarRow, FactRow, FilingRow, LatestQuoteRow, PriceHistoryMeta, SecurityRow, SplitRow } from "@/db/repo";
 import {
@@ -78,8 +79,14 @@ export function buildAnalysis(input: {
   const withFacts = new Set(input.facts.map((f) => f.filing_id));
   const sec = input.filings.filter((f) => f.role !== "upload" || withFacts.has(f.id));
   const core = sec.filter((f) => f.role === "core" || f.role === "upload");
-  const current = fundamentals(currentGetter(core, input.facts));
   const years = yearlyFundamentals(sec, input.facts);
+  const ttm = fundamentals(currentGetter(core, input.facts));
+  // Sin acciones en los doce meses (p. ej. un semestral sin BPA), las del último anual
+  const lastShares = [...years].reverse().find((y) => y.shares)?.shares ?? null;
+  const current =
+    ttm.shares || !lastShares
+      ? ttm
+      : { ...ttm, shares: { ...lastShares, note: `${lastShares.note ? `${lastShares.note} ` : ""}Del último informe anual: el intermedio no da el número de acciones.` } };
   const warnings: string[] = [];
 
   const monthly: PricePoint[] = input.monthly.map((b) => ({ date: b.date, close: b.close }));
@@ -110,8 +117,9 @@ export function buildAnalysis(input: {
     warnings.push(`El proveedor de precios solo da datos desde ${input.priceMeta.first_date.slice(0, 7)}: la comparación a 10 años no es posible.`);
   }
 
-  const multiples = price ? currentMultiples(current, price, input.splits, input.security.reporting_currency) : null;
-  const history = historicalMultiples(years, monthly, input.splits);
+  const adr = adrRatio(input.security.ticker, input.security.market);
+  const multiples = price ? currentMultiples(current, price, input.splits, input.security.reporting_currency, adr) : null;
+  const history = historicalMultiples(years, monthly, input.splits, adr);
   const valuation = multiples ? valuationScore(multiples, history, monthly) : null;
 
   const { annual, interim } = latestReports(core);

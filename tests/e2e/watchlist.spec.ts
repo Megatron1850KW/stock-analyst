@@ -141,7 +141,8 @@ test("sin nombre y email para la SEC no busca acciones de EE. UU. y lo explica",
 });
 
 test("una acción europea (ficticia) se añade por su ISIN con sus informes ESEF, sin pedir datos para la SEC", async ({ page }) => {
-  const { calls } = await installTauriMock(page, { secrets: ["prices_api_key", "alphavantage_api_key"] });
+  // Sin el respaldo de Yahoo: aquí se prueba que Alpha Vantage no gasta consultas en Madrid
+  const { calls } = await installTauriMock(page, { secrets: ["prices_api_key", "alphavantage_api_key"], settings: { priceProviderEuBackup: null } });
   await page.goto("/#/watchlist");
   await page.getByLabel("Ticker o ISIN").fill("ES0000000010");
   await page.getByRole("button", { name: "Añadir" }).click();
