@@ -44,7 +44,7 @@ export async function saveManualPdf(
   const data = parsePastedJson(answer, pdfExtractionSchema);
   const filing = await uploadedPdf(deps.db, securityId, filingId);
   // Las páginas se cuentan aquí, sin IA, para descartar citas a páginas que no existen
-  const pages = countPdfPages(await deps.readPdf(filing.local_path!));
+  const pages = await countPdfPages(await deps.readPdf(filing.local_path!));
   const saved = await saveExtraction(deps.db, securityId, filing, data, pages);
   if (saved.facts === 0) throw new AiAnalysisError("La respuesta no trae ninguna cifra válida. Revisa que Claude haya leído el PDF adjunto.");
   return saved;

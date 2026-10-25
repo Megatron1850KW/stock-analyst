@@ -223,7 +223,7 @@ export async function extractFundProfile(
   if (!security || !kindRow) throw new AiAnalysisError("Este valor ya no está guardado.");
 
   const bytes = await deps.readPdf(doc.path);
-  const pages = countPdfPages(bytes);
+  const pages = await countPdfPages(bytes);
   const userText = [
     "<fondo>",
     JSON.stringify({ nombre: security.name, isin: security.isin, tipo: kindRow.kind === "etc" ? "ETC" : "ETF", sectores_admitidos: SECTOR_NAMES }),

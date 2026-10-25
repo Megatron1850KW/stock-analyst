@@ -44,11 +44,43 @@ const SCALE = { unidades: 1, miles: 1e3, millones: 1e6 } as const;
 const DAY = 86_400_000;
 const near = (a: string, b: string, days = 20) => Math.abs(Date.parse(a) - Date.parse(b)) <= days * DAY;
 
-/** Páginas aproximadas de un PDF (cuenta los objetos /Type /Page), para estimar el coste. */
-export function countPdfPages(bytes: Uint8Array): number {
+const PAGE_OBJECT = /\/Type\s*\/Page(?![s\w])/g;
+const latin1 = (bytes: Uint8Array) => {
   let text = "";
   for (let k = 0; k < bytes.length; k += 65_536) text += String.fromCharCode(...bytes.subarray(k, k + 65_536));
-  return (text.match(/\/Type\s*\/Page(?![s\w])/g) ?? []).length || 1;
+  return text;
+};
+
+/** Descomprime un flujo /FlateDecode; null si no se puede (otro filtro, flujo dañado). */
+async function inflate(bytes: Uint8Array): Promise<Uint8Array | null> {
+  try {
+    const stream = new Blob([bytes.slice()]).stream().pipeThrough(new DecompressionStream("deflate"));
+    return new Uint8Array(await new Response(stream).arrayBuffer());
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Páginas de un PDF: cuenta los objetos /Type /Page, también los guardados
+ * dentro de flujos de objetos comprimidos (/ObjStm, habituales en PDF 1.5+),
+ * para estimar el coste y descartar citas a páginas que no existen.
+ */
+export async function countPdfPages(bytes: Uint8Array): Promise<number> {
+  const text = latin1(bytes);
+  let pages = (text.match(PAGE_OBJECT) ?? []).length;
+  const objStm = /<<((?:(?!>>\s*stream)[\s\S]){0,2000}?\/Type\s*\/ObjStm[\s\S]{0,2000}?)>>\s*stream\r?\n/g;
+  for (let m = objStm.exec(text); m; m = objStm.exec(text)) {
+    if (!/\/FlateDecode/.test(m[1]!)) continue;
+    const start = m.index + m[0].length;
+    let end = text.indexOf("endstream", start);
+    if (end < 0) continue;
+    // El salto de línea antes de «endstream» no forma parte del flujo
+    while (end > start && (text[end - 1] === "\n" || text[end - 1] === "\r")) end--;
+    const inner = await inflate(bytes.subarray(start, end));
+    if (inner) pages += (latin1(inner).match(PAGE_OBJECT) ?? []).length;
+  }
+  return pages || 1;
 }
 
 /** Tokens de entrada por página de PDF (texto + imagen de la página), según la documentación de Claude. */
@@ -138,7 +170,7 @@ export async function extractPdfFacts(
   if (!security) throw new AiAnalysisError("Este valor ya no está guardado.");
 
   const bytes = await deps.readPdf(filing.local_path);
-  const pages = countPdfPages(bytes);
+  const pages = await countPdfPages(bytes);
   const userText = pdfUserText(security.name, filing);
 
   const rate = await checkBudget(db, {

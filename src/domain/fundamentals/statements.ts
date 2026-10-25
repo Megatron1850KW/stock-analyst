@@ -155,38 +155,42 @@ export function latestReports(filings: FilingInfo[]): LatestReports {
 /**
  * TTM de un concepto de flujo (ventas, beneficio, caja…): último anual más lo
  * acumulado del ejercicio en curso menos lo mismo del ejercicio anterior,
- * ambos sacados del último informe intermedio. Si falta alguna pieza, se usa
- * el último anual y se indica en `basis`.
+ * sacados del intermedio más reciente que traiga ese concepto (una nota de
+ * ventas trimestral da las ventas; el semestral anterior, el resto). Si falta
+ * alguna pieza, se usa el último anual y se indica en `basis`.
  */
 export function ttmFlow(filings: FilingInfo[], facts: FactInfo[], concept: string): FlowValue | null {
-  const { annual, interim } = latestReports(filings);
+  const { annual } = latestReports(filings);
   if (!annual) return null;
   const byFiling = groupFacts(facts);
   const annualFact = ownPeriodFact(byFiling.get(annual.id) ?? [], annual, concept);
   if (!annualFact) return null;
   const a = sourced(annualFact.fact, annual);
-  const fallback: FlowValue = { value: a.value, unit: a.unit, basis: "annual", periodEnd: annual.period_end, parts: [{ role: "annual", source: a }] };
-  if (!interim) return fallback;
-
-  const list = (byFiling.get(interim.id) ?? []).filter((f) => f.concept === concept && f.period_start && f.unit === a.unit);
-  const ytd = list.find((f) => days(f.period_end, interim.period_end) <= 10 && days(f.period_start!, annual.period_end) <= 20);
-  if (!ytd) return fallback;
-  const len = days(ytd.period_start!, ytd.period_end);
-  const prior = list.find(
-    (f) => days(f.period_end, shiftYear(interim.period_end, -1)) <= 10 && Math.abs(days(f.period_start!, f.period_end) - len) <= 10,
-  );
-  if (!prior) return fallback;
-  return {
-    value: a.value + ytd.value - prior.value,
-    unit: a.unit,
-    basis: "ttm",
-    periodEnd: interim.period_end,
-    parts: [
-      { role: "annual", source: a },
-      { role: "ytd", source: sourced(ytd, interim) },
-      { role: "prior-ytd", source: sourced(prior, interim) },
-    ],
-  };
+  const interims = filings
+    .filter((f) => f.period_type === "interim" && f.period_end > annual.period_end)
+    .sort((x, y) => y.period_end.localeCompare(x.period_end));
+  for (const interim of interims) {
+    const list = (byFiling.get(interim.id) ?? []).filter((f) => f.concept === concept && f.period_start && f.unit === a.unit);
+    const ytd = list.find((f) => days(f.period_end, interim.period_end) <= 10 && days(f.period_start!, annual.period_end) <= 20);
+    if (!ytd) continue;
+    const len = days(ytd.period_start!, ytd.period_end);
+    const prior = list.find(
+      (f) => days(f.period_end, shiftYear(interim.period_end, -1)) <= 10 && Math.abs(days(f.period_start!, f.period_end) - len) <= 10,
+    );
+    if (!prior) continue;
+    return {
+      value: a.value + ytd.value - prior.value,
+      unit: a.unit,
+      basis: "ttm",
+      periodEnd: interim.period_end,
+      parts: [
+        { role: "annual", source: a },
+        { role: "ytd", source: sourced(ytd, interim) },
+        { role: "prior-ytd", source: sourced(prior, interim) },
+      ],
+    };
+  }
+  return { value: a.value, unit: a.unit, basis: "annual", periodEnd: annual.period_end, parts: [{ role: "annual", source: a }] };
 }
 
 /** Cifra de balance (o de acciones) del informe más reciente que la tenga. */

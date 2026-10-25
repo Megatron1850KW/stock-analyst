@@ -99,6 +99,17 @@ describe("últimos doce meses (datos ficticios)", () => {
     expect(capex.value).toBe(60 * M);
   });
 
+  it("cada cifra sale del intermedio más reciente que la trae (nota de ventas posterior)", () => {
+    const note: FilingInfo = { id: 4, form_type: "Otro (PDF)", period_type: "interim", period_end: "2026-09-30", filed_at: null, accession_no: "f-q3", url: null };
+    const all = [...filings, note];
+    const more = [...facts, flow(4, "revenue", "2026-01-01", "2026-09-30", 1080), flow(4, "revenue", "2025-01-01", "2025-09-30", 870)];
+    const rev = ttmFlow(all, more, "revenue")!;
+    expect(rev).toMatchObject({ basis: "ttm", periodEnd: "2026-09-30", value: (1200 + 1080 - 870) * M });
+    const ni = ttmFlow(all, more, "net_income")!;
+    expect(ni).toMatchObject({ basis: "ttm", periodEnd: "2026-06-30", value: (200 + 120 - 90) * M });
+    expect(fundamentals(currentGetter(all, more)).cash.value).toBe(180 * M);
+  });
+
   it("toma el balance y las acciones del informe más reciente", () => {
     const f = fundamentals(currentGetter(filings, facts));
     expect(f.cash.value).toBe(180 * M);
