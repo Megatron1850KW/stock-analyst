@@ -127,3 +127,28 @@ test("cartera (datos ficticios): operaciones, vision board, ficha de ETF y porta
   await expect(fit).toContainText(/Puedes añadir hasta .* sin que pase del 15\s%|Ya pesa un .* de tu cartera \(máximo recomendado 15\s%\)/);
   await shot(page, "28-etf-precio-cartera");
 });
+
+test("cartera (datos ficticios): importar operaciones desde un CSV", async ({ page }) => {
+  await installTauriMock(page, { settings: SETTINGS, secrets: SECRETS, price: 38.4 });
+  await page.goto("/#/portfolio");
+  await page.getByRole("button", { name: "Importar desde un CSV" }).click();
+  const dlg = page.getByRole("dialog", { name: "Importar operaciones" });
+  await expect(dlg).toBeVisible();
+  const csv = [
+    "fecha;tipo;valor;clase;cantidad;precio;divisa;comisiones;cambio_eur;broker;notas",
+    "04/03/2024;compra;FICT;accion;40;21,50;USD;4;;ING;",
+    `2024-05-02;compra;${FAKE_ETF_ISIN};etf;10;100;EUR;0;;ING;`,
+    "2024-06-01;venta;FICT;accion;99;25;USD;4;;ING;",
+    "2024-06-01;regalo;FICT;accion;1;25;USD;;;;",
+  ].join("\n");
+  await dlg.getByLabel("Archivo CSV").setInputFiles({ name: "ing.csv", mimeType: "text/csv", buffer: Buffer.from(csv) });
+  await expect(dlg.getByText(/3\s*operaciones listas/)).toBeVisible();
+  await expect(dlg.getByText(/compra, venta o dividendo/)).toBeVisible();
+  await shot(page, "29-importar-csv");
+  await dlg.getByRole("button", { name: "Importar 3 operaciones" }).click();
+  await expect(dlg.getByText(/2 guardadas/)).toBeVisible({ timeout: 15_000 });
+  await expect(dlg.getByText(/solo tenías 40/)).toBeVisible();
+  await shot(page, "30-importar-csv-hecho");
+  await dlg.getByRole("button", { name: "Cerrar", exact: true }).last().click();
+  await expect(page.getByText("Registra tu primera operación")).toBeHidden();
+});
