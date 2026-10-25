@@ -92,8 +92,16 @@ function ValuationCell({ r }: { r: ComparisonRow }) {
   );
 }
 
+function NotApplicable({ why }: { why: string }) {
+  return (
+    <Tooltip content={why}>
+      <span tabIndex={0} className="cursor-help text-[12px] text-muted underline decoration-dotted underline-offset-4">No aplica</span>
+    </Tooltip>
+  );
+}
+
 function CashCell({ r }: { r: ComparisonRow }) {
-  if (r.fcfYield === null) return <span className="text-[12px] text-muted">{SIN_DATO}</span>;
+  if (r.fcfYield === null) return r.financial ? <NotApplicable why="En un banco la caja de las operaciones sube y baja con los depósitos: la caja libre no mide lo que gana. Mira su PER y su margen neto." /> : <span className="text-[12px] text-muted">{SIN_DATO}</span>;
   const v = r.fcfYield;
   const width = Math.max(0, Math.min(1, v / 0.1));
   return (
@@ -110,7 +118,7 @@ function CashCell({ r }: { r: ComparisonRow }) {
 }
 
 function DebtCell({ r }: { r: ComparisonRow }) {
-  if (!r.debt.level) return <span className="text-[12px] text-muted">{SIN_DATO}</span>;
+  if (!r.debt.level) return r.financial ? <NotApplicable why="En un banco los bonos y los depósitos son su materia prima, no deuda para financiarse: no se mide como en una industrial." /> : <span className="text-[12px] text-muted">{SIN_DATO}</span>;
   return (
     <div className="w-[112px]">
       <VerdictBadge value={r.debt.level} />
@@ -159,22 +167,25 @@ function GrowthCell({ r }: { r: ComparisonRow }) {
 }
 
 function MarginCell({ r }: { r: ComparisonRow }) {
-  if (r.grossMargin === null) {
-    return (
-      <Tooltip content="Sus informes no dan el beneficio bruto (pasa en bancos y aseguradoras, que no tienen «coste de lo vendido»).">
-        <span className="text-[12px] text-muted">{SIN_DATO}</span>
-      </Tooltip>
-    );
-  }
-  const g = r.grossMargin;
+  if (r.netMargin === null) return <span className="text-[12px] text-muted">{SIN_DATO}</span>;
+  const n = r.netMargin;
+  const extra = [
+    r.grossMargin !== null ? `Tras pagar lo que cuesta fabricarlo o comprarlo le quedan ${formatNumber(r.grossMargin * 100, 0)} € (margen bruto).` : null,
+    r.operatingMargin !== null ? `Tras todos los gastos del negocio, ${formatNumber(r.operatingMargin * 100, 0)} € (margen operativo).` : null,
+  ].filter(Boolean);
   return (
-    <Tooltip content={`De cada 100 € que vende, le quedan ${formatNumber(g * 100, 0)} € tras pagar lo que cuesta fabricarlo o comprarlo.${r.operatingMargin !== null ? ` Tras todos los gastos del negocio: ${formatNumber(r.operatingMargin * 100, 0)} € (margen operativo).` : ""}`}>
+    <Tooltip content={`De cada 100 € que vende, le quedan ${formatNumber(n * 100, 0)} € de beneficio después de todo, impuestos incluidos.${extra.length ? ` ${extra.join(" ")}` : ""}`}>
       <div className="w-[84px]">
-        <p className="text-[13px] font-semibold tabular">{formatPercent(g, 0)}</p>
+        <p className={cn("text-[13px] font-semibold tabular", n < 0 && "text-negative-text")}>{formatPercent(n, 0)}</p>
         <div className="mt-1.5 h-1.5 rounded-full bg-surface" aria-hidden>
-          <div className="h-full rounded-full bg-accent-soft" style={{ width: `${Math.max(0, Math.min(1, g)) * 100}%` }} />
+          <div className="h-full rounded-full bg-accent-soft" style={{ width: `${Math.max(0, Math.min(1, n)) * 100}%` }} />
         </div>
-        {r.operatingMargin !== null && <p className="mt-1 text-[11px] text-muted tabular">operativo {formatPercent(r.operatingMargin, 0)}</p>}
+        {/* El operativo debajo: deja ver cuándo el neto sale de extraordinarios (venta de participaciones, plusvalías) */}
+        {r.operatingMargin !== null ? (
+          <p className={cn("mt-1 text-[11px] tabular", r.operatingMargin < 0 ? "text-negative-text" : "text-muted")}>operativo {formatPercent(r.operatingMargin, 0)}</p>
+        ) : (
+          r.grossMargin !== null && <p className="mt-1 text-[11px] text-muted tabular">bruto {formatPercent(r.grossMargin, 0)}</p>
+        )}
       </div>
     </Tooltip>
   );
@@ -306,7 +317,7 @@ function ComparisonTable({ rows }: { rows: ComparisonRow[] }) {
             <th scope="col" className={head}>¿Oportunidad o trampa?</th>
             <th scope="col" className={head}>¿Cara o barata?</th>
             <th scope="col" className={head}>¿Buen negocio?</th>
-            <th scope="col" className={head}>Margen bruto</th>
+            <th scope="col" className={head}>Margen neto</th>
             <th scope="col" className={head}>¿Genera caja?</th>
             <th scope="col" className={head}>¿Tiene mucha deuda?</th>
             <th scope="col" className={head}>¿Crece? (ventas)</th>

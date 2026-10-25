@@ -3,6 +3,7 @@ import { getPriceBars, listWatchlist } from "@/db/repo";
 import { majorUnit } from "@/domain/portfolio/fx";
 import type { Exposure } from "@/domain/portfolio/positions";
 import { sectorFromSic } from "@/domain/portfolio/sector";
+import { buffettPick, type BuffettInput, type BuffettPick } from "@/domain/scoring/buffett";
 import { STARS_CONFIG } from "@/domain/scoring/config";
 import {
   portfolioCorrelation,
@@ -28,6 +29,32 @@ export interface StarsView {
   portfolio: PortfolioStars;
   /** Tu cartera tiene posiciones con valor (si no, el complemento no se puede medir). */
   hasPortfolio: boolean;
+  /** Criterio Buffett «B»: las que hoy compraría, en la watchlist y en tu cartera. */
+  buffett: { watchlist: BuffettPick; portfolio: BuffettPick };
+}
+
+/** Los datos que mira el criterio Buffett, sacados del mismo análisis que la ficha. */
+export function buffettInput(id: number, ticker: string, name: string, a: Analysis | null): BuffettInput {
+  const part = (pid: string) => a?.quality.parts.find((p) => p.id === pid)?.value ?? null;
+  const nd = a?.current.netDebt.value ?? null;
+  return {
+    id,
+    ticker,
+    name,
+    years: (a?.years ?? []).map((y) => ({ netIncome: y.netIncome?.value ?? null, equity: y.statement.values.equity?.value ?? null })),
+    grossMargin: a?.current.grossMargin.value ?? null,
+    operatingMargin: a?.current.operatingMargin.value ?? null,
+    netCash: nd === null ? null : nd <= 0,
+    debtYears: a?.current.debtYears.value ?? null,
+    cashConversion: part("cashConversion"),
+    dilution: part("dilution"),
+    freeCashFlow: a?.current.freeCashFlow.value ?? null,
+    verdict: a?.valuation?.verdict ?? null,
+    ownerYield: a?.multiples?.fcfYield.value ?? null,
+    netMargin: a?.current.netMargin.value ?? null,
+    financial: !!a && a.current.grossMargin.value === null && a.current.operatingMargin.value === null && a.current.netMargin.value !== null,
+    pe: a?.multiples?.pe.value ?? null,
+  };
 }
 
 interface ClassRow {
@@ -80,19 +107,31 @@ export async function loadStars(db: Db, now = new Date()): Promise<StarsView> {
   }
 
   const watchCandidates: StarCandidate[] = [];
+  const watchBuffett: BuffettInput[] = [];
   for (const w of watch.filter((x) => x.kind === "stock")) {
     const analysis = (await loadSecurityDetail(db, w.id)).analysis;
     const c = await candidate(db, w.id, w.ticker, w.name, cls.get(w.id), analysis);
+    watchBuffett.push(buffettInput(w.id, w.ticker, w.name, analysis));
     const bars = (await getPriceBars(db, w.id, "1mo")).slice(-months);
     const heldWeight = held.find((h) => h.id === w.id)?.weight ?? null;
     watchCandidates.push({ ...c, heldWeight, correlation: portfolioCorrelation(bars, held.filter((h) => h.id !== w.id)) });
   }
 
   const holdingCandidates: HoldingCandidate[] = [];
+  const heldBuffett: BuffettInput[] = [];
   for (const h of holdings.filter((x) => x.row.kind === "stock")) {
     const c = await candidate(db, h.row.id, h.row.ticker, h.row.name, cls.get(h.row.id), h.analysis);
+    heldBuffett.push(buffettInput(h.row.id, h.row.ticker, h.row.name, h.analysis));
     holdingCandidates.push({ ...c, correlation: null, weight: h.position.weight });
   }
 
-  return { watchlist: watchlistStar(watchCandidates, mix), portfolio: portfolioStar(holdingCandidates), hasPortfolio: held.length > 0 };
+  return {
+    watchlist: watchlistStar(watchCandidates, mix),
+    portfolio: portfolioStar(holdingCandidates),
+    hasPortfolio: held.length > 0,
+    buffett: {
+      watchlist: buffettPick(watchBuffett, "Añade acciones a tu watchlist para ver cuáles compraría Buffett."),
+      portfolio: buffettPick(heldBuffett, "Apunta tus operaciones de acciones para ver de cuáles compraría más Buffett."),
+    },
+  };
 }

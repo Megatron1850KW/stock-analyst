@@ -77,3 +77,22 @@ describe("trapSignals", () => {
     expect(trapSignals(neg, now(neg)).find((x) => x.id === "fcfWeak")?.active).toBe(true);
   });
 });
+
+describe("calidad de un banco (datos FICTICIOS al estilo de UniCredit)", () => {
+  it("sin margen operativo ni caja libre, mira el margen neto y la rentabilidad sobre el capital", () => {
+    const bank = [100, 110, 120, 125].map((rev, k) => ({
+      ...year(`${2022 + k}-12-31`, { revenue: rev, netIncome: rev * 0.4, shares: 100 - k * 5 }),
+      netMargin: metric(0.4),
+      statement: { values: { equity: { value: rev * 2.5 } } },
+    })) as unknown as YearFundamentals[];
+    const q = qualityScore(now(bank), bank, null);
+    expect(q.score).not.toBeNull();
+    expect(q.parts.find((p) => p.id === "margins")!.explanation).toMatch(/beneficio neto/);
+    // 40 / 250 = 16 % sobre el capital: la nota máxima de esa parte
+    expect(q.parts.find((p) => p.id === "roe")).toMatchObject({ score: 100 });
+  });
+
+  it("una industrial no cambia: la rentabilidad sobre el capital no entra", () => {
+    expect(qualityScore(now(healthy), healthy, "Baja").parts.some((p) => p.id === "roe")).toBe(false);
+  });
+});

@@ -7,7 +7,7 @@ import type { DebtLevel } from "./debt-level";
  * trampa de valor (§8.3). Determinista, con desglose y explicación de cada parte.
  */
 
-export type QualityPartId = "growth" | "margins" | "cashConversion" | "debt" | "dilution";
+export type QualityPartId = "growth" | "margins" | "cashConversion" | "debt" | "dilution" | "roe";
 
 export interface QualityPart {
   id: QualityPartId;
@@ -89,7 +89,18 @@ function growthPart(ys: YearFundamentals[], cfg: Cfg): QualityPart {
 function marginsPart(current: Fundamentals, ys: YearFundamentals[], sym: string, cfg: Cfg): QualityPart {
   const label = "Márgenes";
   const level = current.operatingMargin.value ?? ys.at(-1)?.operatingMargin.value ?? null;
-  if (level === null) return { id: "margins", label, score: null, value: null, explanation: "Falta el beneficio operativo para calcular el margen." };
+  if (level === null) {
+    // Bancos y aseguradoras: no hay beneficio operativo; se mira el margen neto
+    const net = current.netMargin?.value ?? ys.at(-1)?.netMargin?.value ?? null;
+    if (net === null) return { id: "margins", label, score: null, value: null, explanation: "Falta el beneficio operativo para calcular el margen." };
+    return {
+      id: "margins",
+      label,
+      score: scale(net, cfg.margins.levelBad, cfg.margins.levelGood),
+      value: net,
+      explanation: `No publica beneficio operativo (pasa en bancos): de cada 100 ${sym} que ingresa, le quedan ${Math.round(net * 100)} ${sym} de beneficio neto.`,
+    };
+  }
   const last = ys.at(-1)?.operatingMargin.value ?? null;
   const ref = base(ys, cfg.lookbackYears, (y) => y.operatingMargin.value);
   const trend = last !== null && ref ? last - ref.value : null;
@@ -192,9 +203,38 @@ export function trapSignals(ys: YearFundamentals[], current: Fundamentals, cfg: 
   ];
 }
 
+/**
+ * Rentabilidad sobre el capital (beneficio ÷ patrimonio), media de los últimos
+ * años. Solo cuenta en empresas sin caja libre medible (bancos, aseguradoras),
+ * donde sustituye a la conversión en caja: es su forma de medir si el negocio rinde.
+ */
+function roePart(ys: YearFundamentals[], cfg: Cfg): QualityPart {
+  const label = "Rentabilidad sobre el capital";
+  const roes = ys
+    .slice(-cfg.lookbackYears)
+    .map((y) => {
+      const ni = y.netIncome?.value;
+      const eq = y.statement?.values.equity?.value;
+      return ni != null && eq != null && eq > 0 ? ni / eq : null;
+    })
+    .filter((x): x is number => x !== null);
+  if (roes.length === 0) return { id: "roe", label, score: null, value: null, explanation: "Falta el beneficio o el patrimonio." };
+  const roe = roes.reduce((a, b) => a + b, 0) / roes.length;
+  return {
+    id: "roe",
+    label,
+    score: scale(roe, cfg.roe.bad, cfg.roe.good),
+    value: roe,
+    explanation: `Gana ${pct(roe)} al año sobre el dinero de sus accionistas (media de ${roes.length} años).`,
+  };
+}
+
 /** `sym`: símbolo de la divisa de las cuentas, para las frases («100 $»). */
 export function qualityScore(current: Fundamentals, ys: YearFundamentals[], debt: DebtLevel | null, sym = "€", cfg: Cfg = QUALITY_CONFIG): QualityScore {
   const parts = [growthPart(ys, cfg), marginsPart(current, ys, sym, cfg), cashPart(ys, sym, cfg), debtPart(debt, cfg), dilutionPart(ys, cfg)];
+  // Sin beneficio operativo ni caja libre (bancos): la rentabilidad sobre el capital ocupa su lugar
+  const noOperating = (current.operatingMargin.value ?? ys.at(-1)?.operatingMargin.value ?? null) === null;
+  if (noOperating && parts.find((p) => p.id === "cashConversion")!.score === null) parts.push(roePart(ys, cfg));
   const signals = trapSignals(ys, current, cfg);
   const activeSignals = signals.filter((s) => s.active).length;
   const scored = parts.filter((p) => p.score !== null);

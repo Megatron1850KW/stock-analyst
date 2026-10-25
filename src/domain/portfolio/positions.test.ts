@@ -141,3 +141,17 @@ describe("tipos de cambio del BCE", () => {
     expect(p.byCountry).toEqual([{ key: "US", valueEur: 200, weight: 1 }]);
   });
 });
+
+describe("materias primas (datos FICTICIOS)", () => {
+  it("un ETF de materias primas cuenta como «Materias primas», no como ETF sin ficha", () => {
+    const p = buildPortfolio({
+      securities: [{ id: 9, ticker: "FCOM", name: "Ficticio Commodity Swap", kind: "etf", currency: "EUR", sector: null, country: "IE", commodity: true }],
+      transactions: [tx({ securityId: 9, date: "2025-01-02", type: "buy", quantity: 10, price: 10, currency: "EUR" })],
+      quotes: new Map([[9, { price: 12, date: "2026-10-23", currency: "EUR" }]]),
+      fx,
+      today: "2026-10-24",
+    });
+    expect(p.bySector.map((e) => e.key)).toEqual(["Materias primas"]);
+    expect(p.byCountry.map((e) => e.key)).toEqual(["IE"]);
+  });
+});

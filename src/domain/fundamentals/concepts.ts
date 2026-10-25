@@ -26,6 +26,10 @@
  *   · NIIF (ESEF): «LongtermBorrowings» es la deuda financiera no corriente y
  *     «CurrentBorrowingsAndCurrentPortionOfNoncurrentBorrowings» ya incluye los
  *     préstamos a corto, así que con ella no se suman aparte (ver metrics.ts).
+ *     Algunos emisores (TSMC) usan «LongtermBorrowings» solo para los préstamos
+ *     bancarios y dan los bonos aparte en «NoncurrentPortionOfNoncurrentBondsIssued»
+ *     (bonds_noncurrent); su parte corriente va en «CurrentPortionOfLongtermBorrowings».
+ *     Los bonos se suman solo si no caben dentro de la deuda a largo (ver metrics.ts).
  *     Los pasivos por arrendamiento (NIIF 16) no se cuentan como deuda, igual
  *     que los arrendamientos operativos en US-GAAP, para comparar igual con igual.
  * - Beneficio bruto: algunas empresas (p. ej. Alphabet) no lo publican. No se
@@ -203,7 +207,15 @@ export const CONCEPTS: ConceptDef[] = [
       g("LongTermDebtAndCapitalLeaseObligationsCurrent"),
       i("CurrentBorrowingsAndCurrentPortionOfNoncurrentBorrowings"),
       i("CurrentPortionOfNoncurrentBorrowings"),
+      i("CurrentPortionOfLongtermBorrowings"),
     ],
+  },
+  {
+    id: "bonds_noncurrent",
+    label: "Bonos emitidos a largo plazo",
+    kind: "money",
+    period: "instant",
+    tags: [i("NoncurrentPortionOfNoncurrentBondsIssued")],
   },
   { id: "short_term_borrowings", label: "Préstamos a corto plazo", kind: "money", period: "instant", tags: [g("ShortTermBorrowings"), i("ShorttermBorrowings"), i("CurrentBorrowings")] },
   { id: "commercial_paper", label: "Papel comercial", kind: "money", period: "instant", tags: [g("CommercialPaper")] },

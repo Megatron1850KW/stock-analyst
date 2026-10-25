@@ -5,7 +5,7 @@ import { recordAiUsage } from "@/db/ai-repo";
 import type { Db } from "@/db/client";
 import { getFacts, getFilings, getSecurity, replaceFilingFacts, type FilingRow } from "@/db/repo";
 import { CONCEPTS, CONCEPT_BY_ID } from "@/domain/fundamentals/concepts";
-import type { ConceptGap, NormalizedFact } from "@/domain/fundamentals/normalize";
+import { convenienceFromTags, convenienceNote, type ConceptGap, type NormalizedFact } from "@/domain/fundamentals/normalize";
 import { checkBudget } from "@/features/ai/budget";
 import { costUsd, usdToEur } from "@/features/ai/cost";
 import { AiAnalysisError, describeApiError } from "@/features/ai/equity-analysis";
@@ -256,6 +256,16 @@ export async function saveExtraction(
   const filingId = filing.id;
   const outcome = toFacts(data, filing.accession_no, pages);
   const notes = [...outcome.notes];
+  // Emisor extranjero con los anuales pasados a USD (p. ej. TSMC): mismas cifras, mismo cambio
+  const fx = convenienceFromTags((await getFacts(db, securityId)).map((f) => f.source_tag));
+  if (fx && fx.currency === data.moneda) {
+    const note = convenienceNote(fx.currency, fx.rate, fx.accession);
+    for (const f of outcome.facts) {
+      if (f.unit === fx.currency) Object.assign(f, { value: f.value / fx.rate, unit: "USD", sourceTag: f.sourceTag + note });
+      else if (f.unit === `${fx.currency}/shares`) Object.assign(f, { value: f.value / fx.rate, unit: "USD/shares", sourceTag: f.sourceTag + note });
+    }
+    notes.push(`Cifras en ${fx.currency} pasadas a USD al mismo cambio que los anuales (${String(fx.rate).replace(".", ",")} ${fx.currency}/USD).`);
+  }
   // Si el documento es de otro periodo distinto del indicado, manda el documento
   if (ISO_DATE.test(outcome.periodEnd) && !near(outcome.periodEnd, filing.period_end) && outcome.facts.some((f) => f.periodEnd === outcome.periodEnd)) {
     await db.execute("UPDATE filings SET period_end = ? WHERE id = ?", [outcome.periodEnd, filingId]);

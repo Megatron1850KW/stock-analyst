@@ -40,18 +40,20 @@ export const SINCE_ANALYSIS_CONFIG = {
 export const QUALITY_CONFIG = {
   /** Ejercicios que se miran hacia atrás para crecimientos y tendencias. */
   lookbackYears: 3,
-  weights: { growth: 0.2, margins: 0.25, cashConversion: 0.25, debt: 0.2, dilution: 0.1 },
+  weights: { growth: 0.2, margins: 0.25, cashConversion: 0.25, debt: 0.2, dilution: 0.1, roe: 0.25 },
   /** Crecimiento anual compuesto de ventas/beneficio: −5 % = 0 puntos, +15 % = 100. */
   growth: { bad: -0.05, good: 0.15 },
   /** Margen operativo: 0 % = 0 puntos, 25 % = 100; y su tendencia: −5 puntos = 0, +5 = 100. */
   margins: { levelBad: 0, levelGood: 0.25, trendBad: -0.05, trendGood: 0.05 },
+  /** Bancos y aseguradoras (sin caja libre medible): beneficio ÷ patrimonio, 3 % = 0 puntos, 15 % = 100. */
+  roe: { bad: 0.03, good: 0.15 },
   /** Caja libre ÷ beneficio neto: 30 % = 0 puntos, 100 % = 100. */
   cashConversion: { bad: 0.3, good: 1 },
   /** Puntos según el nivel de deuda del indicador «¿Tiene mucha deuda?». */
   debt: { Baja: 100, Moderada: 60, Alta: 15 },
   /** Variación anual del nº de acciones: +5 % al año = 0 puntos, −2 % (recompras) = 100. */
   dilution: { bad: 0.05, good: -0.02 },
-  /** Hacen falta al menos 3 de las 5 partes para dar una nota. */
+  /** Hacen falta al menos 3 partes para dar una nota (de 5; 6 en bancos, con la rentabilidad sobre el capital). */
   minParts: 3,
   /** Señales de trampa de valor (§8.3). */
   trap: {
@@ -163,4 +165,32 @@ export const STARS_CONFIG = {
   correlation: { low: 0.2, high: 0.9, years: 5, minMonths: 24 },
   /** Cartera: hace falta un descuento (media historia + competencia) de al menos un 5 % para dar estrella. */
   minDiscount: 0.05,
+};
+
+/**
+ * Criterio Buffett «B»: las acciones que hoy compraría Warren Buffett según
+ * los criterios que repite en sus cartas a los accionistas de Berkshire
+ * Hathaway: beneficios constantes, alta rentabilidad sobre el capital con
+ * poca deuda, ventaja duradera (márgenes altos), caja de verdad, sin diluir
+ * al accionista y a un precio sensato. Hay que cumplirlos todos; un dato que
+ * falta cuenta como no cumplido («lo que no entiendo, no lo compro»).
+ */
+export const BUFFETT_CONFIG = {
+  /** Años con beneficio positivo exigidos (los últimos, con un mínimo de 3 publicados). */
+  profitYears: 5,
+  minYears: 3,
+  /** Rentabilidad sobre el capital (beneficio ÷ patrimonio), media de los últimos 3 años. */
+  minRoe: 0.15,
+  roeYears: 3,
+  /** Ventaja duradera: margen bruto mínimo; si no publica bruto, margen operativo mínimo. */
+  minGrossMargin: 0.4,
+  minOperatingMargin: 0.2,
+  /** Poca deuda: caja neta o deuda neta pagable en estos años con su caja libre. */
+  maxDebtYears: 3,
+  /** Caja libre ÷ beneficio neto (media de varios años). */
+  minCashConversion: 0.7,
+  /** Aumento máximo de acciones al año. */
+  maxDilution: 0.01,
+  /** Precio sensato: no «Cara» frente a su historia y rentabilidad del dueño (caja libre ÷ capitalización) mínima. */
+  minOwnerYield: 0.04,
 };

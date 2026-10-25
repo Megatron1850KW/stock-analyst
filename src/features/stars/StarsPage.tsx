@@ -12,6 +12,7 @@ import { qualityTone } from "@/features/watchlist/ficha/Quality";
 import { signedPercent } from "@/features/watchlist/ficha/format";
 import { cn } from "@/lib/cn";
 import { formatPercent, SIN_DATO } from "@/lib/format";
+import { BuffettSection } from "./BuffettSection";
 import { useStars } from "./queries";
 import { STAR_TITLE } from "./StarMark";
 
@@ -207,6 +208,7 @@ export function StarsPage() {
           <p className="text-[12px] text-muted">Cálculo determinista con tus datos guardados, sin IA. Se actualiza solo al cambiar precios, informes o tu cartera. {DISCLAIMER}</p>
           <WatchRanking data={data.watchlist} hasPortfolio={data.hasPortfolio} />
           <PortfolioRanking data={data.portfolio} />
+          <BuffettSection data={data.buffett} />
         </div>
       )}
     </div>

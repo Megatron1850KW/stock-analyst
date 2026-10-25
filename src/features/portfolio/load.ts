@@ -47,6 +47,11 @@ export interface PortfolioView {
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 
+/** ETC o ETF de materias primas: no reparte por sectores ni países de empresas. */
+export function isCommodity(kind: string, name: string, index: string | null): boolean {
+  return kind === "etc" || /commodit|materias primas|rohstoff|\bgold\b|\boro\b/i.test(`${name} ${index ?? ""}`);
+}
+
 export async function loadPortfolio(db: Db, now = new Date()): Promise<PortfolioView> {
   const today = iso(now);
   const [rows, txs, rates, funds] = await Promise.all([listPortfolioSecurities(db), listTransactions(db), getFxRates(db), getFundProfiles(db)]);
@@ -54,6 +59,7 @@ export async function loadPortfolio(db: Db, now = new Date()): Promise<Portfolio
   const sicSector = (r: PortfolioSecurityRow) => (r.sector ? null : sectorFromSic(r.sic));
   const securities: SecurityInfo[] = rows.map((r) => {
     const fund = funds.get(r.id)?.profile;
+    const commodity = isCommodity(r.kind, r.name, fund?.index ?? null);
     return {
       id: r.id,
       ticker: r.ticker,
@@ -62,7 +68,9 @@ export async function loadPortfolio(db: Db, now = new Date()): Promise<Portfolio
       currency: r.currency,
       sector: r.sector ?? sicSector(r),
       // Acciones de EE. UU. (no extranjeras): país EE. UU.
-      country: r.country ?? (r.market === "US" && r.filer_type === "domestic" ? "US" : null),
+      // Materias primas (oro, cestas por swap): no tienen país; cuentan en el del domicilio del fondo
+      country: r.country ?? (r.market === "US" && r.filer_type === "domestic" ? "US" : null) ?? (commodity && !fund?.countries.length ? fund?.domicile ?? null : null),
+      commodity,
       breakdown: fund ? { sectors: fund.sectors, countries: fund.countries } : undefined,
     };
   });

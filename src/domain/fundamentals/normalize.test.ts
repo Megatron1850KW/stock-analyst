@@ -4,7 +4,7 @@ import { companyFactsSchema, submissionsSchema } from "@/data/sec-edgar/schemas"
 import factsJson from "../../../tests/fixtures/ficticio/companyfacts.json";
 import submissionsJson from "../../../tests/fixtures/ficticio/submissions.json";
 import { CONCEPTS } from "./concepts";
-import { normalizeCompanyFacts } from "./normalize";
+import { convenienceFromTags, convenienceRate, normalizeCompanyFacts, statementCurrency } from "./normalize";
 import { selectFilings, toRows } from "./select-filings";
 
 const facts = companyFactsSchema.parse(factsJson);
@@ -113,5 +113,51 @@ describe("banco europeo con etiquetas propias (datos FICTICIOS al estilo de UniC
     const get = (c: string) => r.facts.find((f) => f.concept === c);
     expect(get("revenue")).toMatchObject({ value: 24_270, sourceTag: "ext:MargineDiIntermediazione" });
     expect(get("equity")).toMatchObject({ value: 62_441, sourceTag: "ext:PatrimonioNettoDelGruppo" });
+  });
+});
+
+describe("20-F en otra divisa con conversión de conveniencia (datos FICTICIOS al estilo de TSMC)", () => {
+  // Cada 20-F trae sus cuentas en TWD (año y comparativo) y solo el año en curso en USD, a su propio cambio
+  const A24 = "FICT-20F-2024";
+  const A25 = "FICT-20F-2025";
+  const fy = (accn: string, y: number, val: number) => ({ start: `${y}-01-01`, end: `${y}-12-31`, val, accn, form: "20-F", filed: `${y + 1}-04-15` });
+  const facts = companyFactsSchema.parse({
+    cik: 9999998,
+    entityName: "FUNDICIÓN FICTICIA",
+    facts: {
+      "ifrs-full": {
+        Revenue: {
+          units: {
+            TWD: [fy(A24, 2023, 2_000), fy(A24, 2024, 3_000), fy(A25, 2024, 3_000), fy(A25, 2025, 4_000)],
+            USD: [fy(A24, 2024, 100), fy(A25, 2025, 4_000 / 32)], // 30 NT$/$ en 2024, 32 en 2025
+          },
+        },
+        ProfitLoss: { units: { TWD: [fy(A25, 2024, 1_200), fy(A25, 2025, 1_600)], USD: [fy(A25, 2025, 50)] } },
+        BasicEarningsLossPerShare: { units: { "TWD/shares": [fy(A25, 2025, 64)], "USD/shares": [fy(A25, 2025, 2)] } },
+      },
+    },
+  });
+  const filing = (accession: string, y: number) => ({ accession, form: "20-F", periodType: "annual" as const, reportDate: `${y}-12-31`, filingDate: `${y + 1}-04-15`, primaryDocument: "x.htm" });
+  const r = normalizeCompanyFacts(facts, [filing(A24, 2024), filing(A25, 2025)]);
+  const rev = (accn: string, end: string) => r.facts.find((f) => f.accession === accn && f.concept === "revenue" && f.periodEnd === end);
+
+  it("detecta la divisa de las cuentas y el cambio de conveniencia", () => {
+    expect(statementCurrency(facts, A25)).toBe("TWD");
+    expect(convenienceRate(facts, A25, "TWD")).toBe(32);
+  });
+
+  it("pasa todos los años a USD con el último cambio: el crecimiento es el de la divisa original", () => {
+    expect(rev(A25, "2025-12-31")).toMatchObject({ value: 125, unit: "USD" });
+    // 2024 sale a 3.000 / 32, no a los 100 $ de su propio 20-F (cambio de 30)
+    expect(rev(A24, "2024-12-31")!.value).toBeCloseTo(93.75);
+    expect(rev(A25, "2025-12-31")!.value / rev(A24, "2024-12-31")!.value - 1).toBeCloseTo(4_000 / 3_000 - 1);
+    expect(rev(A24, "2024-12-31")!.sourceTag).toBe("ifrs-full:Revenue (TWD a USD a 32 TWD/USD, el cambio de conveniencia del informe FICT-20F-2025)");
+    expect(r.facts.find((f) => f.concept === "eps_basic" || f.unit === "USD/shares")).toMatchObject({ value: 2, unit: "USD/shares" });
+    expect(r.currency).toBe("USD");
+  });
+
+  it("deja el cambio anotado para pasar al mismo cambio las cifras de un 6-K en PDF", () => {
+    expect(convenienceFromTags([null, "pdf: «Ventas»", rev(A24, "2024-12-31")!.sourceTag])).toEqual({ currency: "TWD", rate: 32, accession: A25 });
+    expect(convenienceFromTags(["us-gaap:Revenues"])).toBeNull();
   });
 });

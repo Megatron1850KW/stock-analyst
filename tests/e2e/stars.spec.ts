@@ -20,7 +20,8 @@ test("estrellas de la watchlist y de la cartera, con sus razones", async ({ page
   await page.setViewportSize({ width: 1440, height: 1100 });
 
   await page.goto("/#/estrellas");
-  await expect(page.getByText("Añade acciones a tu watchlist")).toBeVisible();
+  await expect(page.getByText("Añade acciones a tu watchlist para ver cuál complementa")).toBeVisible();
+  await expect(page.getByText("Añade acciones a tu watchlist para ver cuáles compraría Buffett.")).toBeVisible();
 
   await page.goto("/#/watchlist");
   for (const t of ["MU", "GOOG"]) {
@@ -36,9 +37,9 @@ test("estrellas de la watchlist y de la cartera, con sus razones", async ({ page
   await shot(page, "22-watchlist-52-semanas");
 
   await page.goto("/#/estrellas");
-  const ranking = page.getByRole("region", { name: "Cómo se elige la mejor siguiente compra" });
+  const ranking = page.getByRole("region", { name: "Cómo se elige la mejor siguiente compra", exact: true });
   await expect(ranking.getByRole("row")).toHaveCount(3);
-  const card = page.getByRole("region", { name: "Mejor siguiente compra" });
+  const card = page.getByRole("region", { name: "Mejor siguiente compra", exact: true });
   await expect(card.getByText(/Por qué tiene la estrella|cumple hoy los mínimos/)).toBeVisible();
   await shot(page, "19-estrellas", true);
 
@@ -68,11 +69,20 @@ test("estrellas de la watchlist y de la cartera, con sus razones", async ({ page
   await expect(page.getByRole("article", { name: /^MU/ })).toContainText("Precio en 52 semanas");
   await shot(page, "23-cartera-52-semanas");
   await page.goto("/#/estrellas");
-  const pranking = page.getByRole("region", { name: "Cómo se elige la más barata de tu cartera" });
+  const pranking = page.getByRole("region", { name: "Cómo se elige la más barata de tu cartera", exact: true });
   await expect(pranking.getByRole("row")).toHaveCount(3);
   // Con cartera, el complemento ya mide sector, país, divisa y correlación
   await expect(ranking).not.toContainText("Aún no tienes posiciones");
   await shot(page, "21-estrellas-con-cartera", true);
+
+  // Criterio Buffett «B»: los siete criterios de cada acción, en la watchlist y en la cartera
+  const bw = page.getByRole("region", { name: "Cómo se elige la siguiente compra según Buffett" });
+  await expect(bw.getByRole("row")).toHaveCount(3);
+  await expect(bw.getByLabel(/^Rentabilidad sobre el capital: /).first()).toBeVisible();
+  const bp = page.getByRole("region", { name: "Cómo se elige la más barata de tu cartera según Buffett" });
+  await expect(bp.getByRole("row")).toHaveCount(3);
+  await page.getByRole("heading", { name: "Criterio Buffett" }).scrollIntoViewIfNeeded();
+  await shot(page, "24-criterio-buffett");
 
   await expect(page.getByText("Herramienta informativa, no constituye asesoramiento financiero.").first()).toBeVisible();
 });
