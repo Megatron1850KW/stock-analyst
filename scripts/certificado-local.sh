@@ -9,7 +9,7 @@ NAME="Stock Analisis local"
 KEYCHAIN="$HOME/Library/Keychains/login.keychain-db"
 
 if security find-identity -v -p codesigning | grep -q "\"$NAME\""; then
-  echo "Ya existe la identidad «$NAME»."
+  echo "Ya existe la identidad «${NAME}»."
   exit 0
 fi
 
@@ -46,4 +46,4 @@ security import "$TMP/id.p12" -k "$KEYCHAIN" -P "$PASS" -T /usr/bin/codesign >/d
 # Confiar en el certificado solo para firmar código (macOS pide la contraseña del Mac una vez)
 security add-trusted-cert -r trustRoot -p codeSign -k "$KEYCHAIN" "$TMP/cert.pem"
 
-security find-identity -v -p codesigning | grep "\"$NAME\"" && echo "Identidad «$NAME» creada."
+security find-identity -v -p codesigning | grep "\"$NAME\"" && echo "Identidad «${NAME}» creada."
