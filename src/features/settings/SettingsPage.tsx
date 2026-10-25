@@ -224,6 +224,12 @@ export function SettingsPage() {
                 <option value="manual">Solo cuando lo pida</option>
               </Select>
             </Field>
+            <Field label="Cuando salga un informe nuevo" htmlFor="new-report-action" hint="Analizarlo usa la IA (con su coste). Si eliges preguntar, te avisa y tú decides desde el Calendario.">
+              <Select id="new-report-action" value={settings.newReportAction} onChange={(e) => save({ newReportAction: e.target.value as Settings["newReportAction"] })}>
+                <option value="ask">Avisarme y preguntar</option>
+                <option value="auto">Analizarlo automáticamente</option>
+              </Select>
+            </Field>
           </CardContent>
         </Card>
 

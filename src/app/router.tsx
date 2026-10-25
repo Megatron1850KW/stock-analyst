@@ -1,4 +1,5 @@
 import { createHashRouter, Navigate, type RouteObject } from "react-router";
+import { CalendarPage } from "@/features/calendar/CalendarPage";
 import { ComparisonPage } from "@/features/comparison/ComparisonPage";
 import { PortfolioPage } from "@/features/portfolio/PortfolioPage";
 import { SettingsPage } from "@/features/settings/SettingsPage";
@@ -27,6 +28,7 @@ export const routes: RouteObject[] = [
           { path: "estrellas", element: <StarsPage /> },
         ],
       },
+      { path: "calendario", element: <CalendarPage /> },
       { path: "ajustes", element: <SettingsPage /> },
       { path: "*", element: <Navigate to="/" replace /> },
     ],

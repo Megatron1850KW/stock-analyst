@@ -6,7 +6,9 @@ mod http;
 mod prices;
 mod sec;
 mod secrets;
+mod tray;
 
+use tauri::{Manager, WindowEvent};
 use tauri_plugin_autostart::MacosLauncher;
 use tauri_plugin_sql::{Migration, MigrationKind};
 
@@ -64,6 +66,12 @@ fn migrations() -> Vec<Migration> {
             sql: include_str!("../../src/db/migrations/0008_retry_symbols.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 9,
+            description: "autonomia",
+            sql: include_str!("../../src/db/migrations/0009_autonomy.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
 
@@ -76,8 +84,25 @@ pub fn run() {
                 .build(),
         )
         .plugin(tauri_plugin_store::Builder::default().build())
-        .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))
+        .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, Some(vec![tray::HIDDEN_ARG])))
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_notification::init())
+        .setup(|app| {
+            tray::setup(app.handle())?;
+            if tray::started_hidden(std::env::args()) {
+                if let Some(w) = app.get_webview_window("main") {
+                    w.hide()?;
+                }
+            }
+            Ok(())
+        })
+        .on_window_event(|window, event| {
+            // Cerrar la ventana la oculta: la app sigue en la barra de menús
+            if let WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                let _ = window.hide();
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             secrets::secret_set,
             secrets::secret_exists,
@@ -100,8 +125,16 @@ pub fn run() {
             documents::document_read_pdf,
             documents::document_esef_report
         ])
-        .run(tauri::generate_context!())
-        .expect("error al iniciar Agente Financiero");
+        .build(tauri::generate_context!())
+        .expect("error al iniciar Stock Analisis")
+        .run(|app, event| {
+            // Clic en el icono del Dock con la ventana oculta: se vuelve a mostrar
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen { .. } = event {
+                tray::show_main(app);
+            }
+            let _ = (app, event);
+        });
 }
 
 #[cfg(test)]
