@@ -161,8 +161,11 @@ function GrowthCell({ r }: { r: ComparisonRow }) {
 function MarginCell({ r }: { r: ComparisonRow }) {
   if (r.grossMargin === null) {
     return (
-      <Tooltip content="Sus informes no dan el beneficio bruto (pasa en bancos y aseguradoras, que no tienen «coste de lo vendido»).">
-        <span className="text-[12px] text-muted">{SIN_DATO}</span>
+      <Tooltip content="No publica beneficio bruto: no tiene «coste de lo vendido» (redes de pago como Visa, emisores de tarjetas como American Express, bancos y aseguradoras). Para compararla, mira su margen operativo.">
+        <div className="w-[84px]">
+          <p className="text-[12px] text-muted">{r.operatingMargin !== null ? "No aplica" : SIN_DATO}</p>
+          {r.operatingMargin !== null && <p className="mt-1 text-[11px] text-muted tabular">operativo {formatPercent(r.operatingMargin, 0)}</p>}
+        </div>
       </Tooltip>
     );
   }
