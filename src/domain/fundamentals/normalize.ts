@@ -129,6 +129,21 @@ function normalizeConcept(facts: CompanyFacts, filing: FilingRef, def: ConceptDe
 
 const fmtRate = (r: number) => r.toFixed(4).replace(/0+$/, "").replace(/\.$/, "").replace(".", ",");
 
+/** Nota que acompaña a la etiqueta de origen de una cifra pasada a USD al cambio de conveniencia. */
+export const convenienceNote = (local: string, rate: number, accession: string) =>
+  ` (${local} a USD a ${fmtRate(rate)} ${local}/USD, el cambio de conveniencia del informe ${accession})`;
+
+const NOTE_RE = / \(([A-Z]{3}) a USD a ([\d,]+) [A-Z]{3}\/USD, el cambio de conveniencia del informe ([^)]+)\)$/;
+
+/** El cambio de conveniencia con el que se guardaron las cifras de un valor, leído de sus etiquetas de origen. */
+export function convenienceFromTags(tags: (string | null)[]): { currency: string; rate: number; accession: string } | null {
+  for (const t of tags) {
+    const m = t ? NOTE_RE.exec(t) : null;
+    if (m) return { currency: m[1]!, rate: Number(m[2]!.replace(",", ".")), accession: m[3]! };
+  }
+  return null;
+}
+
 /**
  * Extrae del companyfacts las cifras de los informes elegidos, ya en el modelo
  * común. Incluye las cifras comparativas que trae cada informe (p. ej. el año
@@ -164,7 +179,7 @@ export function normalizeCompanyFacts(facts: CompanyFacts, filings: FilingRef[])
     }
   }
   if (latest && local && rate) {
-    const note = ` (${local} a USD a ${fmtRate(rate)} ${local}/USD, el cambio de conveniencia del informe ${latest.accession})`;
+    const note = convenienceNote(local, rate, latest.accession);
     for (const f of out) {
       if (f.unit === local) Object.assign(f, { value: f.value / rate, unit: "USD", sourceTag: f.sourceTag + note });
       else if (f.unit === `${local}/shares`) Object.assign(f, { value: f.value / rate, unit: "USD/shares", sourceTag: f.sourceTag + note });

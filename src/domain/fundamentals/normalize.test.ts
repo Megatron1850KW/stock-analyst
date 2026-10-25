@@ -4,7 +4,7 @@ import { companyFactsSchema, submissionsSchema } from "@/data/sec-edgar/schemas"
 import factsJson from "../../../tests/fixtures/ficticio/companyfacts.json";
 import submissionsJson from "../../../tests/fixtures/ficticio/submissions.json";
 import { CONCEPTS } from "./concepts";
-import { convenienceRate, normalizeCompanyFacts, statementCurrency } from "./normalize";
+import { convenienceFromTags, convenienceRate, normalizeCompanyFacts, statementCurrency } from "./normalize";
 import { selectFilings, toRows } from "./select-filings";
 
 const facts = companyFactsSchema.parse(factsJson);
@@ -154,5 +154,10 @@ describe("20-F en otra divisa con conversión de conveniencia (datos FICTICIOS a
     expect(rev(A24, "2024-12-31")!.sourceTag).toBe("ifrs-full:Revenue (TWD a USD a 32 TWD/USD, el cambio de conveniencia del informe FICT-20F-2025)");
     expect(r.facts.find((f) => f.concept === "eps_basic" || f.unit === "USD/shares")).toMatchObject({ value: 2, unit: "USD/shares" });
     expect(r.currency).toBe("USD");
+  });
+
+  it("deja el cambio anotado para pasar al mismo cambio las cifras de un 6-K en PDF", () => {
+    expect(convenienceFromTags([null, "pdf: «Ventas»", rev(A24, "2024-12-31")!.sourceTag])).toEqual({ currency: "TWD", rate: 32, accession: A25 });
+    expect(convenienceFromTags(["us-gaap:Revenues"])).toBeNull();
   });
 });
