@@ -25,6 +25,9 @@ export interface BuffettInput {
   years: { netIncome: number | null; equity: number | null }[];
   grossMargin: number | null;
   operatingMargin: number | null;
+  netMargin?: number | null;
+  /** Banco o aseguradora: la caja libre y la deuda no se miden como en una industrial. */
+  financial?: boolean;
   netCash: boolean | null;
   debtYears: number | null;
   /** Caja libre ÷ beneficio neto de varios años (la de la nota de calidad). */
@@ -35,6 +38,8 @@ export interface BuffettInput {
   verdict: Verdict | null;
   /** Caja libre ÷ capitalización. */
   ownerYield: number | null;
+  /** PER: en un banco, su beneficio sobre el precio sustituye a la caja libre. */
+  pe?: number | null;
 }
 
 export interface BuffettRow {
@@ -84,10 +89,17 @@ export function buffettCriteria(x: BuffettInput, cfg: Cfg = BUFFETT_CONFIG): Buf
     out.push({ id: "moat", label: "Ventaja duradera", pass: x.grossMargin >= cfg.minGrossMargin, text: `Margen bruto del ${pct(x.grossMargin)} (se pide un ${pct(cfg.minGrossMargin)}): ${x.grossMargin >= cfg.minGrossMargin ? "puede cobrar más que lo que le cuesta" : "compite sobre todo en precio"}.` });
   } else if (x.operatingMargin !== null) {
     out.push({ id: "moat", label: "Ventaja duradera", pass: x.operatingMargin >= cfg.minOperatingMargin, text: `No publica margen bruto; su margen operativo es del ${pct(x.operatingMargin)} (se pide un ${pct(cfg.minOperatingMargin)}).` });
+  } else if (x.financial && x.netMargin != null) {
+    out.push({ id: "moat", label: "Ventaja duradera", pass: x.netMargin >= cfg.minOperatingMargin, text: `Es un banco: de cada 100 € que ingresa le quedan ${num(x.netMargin * 100)} € de beneficio neto (se piden ${num(cfg.minOperatingMargin * 100)} €).` });
   } else {
     out.push({ id: "moat", label: "Ventaja duradera", pass: null, text: "Faltan sus márgenes." });
   }
 
+  if (x.financial) {
+    // En un banco, la rentabilidad sobre el capital (arriba) es la prueba de que rinde
+    out.push({ id: "debt", label: "Poca deuda", pass: true, text: "No aplica: en un banco los depósitos y los bonos son su materia prima." });
+    out.push({ id: "cash", label: "Caja de verdad", pass: true, text: "No aplica: la caja de un banco sube y baja con los depósitos." });
+  } else {
   out.push(
     x.netCash
       ? { id: "debt", label: "Poca deuda", pass: true, text: "Tiene más caja que deuda." }
@@ -101,6 +113,7 @@ export function buffettCriteria(x: BuffettInput, cfg: Cfg = BUFFETT_CONFIG): Buf
       ? { id: "cash", label: "Caja de verdad", pass: x.freeCashFlow !== null && x.freeCashFlow <= 0 ? false : null, text: x.freeCashFlow !== null && x.freeCashFlow <= 0 ? "No genera caja libre." : "Faltan datos de caja libre." }
       : { id: "cash", label: "Caja de verdad", pass: x.freeCashFlow > 0 && x.cashConversion >= cfg.minCashConversion, text: `Convierte en caja libre el ${pct(x.cashConversion)} de su beneficio (se pide un ${pct(cfg.minCashConversion)}).` },
   );
+  }
 
   out.push(
     x.dilution === null
@@ -108,6 +121,15 @@ export function buffettCriteria(x: BuffettInput, cfg: Cfg = BUFFETT_CONFIG): Buf
       : { id: "dilution", label: "No diluye al accionista", pass: x.dilution <= cfg.maxDilution, text: x.dilution <= 0 ? `Recompra acciones: un ${pct(-x.dilution, 1)} menos al año.` : `Emite acciones: un ${pct(x.dilution, 1)} más al año.` },
   );
 
+  const earningsYield = x.financial && x.pe != null && x.pe > 0 ? 1 / x.pe : null;
+  if (x.financial && x.verdict !== null && earningsYield !== null) {
+    out.push(
+      x.verdict === "Cara"
+        ? { id: "price", label: "Precio sensato", pass: false, text: "Hoy está cara frente a su propia historia." }
+        : { id: "price", label: "Precio sensato", pass: earningsYield >= cfg.minOwnerYield, text: `Es un banco: por cada 100 € que pagas, gana ${num(earningsYield * 100)} € al año (se piden ${num(cfg.minOwnerYield * 100)} €).` },
+    );
+    return out;
+  }
   out.push(
     x.verdict === null || x.ownerYield === null
       ? { id: "price", label: "Precio sensato", pass: null, text: "Falta su valoración o su caja libre frente a lo que vale." }

@@ -30,6 +30,13 @@ export interface ComparisonRow {
   operatingMargin: number | null;
   /** Beneficio bruto ÷ ventas (últimos 12 meses o último año). */
   grossMargin: number | null;
+  /** Beneficio neto ÷ ventas: lo que se mira en un banco. */
+  netMargin: number | null;
+  /**
+   * Banco, aseguradora o similar: no publica beneficio bruto ni operativo, y la
+   * caja libre y la deuda no se miden como en una industrial («No aplica»).
+   */
+  financial: boolean;
   /** Ventas de los últimos ejercicios (hasta 6), para la mini línea. */
   revenue: number[];
   ai: { postura: EquityAnalysis["veredicto"]["postura"]; date: string } | null;
@@ -56,12 +63,13 @@ export function comparisonRow(
   const a = detail.analysis;
   if (!s || !a) return null;
   const netDebt = a.current.netDebt.value;
+  const financial = a.current.grossMargin.value === null && a.current.operatingMargin.value === null && a.current.netMargin.value !== null;
   const fcf = a.current.freeCashFlow.value;
   return {
     id: s.id,
     ticker: s.ticker,
     name: s.name,
-    sector: s.sic_description,
+    sector: s.sic_description ?? s.sector ?? null,
     kind: "stock",
     price: a.price ? { value: a.price.value, currency: a.price.currency, date: a.price.date } : null,
     valuation: { verdict: a.valuation?.verdict ?? null, score: a.valuation?.score ?? null, deviation: a.valuation?.deviation ?? null },
@@ -70,6 +78,8 @@ export function comparisonRow(
     growth: { value: a.growth.revenue.value, basis: a.growth.basis },
     operatingMargin: a.current.operatingMargin.value,
     grossMargin: a.current.grossMargin.value,
+    netMargin: a.current.netMargin.value,
+    financial,
     revenue: a.years.slice(-6).map((y) => y.revenue?.value).filter((v): v is number => typeof v === "number"),
     ai: ai?.stored ? { postura: ai.stored.analysis.veredicto.postura, date: ai.createdAt } : null,
     quality: a.quality.score,
@@ -85,7 +95,7 @@ export const SORT_LABELS: Record<SortKey, string> = {
   cash: "Más caja libre",
   debt: "Menos deuda",
   growth: "Más crecimiento",
-  margin: "Mayor margen bruto",
+  margin: "Mayor margen neto",
   ticker: "Ticker (A-Z)",
 };
 
@@ -101,7 +111,7 @@ export function sortRows(rows: ComparisonRow[], key: SortKey): ComparisonRow[] {
       case "cash": return r.fcfYield === null ? null : -r.fcfYield;
       case "debt": return r.debt.level === null ? null : debtRank(r);
       case "growth": return r.growth.value === null ? null : -r.growth.value;
-      case "margin": return r.grossMargin === null ? null : -r.grossMargin;
+      case "margin": return r.netMargin === null ? null : -r.netMargin;
       case "ticker": return null;
     }
   };

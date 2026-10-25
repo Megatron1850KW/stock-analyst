@@ -208,13 +208,15 @@ export interface SecurityRow {
   lei: string | null;
   market: string | null;
   country: string | null;
+  /** Sector que indicaste tú (o null): las europeas no tienen código SIC. */
+  sector?: string | null;
   updated_at: string;
 }
 
 export async function getSecurity(db: Db, id: number): Promise<SecurityRow | null> {
   const rows = await db.select<SecurityRow>(
     `SELECT id, ticker, name, cik, exchange, currency, reporting_currency, sic, sic_description, fiscal_year_end, filer_type,
-       isin, lei, market, country, updated_at
+       isin, lei, market, country, sector, updated_at
      FROM securities WHERE id = ?`,
     [id],
   );

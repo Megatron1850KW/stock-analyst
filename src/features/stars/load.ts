@@ -51,6 +51,9 @@ export function buffettInput(id: number, ticker: string, name: string, a: Analys
     freeCashFlow: a?.current.freeCashFlow.value ?? null,
     verdict: a?.valuation?.verdict ?? null,
     ownerYield: a?.multiples?.fcfYield.value ?? null,
+    netMargin: a?.current.netMargin.value ?? null,
+    financial: !!a && a.current.grossMargin.value === null && a.current.operatingMargin.value === null && a.current.netMargin.value !== null,
+    pe: a?.multiples?.pe.value ?? null,
   };
 }
 

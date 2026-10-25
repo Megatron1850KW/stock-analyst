@@ -14,7 +14,7 @@ const row = (ticker: string, p: { dev?: number | null; fcf?: number | null; rati
   debt: { level: p.ratio === undefined && !p.netCash ? null : "Baja", years: null, netCash: !!p.netCash, ratio: p.ratio ?? null },
   growth: { value: p.growth ?? null, basis: "year" },
   operatingMargin: null,
-  grossMargin: null,
+  grossMargin: null, netMargin: null, financial: false,
   revenue: [],
   ai: null,
   quality: null,
