@@ -8,6 +8,7 @@ export interface RiskRow {
   id: number;
   ticker: string;
   name: string;
+  isin: string | null;
   kind: "stock" | "etf" | "etc";
   currency: string;
   inWatchlist: boolean;
@@ -18,8 +19,8 @@ export interface RiskRow {
 }
 
 export async function listTrackedSecurities(db: Db) {
-  return db.select<{ id: number; ticker: string; name: string; kind: RiskRow["kind"]; currency: string; in_watchlist: number; held: number }>(
-    `SELECT id, COALESCE(ticker, isin) AS ticker, name, kind, currency, in_watchlist,
+  return db.select<{ id: number; ticker: string; name: string; isin: string | null; kind: RiskRow["kind"]; currency: string; in_watchlist: number; held: number }>(
+    `SELECT id, COALESCE(ticker, isin) AS ticker, name, isin, kind, currency, in_watchlist,
        (id IN (SELECT security_id FROM transactions)) AS held
      FROM securities WHERE in_watchlist = 1 OR id IN (SELECT security_id FROM transactions)
      ORDER BY ticker`,
@@ -42,6 +43,7 @@ export async function loadTechnicalRisk(db: Db): Promise<RiskRow[]> {
       id: r.id,
       ticker: r.ticker,
       name: r.name,
+      isin: r.isin,
       kind: r.kind,
       currency: r.currency,
       inWatchlist: r.in_watchlist === 1,

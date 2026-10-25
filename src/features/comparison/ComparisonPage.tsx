@@ -158,6 +158,28 @@ function GrowthCell({ r }: { r: ComparisonRow }) {
   );
 }
 
+function MarginCell({ r }: { r: ComparisonRow }) {
+  if (r.grossMargin === null) {
+    return (
+      <Tooltip content="Sus informes no dan el beneficio bruto (pasa en bancos y aseguradoras, que no tienen «coste de lo vendido»).">
+        <span className="text-[12px] text-muted">{SIN_DATO}</span>
+      </Tooltip>
+    );
+  }
+  const g = r.grossMargin;
+  return (
+    <Tooltip content={`De cada 100 € que vende, le quedan ${formatNumber(g * 100, 0)} € tras pagar lo que cuesta fabricarlo o comprarlo.${r.operatingMargin !== null ? ` Tras todos los gastos del negocio: ${formatNumber(r.operatingMargin * 100, 0)} € (margen operativo).` : ""}`}>
+      <div className="w-[84px]">
+        <p className="text-[13px] font-semibold tabular">{formatPercent(g, 0)}</p>
+        <div className="mt-1.5 h-1.5 rounded-full bg-surface" aria-hidden>
+          <div className="h-full rounded-full bg-accent-soft" style={{ width: `${Math.max(0, Math.min(1, g)) * 100}%` }} />
+        </div>
+        {r.operatingMargin !== null && <p className="mt-1 text-[11px] text-muted tabular">operativo {formatPercent(r.operatingMargin, 0)}</p>}
+      </div>
+    </Tooltip>
+  );
+}
+
 const POSTURA = {
   Interesante: { tone: "positive", Icon: CircleCheck },
   Neutral: { tone: "warning", Icon: CircleMinus },
@@ -276,7 +298,7 @@ function ComparisonTable({ rows }: { rows: ComparisonRow[] }) {
   const head = "px-3 py-2 text-left text-[11.5px] font-medium text-muted";
   return (
     <div className="overflow-x-auto rounded-[var(--radius-card)] border border-border bg-surface-raised shadow-card">
-      <table className="w-full min-w-[920px] border-collapse">
+      <table className="w-full min-w-[1010px] border-collapse">
         <caption className="sr-only">Comparativa de fundamentales de las acciones que sigues</caption>
         <thead>
           <tr className="border-b border-border">
@@ -284,6 +306,7 @@ function ComparisonTable({ rows }: { rows: ComparisonRow[] }) {
             <th scope="col" className={head}>¿Oportunidad o trampa?</th>
             <th scope="col" className={head}>¿Cara o barata?</th>
             <th scope="col" className={head}>¿Buen negocio?</th>
+            <th scope="col" className={head}>Margen bruto</th>
             <th scope="col" className={head}>¿Genera caja?</th>
             <th scope="col" className={head}>¿Tiene mucha deuda?</th>
             <th scope="col" className={head}>¿Crece? (ventas)</th>
@@ -307,6 +330,7 @@ function ComparisonTable({ rows }: { rows: ComparisonRow[] }) {
               <td className="px-2.5 py-3"><VerdictCell r={r} /></td>
               <td className="px-2.5 py-3"><ValuationCell r={r} /></td>
               <td className="px-2.5 py-3"><QualityCell r={r} /></td>
+              <td className="px-2.5 py-3"><MarginCell r={r} /></td>
               <td className="px-2.5 py-3"><CashCell r={r} /></td>
               <td className="px-2.5 py-3"><DebtCell r={r} /></td>
               <td className="px-2.5 py-3"><GrowthCell r={r} /></td>

@@ -4,6 +4,7 @@ import { currentGetter, fundamentals, yearlyFundamentals } from "@/domain/fundam
 import type { FactInfo, FilingInfo } from "@/domain/fundamentals/statements";
 import { debtLevel } from "@/domain/scoring/debt-level";
 import { valuationScore, verdictFor } from "@/domain/scoring/valuation-score";
+import { adrRatio } from "./adr";
 import { currentMultiples, historicalMultiples, median, splitFactorAfter, type PricePoint } from "./multiples";
 
 /*
@@ -75,6 +76,21 @@ describe("múltiplos frente a su propia historia (datos ficticios)", () => {
     const s = valuationScore(currentMultiples(f, price, splits, "USD"), historicalMultiples(years, monthly.slice(-12), splits), monthly.slice(-12));
     expect(s.verdict).toBeNull();
     expect(s.note).toMatch(/al menos 2 años/);
+  });
+
+  it("un ADR equivale a varias acciones: la capitalización se cuenta en ADR", () => {
+    const f = fundamentals(currentGetter(filings, facts));
+    // Ficticio: cada ADR vale 5 acciones, así que cotiza 5 veces más caro
+    const price = { value: 400, date: "2026-10-23", currency: "USD", source: "test", fetchedAt: "" };
+    const cur = currentMultiples(f, price, splits, "USD", 5);
+    expect(cur.marketCap.value).toBe(1600 * M);
+    expect(cur.fcfYield.value).toBeCloseTo(100 / 1600);
+    expect(cur.marketCap.inputs[1]!.note).toMatch(/ADR/);
+    const adrMonthly = monthly.map((p) => ({ ...p, close: p.close * 5 }));
+    expect(historicalMultiples(years, adrMonthly, splits, 5).find((p) => p.date === "2024-06-01")).toMatchObject({ pe: 20 });
+    expect(adrRatio("tsm", "US")).toBe(5);
+    expect(adrRatio("TSM", "EU")).toBe(1);
+    expect(adrRatio("MU", "US")).toBe(1);
   });
 
   it("no mezcla divisas", () => {

@@ -1,3 +1,4 @@
+import { FundName } from "./FundName";
 import { AlertTriangle, ArrowDownRight, ArrowUpRight, CircleAlert, CircleCheck, CircleMinus, FileUp, Pencil, Plus } from "lucide-react";
 import { Link } from "react-router";
 import { Badge } from "@/components/ui/badge";
@@ -135,14 +136,16 @@ export function PositionCard({ h, onBuy, onSheet, onClassify }: { h: Holding; on
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             {h.row.kind === "stock" ? (
-              <Link to={`/watchlist/${h.row.id}`} className="font-serif text-[20px] leading-none font-semibold tracking-tight hover:underline">{h.row.ticker}</Link>
+              <>
+                <Link to={`/watchlist/${h.row.id}`} className="font-serif text-[20px] leading-none font-semibold tracking-tight hover:underline">{h.row.ticker}</Link>
+                <Badge>{KIND_LABEL[h.row.kind]}</Badge>
+                <StarMark id={h.row.id} which="portfolio" />
+              </>
             ) : (
-              <span className="font-serif text-[20px] leading-none font-semibold tracking-tight">{h.row.ticker}</span>
+              <FundName name={h.row.name} ticker={h.row.ticker} isin={h.row.isin} kind={KIND_LABEL[h.row.kind]} nameClassName="font-serif text-[16px] tracking-tight" />
             )}
-            <Badge>{KIND_LABEL[h.row.kind]}</Badge>
-            {h.row.kind === "stock" && <StarMark id={h.row.id} which="portfolio" />}
           </div>
-          <p className="mt-1 truncate text-[12px] text-muted" title={h.row.name}>{h.row.name}</p>
+          {h.row.kind === "stock" && <p className="mt-1 truncate text-[12px] text-muted" title={h.row.name}>{h.row.name}</p>}
         </div>
         <Tooltip
           content={
