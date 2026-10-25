@@ -88,6 +88,8 @@ export const CONCEPTS: ConceptDef[] = [
       // Bancos italianos (UniCredit): «margine di intermediazione», renglón 120 del
       // formato del Banco de Italia = margen de intereses + comisiones netas + negociación + dividendos
       x("GrossIncome"),
+      // Lo mismo en los informes en italiano (versión «-it» de filings.xbrl.org)
+      x("MargineDiIntermediazione"),
     ],
   },
   {
@@ -220,6 +222,9 @@ export const CONCEPTS: ConceptDef[] = [
       // UniCredit no usa las etiquetas NIIF del patrimonio, sino las suyas
       x("TotalEquityAttributableToOwnersOfParent"),
       x("TotalEquity"),
+      // Versión en italiano: del grupo (dominante) y total
+      x("PatrimonioNettoDelGruppo"),
+      x("PatrimonioNetto"),
     ],
   },
 

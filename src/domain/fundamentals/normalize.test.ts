@@ -95,4 +95,23 @@ describe("banco europeo con etiquetas propias (datos FICTICIOS al estilo de UniC
     expect(get("equity")).toMatchObject({ value: 67_711, sourceTag: "ext:TotalEquityAttributableToOwnersOfParent" });
     expect(get("debt_total")).toBeUndefined();
   });
+
+  it("lee también las etiquetas en italiano (informe «-it»)", () => {
+    const accn = "FICTICIO-2024-12-31";
+    const bank = companyFactsSchema.parse({
+      cik: "FICTICIO",
+      entityName: "BANCO FICTICIO",
+      facts: {
+        ext: {
+          MargineDiIntermediazione: { units: { EUR: [{ start: "2024-01-01", end: "2024-12-31", val: 24_270, accn, form: "ESEF", filed: "2025-04-02" }] } },
+          PatrimonioNettoDelGruppo: { units: { EUR: [{ end: "2024-12-31", val: 62_441, accn, form: "ESEF", filed: "2025-04-02" }] } },
+          PatrimonioNetto: { units: { EUR: [{ end: "2024-12-31", val: 62_841, accn, form: "ESEF", filed: "2025-04-02" }] } },
+        },
+      },
+    });
+    const r = normalizeCompanyFacts(bank, [{ accession: accn, form: "ESEF", periodType: "annual", reportDate: "2024-12-31", filingDate: "2025-04-02", primaryDocument: "" }]);
+    const get = (c: string) => r.facts.find((f) => f.concept === c);
+    expect(get("revenue")).toMatchObject({ value: 24_270, sourceTag: "ext:MargineDiIntermediazione" });
+    expect(get("equity")).toMatchObject({ value: 62_441, sourceTag: "ext:PatrimonioNettoDelGruppo" });
+  });
 });
