@@ -114,4 +114,16 @@ test("cartera (datos ficticios): operaciones, vision board, ficha de ETF y porta
   await page.getByRole("tab", { name: /ETFs y ETCs/ }).click();
   await expect(page.getByRole("table", { name: "ETFs y ETCs que sigues" })).toContainText("MSCI World (ficticio)");
   await shot(page, "14-portada-etfs");
+
+  // Ficha del ETF en la watchlist: precio frente a su media del año y encaje en la cartera
+  await page.goto("/#/watchlist");
+  await page.getByLabel("Ticker o ISIN").fill(FAKE_ETF_ISIN);
+  await page.getByRole("button", { name: "Añadir" }).click();
+  await page.getByRole("link", { name: "FWRL" }).click();
+  const year = page.getByRole("region", { name: "Precio del último año" });
+  await expect(year).toContainText(/Hoy cotiza a .* (por encima|por debajo) de su precio medio del último año|Hacen falta al menos 40 semanas/);
+  const fit = page.getByRole("region", { name: "En tu cartera" });
+  await expect(fit).toContainText("Peso en tu cartera");
+  await expect(fit).toContainText(/Puedes añadir hasta .* sin que pase del 15\s%|Ya pesa un .* de tu cartera \(máximo recomendado 15\s%\)/);
+  await shot(page, "28-etf-precio-cartera");
 });

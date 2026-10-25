@@ -26,11 +26,11 @@ const ACTION_STYLE: Record<Action, { tone: "positive" | "neutral" | "warning"; I
   "Mantener — vigilar": { tone: "warning", Icon: CircleAlert },
 };
 
-export function ActionBadge({ action, className }: { action: Action; className?: string }) {
+export function ActionBadge({ action, label, className }: { action: Action; label?: string; className?: string }) {
   const { tone, Icon } = ACTION_STYLE[action];
   return (
     <Badge tone={tone} className={cn("text-[12px]", tone === "neutral" && "bg-sand/50 text-text", className)}>
-      <Icon aria-hidden /> {action}
+      <Icon aria-hidden /> {label ?? action}
     </Badge>
   );
 }
@@ -42,7 +42,7 @@ function Money({ value, signed }: { value: number | null; signed?: boolean }) {
 }
 
 /** Peso de la posición frente al máximo recomendado (15 %). */
-function WeightBar({ weight }: { weight: number | null }) {
+export function WeightBar({ weight }: { weight: number | null }) {
   if (weight === null) return <p className="text-[12px] text-muted">Peso: {SIN_DATO}</p>;
   const max = PORTFOLIO_CONFIG.maxPosition;
   const scale = Math.max(max * 2, weight);

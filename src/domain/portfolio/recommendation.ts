@@ -50,6 +50,15 @@ export interface RecommendationInput {
 const pct = (x: number) => `${(x * 100).toLocaleString("es-ES", { maximumFractionDigits: 0 })} %`;
 const lower = (xs: string[]) => xs.map((x) => x.toLowerCase()).join(", ").replace(/, ([^,]*)$/, " y $1");
 
+/**
+ * Cuánto se puede añadir a una posición (en €) sin que pase del peso máximo:
+ * (valor + x) / (total + x) ≤ máximo. 0 si ya lo supera.
+ */
+export function roomToMaxEur(totalEur: number, positionEur: number, max = PORTFOLIO_CONFIG.maxPosition): number {
+  if (totalEur <= 0 || max >= 1) return 0;
+  return Math.max(0, (max * totalEur - positionEur) / (1 - max));
+}
+
 /** Media de los últimos `months` cierres mensuales (orden cronológico); null si no hay bastantes. */
 export function trendFromCloses(closes: number[], months = PORTFOLIO_CONFIG.trendMonths): Trend | null {
   if (closes.length < months) return null;
