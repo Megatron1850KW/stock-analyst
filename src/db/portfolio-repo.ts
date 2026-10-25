@@ -115,8 +115,12 @@ export async function upsertFundSecurity(db: Db, f: FundSecurityInput): Promise<
   const existing = await db.select<{ id: number }>("SELECT id FROM securities WHERE isin = ?", [f.isin]);
   if (existing[0]) {
     await db.execute(
-      "UPDATE securities SET ticker = ?, name = ?, exchange = ?, currency = ?, figi = ?, kind = ?, market = 'EU', in_watchlist = MAX(in_watchlist, ?), updated_at = ? WHERE id = ?",
-      [f.ticker, f.name, f.exchange, f.currency, f.figi, f.kind, f.watchlist ? 1 : 0, new Date().toISOString(), existing[0].id],
+      // Si cambia la bolsa o el ticker, el símbolo de precio guardado ya no vale: se vuelve a buscar
+      `UPDATE securities SET
+         price_symbol = CASE WHEN exchange IS ? AND ticker IS ? THEN price_symbol ELSE NULL END,
+         ticker = ?, name = ?, exchange = ?, currency = ?, figi = ?, kind = ?, market = 'EU', in_watchlist = MAX(in_watchlist, ?), updated_at = ?
+       WHERE id = ?`,
+      [f.exchange, f.ticker, f.ticker, f.name, f.exchange, f.currency, f.figi, f.kind, f.watchlist ? 1 : 0, new Date().toISOString(), existing[0].id],
     );
     return existing[0].id;
   }
