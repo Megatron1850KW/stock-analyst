@@ -24,6 +24,7 @@
   --color-sidebar: var(--sidebar);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
+  --color-klein: var(--klein);
   --color-chart-grid: var(--chart-grid);
 
   --font-sans: "Inter Variable", -apple-system, system-ui, sans-serif;

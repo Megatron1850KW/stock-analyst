@@ -16,6 +16,7 @@ import { signedPercent } from "@/features/watchlist/ficha/format";
 import { formatCurrency, formatNumber, formatPercent, SIN_DATO } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { RiskBadge } from "@/features/technical-risk/RiskBadge";
+import { BuffettMark } from "@/features/stars/BuffettMark";
 import { StarMark } from "@/features/stars/StarMark";
 import { Range52, YearToDate } from "@/features/prices/PriceStatsCells";
 import type { Holding } from "./load";
@@ -140,6 +141,7 @@ export function PositionCard({ h, onBuy, onSheet, onClassify }: { h: Holding; on
                 <Link to={`/watchlist/${h.row.id}`} className="font-serif text-[20px] leading-none font-semibold tracking-tight hover:underline">{h.row.ticker}</Link>
                 <Badge>{KIND_LABEL[h.row.kind]}</Badge>
                 <StarMark id={h.row.id} which="portfolio" />
+                <BuffettMark id={h.row.id} which="portfolio" />
               </>
             ) : (
               <FundName name={h.row.name} ticker={h.row.ticker} isin={h.row.isin} kind={KIND_LABEL[h.row.kind]} nameClassName="font-serif text-[16px] tracking-tight" />

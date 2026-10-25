@@ -164,3 +164,31 @@ export const STARS_CONFIG = {
   /** Cartera: hace falta un descuento (media historia + competencia) de al menos un 5 % para dar estrella. */
   minDiscount: 0.05,
 };
+
+/**
+ * Criterio Buffett «B»: las acciones que hoy compraría Warren Buffett según
+ * los criterios que repite en sus cartas a los accionistas de Berkshire
+ * Hathaway: beneficios constantes, alta rentabilidad sobre el capital con
+ * poca deuda, ventaja duradera (márgenes altos), caja de verdad, sin diluir
+ * al accionista y a un precio sensato. Hay que cumplirlos todos; un dato que
+ * falta cuenta como no cumplido («lo que no entiendo, no lo compro»).
+ */
+export const BUFFETT_CONFIG = {
+  /** Años con beneficio positivo exigidos (los últimos, con un mínimo de 3 publicados). */
+  profitYears: 5,
+  minYears: 3,
+  /** Rentabilidad sobre el capital (beneficio ÷ patrimonio), media de los últimos 3 años. */
+  minRoe: 0.15,
+  roeYears: 3,
+  /** Ventaja duradera: margen bruto mínimo; si no publica bruto, margen operativo mínimo. */
+  minGrossMargin: 0.4,
+  minOperatingMargin: 0.2,
+  /** Poca deuda: caja neta o deuda neta pagable en estos años con su caja libre. */
+  maxDebtYears: 3,
+  /** Caja libre ÷ beneficio neto (media de varios años). */
+  minCashConversion: 0.7,
+  /** Aumento máximo de acciones al año. */
+  maxDilution: 0.01,
+  /** Precio sensato: no «Cara» frente a su historia y rentabilidad del dueño (caja libre ÷ capitalización) mínima. */
+  minOwnerYield: 0.04,
+};

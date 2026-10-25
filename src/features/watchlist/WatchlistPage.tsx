@@ -24,6 +24,7 @@ import { IMPORT_STEP_LABELS, type ImportStep } from "./import-us";
 import { parseWatchlistEntry, splitWatchlistInput } from "./parse-input";
 import { describeError, useAddTicker, useWatchlist, type WatchlistItem } from "./queries";
 import { Range52, YearToDate } from "@/features/prices/PriceStatsCells";
+import { BuffettMark } from "@/features/stars/BuffettMark";
 import { StarMark } from "@/features/stars/StarMark";
 
 const section = SECTIONS[0]!;
@@ -176,6 +177,7 @@ function WatchlistTable({ rows }: { rows: WatchlistItem[] }) {
                       {r.ticker}
                     </Link>
                     <StarMark id={r.id} which="watchlist" className="ml-1.5 align-[-2px]" />
+                    <BuffettMark id={r.id} which="watchlist" className="ml-1 align-[-2px]" />
                     <div className="text-[12px] text-muted">{r.name}</div>
                   </>
                 )}
