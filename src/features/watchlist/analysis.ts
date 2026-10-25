@@ -79,8 +79,14 @@ export function buildAnalysis(input: {
   const withFacts = new Set(input.facts.map((f) => f.filing_id));
   const sec = input.filings.filter((f) => f.role !== "upload" || withFacts.has(f.id));
   const core = sec.filter((f) => f.role === "core" || f.role === "upload");
-  const current = fundamentals(currentGetter(core, input.facts));
   const years = yearlyFundamentals(sec, input.facts);
+  const ttm = fundamentals(currentGetter(core, input.facts));
+  // Sin acciones en los doce meses (p. ej. un semestral sin BPA), las del último anual
+  const lastShares = [...years].reverse().find((y) => y.shares)?.shares ?? null;
+  const current =
+    ttm.shares || !lastShares
+      ? ttm
+      : { ...ttm, shares: { ...lastShares, note: `${lastShares.note ? `${lastShares.note} ` : ""}Del último informe anual: el intermedio no da el número de acciones.` } };
   const warnings: string[] = [];
 
   const monthly: PricePoint[] = input.monthly.map((b) => ({ date: b.date, close: b.close }));

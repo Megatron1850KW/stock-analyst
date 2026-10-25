@@ -225,6 +225,16 @@ export function SettingsPage() {
                 <option value="alphavantage">Alpha Vantage</option>
               </Select>
             </Field>
+            <Field label="Respaldo para Europa" htmlFor="price-provider-eu-backup" hint="Yahoo Finance (sin clave): se usa cuando Alpha Vantage no tiene un valor (por ejemplo, la Bolsa de Madrid) o se han agotado sus consultas del día. No es un servicio oficial: si un día falla, la app sigue con Alpha Vantage.">
+              <Select
+                id="price-provider-eu-backup"
+                value={settings.priceProviderEuBackup ?? ""}
+                onChange={(e) => save({ priceProviderEuBackup: (e.target.value || null) as Settings["priceProviderEuBackup"] })}
+              >
+                <option value="">Sin respaldo</option>
+                <option value="yahoo">Yahoo Finance</option>
+              </Select>
+            </Field>
             <Field label="Divisa base" htmlFor="base-currency" hint="Toda la cartera se consolida en esta divisa con tipos del BCE.">
               <Select id="base-currency" value={settings.baseCurrency} onChange={(e) => save({ baseCurrency: e.target.value as Settings["baseCurrency"] })}>
                 <option value="EUR">Euro (€)</option>

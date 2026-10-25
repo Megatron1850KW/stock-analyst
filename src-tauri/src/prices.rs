@@ -11,6 +11,9 @@ use std::time::Duration;
 const FMP_HOST: &str = "financialmodelingprep.com";
 const TIINGO_HOST: &str = "api.tiingo.com";
 const AV_HOST: &str = "www.alphavantage.co";
+const YAHOO_HOST: &str = "query1.finance.yahoo.com";
+/// Yahoo Finance no publica límites: se va despacio para no molestar.
+static YAHOO_THROTTLE: Throttle = Throttle::new(Duration::from_millis(1000));
 /// Plan gratuito de Alpha Vantage: 25 consultas al día y como mucho una por segundo.
 static AV_THROTTLE: Throttle = Throttle::new(Duration::from_millis(1200));
 /// Plan gratuito: 50 peticiones por hora; al ritmo de uso de la app sobra.
@@ -74,6 +77,19 @@ async fn av_get(function: &str, params: &[(&str, &str)]) -> Result<String, NetEr
     get_text(AV_HOST, req).await.map(|text| redact(&text, &key))
 }
 
+/// Velas de Yahoo Finance (respaldo de Alpha Vantage en Europa; sin clave).
+/// Cierres ajustados por splits y los splits como eventos.
+async fn yahoo_chart(symbol: &str, interval: &str, range: &str) -> Result<String, NetError> {
+    YAHOO_THROTTLE.wait().await;
+    let req = client()
+        .get(format!("https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"))
+        .query(&[("interval", interval), ("range", range), ("events", "split"), ("includeAdjustedClose", "false")])
+        // Sin un User-Agent de navegador responde 429
+        .header("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15")
+        .header("Accept", "application/json");
+    get_text(YAHOO_HOST, req).await
+}
+
 /// Quita la clave de un texto antes de que llegue a la interfaz, a la base de datos o a un log.
 pub fn redact(text: &str, key: &str) -> String {
     if key.len() < 4 {
@@ -130,10 +146,20 @@ pub async fn price_history(provider: String, symbol: String, from: String) -> Re
 }
 
 /// Velas semanales o mensuales completas (Alpha Vantage: el diario completo es
-/// de pago). Traen el cierre sin ajustar y el ajustado, para deducir los splits.
+/// de pago; traen el cierre sin ajustar y el ajustado, para deducir los
+/// splits). Con Yahoo, también la cotización («quote»: últimos 5 días).
 #[tauri::command]
 pub async fn price_series(provider: String, symbol: String, interval: String) -> Result<String, NetError> {
     let symbol = validate_symbol(&symbol)?.to_uppercase();
+    if provider == "yahoo" {
+        let (iv, range) = match interval.as_str() {
+            "quote" => ("1d", "5d"),
+            "weekly" => ("1wk", "10y"),
+            "monthly" => ("1mo", "max"),
+            other => return Err(NetError::Invalid(format!("Intervalo no válido: {other}"))),
+        };
+        return yahoo_chart(&symbol, iv, range).await;
+    }
     let function = match interval.as_str() {
         "weekly" => "TIME_SERIES_WEEKLY_ADJUSTED",
         "monthly" => "TIME_SERIES_MONTHLY_ADJUSTED",

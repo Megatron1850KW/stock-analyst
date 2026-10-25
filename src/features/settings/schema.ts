@@ -33,6 +33,8 @@ export const settingsSchema = z.object({
   priceProvider: priceProviderId.nullable(),
   /** Precios de las bolsas europeas (Tiingo solo cubre EE. UU.). */
   priceProviderEu: z.enum(["alphavantage"]).nullable(),
+  /** Respaldo para Europa: cuando el principal no tiene el valor o se agota su cupo. */
+  priceProviderEuBackup: z.enum(["yahoo"]).nullable(),
   baseCurrency: z.enum(["EUR", "USD"]),
   language: z.enum(["es"]),
   theme: z.enum(["system", "light", "dark"]),
@@ -53,6 +55,7 @@ export const DEFAULT_SETTINGS: Settings = {
   aiMonthlyBudgetEur: 10,
   priceProvider: "tiingo",
   priceProviderEu: "alphavantage",
+  priceProviderEuBackup: "yahoo",
   baseCurrency: "EUR",
   language: "es",
   theme: "system",
