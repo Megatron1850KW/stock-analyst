@@ -1,5 +1,5 @@
 import { Check, ClipboardCopy, ExternalLink as ExternalIcon } from "lucide-react";
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { ExternalLink } from "@/components/ui/external-link";
 import { cn } from "@/lib/cn";
@@ -10,7 +10,7 @@ import { useSaveManual } from "./queries";
 const textareaClass =
   "w-full rounded-lg border border-border bg-bg px-3 py-2 font-mono text-[11.5px] leading-relaxed text-text placeholder:text-muted/70 focus:border-accent focus:ring-2 focus:ring-accent/25 focus:outline-none";
 
-function Step({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
+function Step({ n, title, children }: { n: number; title: string; children: ReactNode }) {
   return (
     <li className="flex gap-3">
       <span aria-hidden className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-accent/15 text-[11px] font-semibold text-accent-text">
@@ -25,14 +25,33 @@ function Step({ n, title, children }: { n: number; title: string; children: Reac
 }
 
 /**
- * Modo «Claude.ai manual»: copiar el texto preparado, pegarlo en claude.ai y
- * pegar aquí la respuesta, que se valida antes de guardarla.
+ * Pasos del modo «Claude.ai manual»: copiar el texto preparado, pegarlo en
+ * claude.ai (con el PDF adjunto si hace falta) y pegar aquí la respuesta, que
+ * se valida antes de guardarla.
  */
-export function ManualAnalysisPanel({ securityId, prepared, text, onDone }: { securityId: number; prepared: PreparedAnalysis; text: string; onDone: () => void }) {
+export function ClaudeAiSteps({
+  label,
+  text,
+  textHint,
+  attach,
+  saving,
+  error,
+  onSave,
+  onCancel,
+}: {
+  label: string;
+  text: string;
+  textHint: string;
+  /** Paso extra en claude.ai (p. ej. adjuntar el PDF). */
+  attach?: ReactNode;
+  saving: boolean;
+  error: unknown;
+  onSave: (answer: string) => void;
+  onCancel: () => void;
+}) {
   const source = useRef<HTMLTextAreaElement>(null);
   const [copied, setCopied] = useState(false);
   const [answer, setAnswer] = useState("");
-  const save = useSaveManual(securityId);
 
   const copy = async () => {
     try {
@@ -46,51 +65,65 @@ export function ManualAnalysisPanel({ securityId, prepared, text, onDone }: { se
   };
 
   return (
-    <div className="mt-5 rounded-xl border border-border bg-surface px-4 py-4" aria-label="Análisis con Claude.ai">
+    <div className="mt-5 rounded-xl border border-border bg-surface px-4 py-4" aria-label={label}>
       <ol className="space-y-4">
         <Step n={1} title={`Copia el texto preparado (≈ ${approxTokens(text).toLocaleString("es-ES")} tokens)`}>
           <div className="flex flex-wrap items-center gap-2">
             <Button size="sm" onClick={() => void copy()}>
               {copied ? <Check aria-hidden /> : <ClipboardCopy aria-hidden />} {copied ? "Copiado" : "Copiar texto"}
             </Button>
-            <span className="text-[12px] text-muted">Lleva las instrucciones, las cifras calculadas y extractos de sus dos últimos informes.</span>
+            <span className="text-[12px] text-muted">{textHint}</span>
           </div>
           <textarea ref={source} readOnly value={text} aria-label="Texto para Claude" rows={3} className={cn(textareaClass, "mt-2 resize-none text-muted")} />
         </Step>
-        <Step n={2} title="Pégalo en una conversación nueva de claude.ai">
+        <Step n={2} title={attach ? "Pégalo en una conversación nueva de claude.ai y adjunta el PDF" : "Pégalo en una conversación nueva de claude.ai"}>
           <ExternalLink href="https://claude.ai/new" className="inline-flex items-center gap-1 text-[13px] text-accent-text hover:underline">
             Abrir claude.ai <ExternalIcon className="size-3.5" aria-hidden />
           </ExternalLink>
+          {attach}
           <p className="mt-1 text-[12px] text-muted">Vale el plan gratuito. Espera a que termine de responder y copia su respuesta entera con el botón «Copiar» de su mensaje.</p>
         </Step>
         <Step n={3} title="Pega aquí su respuesta">
           <textarea
             value={answer}
-            onChange={(e) => {
-              setAnswer(e.target.value);
-              save.reset();
-            }}
+            onChange={(e) => setAnswer(e.target.value)}
             aria-label="Respuesta de Claude"
-            placeholder='{"modelo_negocio": "…", …}'
+            placeholder="{ … }"
             rows={6}
             className={textareaClass}
           />
-          {save.error && (
+          {error != null && (
             <p role="alert" className="mt-2 text-[12.5px] text-negative-text">
-              {describeApiError(save.error)}
+              {describeApiError(error)}
             </p>
           )}
           <div className="mt-2 flex gap-2">
-            <Button size="sm" disabled={!answer.trim() || save.isPending} onClick={() => save.mutate({ prepared, answer }, { onSuccess: onDone })}>
-              Guardar análisis
+            <Button size="sm" disabled={!answer.trim() || saving} onClick={() => onSave(answer)}>
+              {saving ? "Guardando…" : "Guardar"}
             </Button>
-            <Button size="sm" variant="ghost" onClick={onDone}>
+            <Button size="sm" variant="ghost" onClick={onCancel}>
               Cancelar
             </Button>
           </div>
-          <p className="mt-2 text-[11.5px] text-muted">La app comprueba que la respuesta tenga todos los apartados antes de guardarla. Si falta algo, te dice qué.</p>
+          <p className="mt-2 text-[11.5px] text-muted">La app comprueba la respuesta antes de guardarla. Si falta algo, te dice qué.</p>
         </Step>
       </ol>
     </div>
+  );
+}
+
+/** Análisis narrativo de una acción en el modo manual. */
+export function ManualAnalysisPanel({ securityId, prepared, text, onDone }: { securityId: number; prepared: PreparedAnalysis; text: string; onDone: () => void }) {
+  const save = useSaveManual(securityId);
+  return (
+    <ClaudeAiSteps
+      label="Análisis con Claude.ai"
+      text={text}
+      textHint="Lleva las instrucciones, las cifras calculadas y extractos de sus dos últimos informes."
+      saving={save.isPending}
+      error={save.error}
+      onSave={(answer) => save.mutate({ prepared, answer }, { onSuccess: onDone })}
+      onCancel={onDone}
+    />
   );
 }

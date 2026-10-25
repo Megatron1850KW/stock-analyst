@@ -44,11 +44,43 @@ const SCALE = { unidades: 1, miles: 1e3, millones: 1e6 } as const;
 const DAY = 86_400_000;
 const near = (a: string, b: string, days = 20) => Math.abs(Date.parse(a) - Date.parse(b)) <= days * DAY;
 
-/** Páginas aproximadas de un PDF (cuenta los objetos /Type /Page), para estimar el coste. */
-export function countPdfPages(bytes: Uint8Array): number {
+const PAGE_OBJECT = /\/Type\s*\/Page(?![s\w])/g;
+const latin1 = (bytes: Uint8Array) => {
   let text = "";
   for (let k = 0; k < bytes.length; k += 65_536) text += String.fromCharCode(...bytes.subarray(k, k + 65_536));
-  return (text.match(/\/Type\s*\/Page(?![s\w])/g) ?? []).length || 1;
+  return text;
+};
+
+/** Descomprime un flujo /FlateDecode; null si no se puede (otro filtro, flujo dañado). */
+async function inflate(bytes: Uint8Array): Promise<Uint8Array | null> {
+  try {
+    const stream = new Blob([bytes.slice()]).stream().pipeThrough(new DecompressionStream("deflate"));
+    return new Uint8Array(await new Response(stream).arrayBuffer());
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Páginas de un PDF: cuenta los objetos /Type /Page, también los guardados
+ * dentro de flujos de objetos comprimidos (/ObjStm, habituales en PDF 1.5+),
+ * para estimar el coste y descartar citas a páginas que no existen.
+ */
+export async function countPdfPages(bytes: Uint8Array): Promise<number> {
+  const text = latin1(bytes);
+  let pages = (text.match(PAGE_OBJECT) ?? []).length;
+  const objStm = /<<((?:(?!>>\s*stream)[\s\S]){0,2000}?\/Type\s*\/ObjStm[\s\S]{0,2000}?)>>\s*stream\r?\n/g;
+  for (let m = objStm.exec(text); m; m = objStm.exec(text)) {
+    if (!/\/FlateDecode/.test(m[1]!)) continue;
+    const start = m.index + m[0].length;
+    let end = text.indexOf("endstream", start);
+    if (end < 0) continue;
+    // El salto de línea antes de «endstream» no forma parte del flujo
+    while (end > start && (text[end - 1] === "\n" || text[end - 1] === "\r")) end--;
+    const inner = await inflate(bytes.subarray(start, end));
+    if (inner) pages += (latin1(inner).match(PAGE_OBJECT) ?? []).length;
+  }
+  return pages || 1;
 }
 
 /** Tokens de entrada por página de PDF (texto + imagen de la página), según la documentación de Claude. */
@@ -138,18 +170,8 @@ export async function extractPdfFacts(
   if (!security) throw new AiAnalysisError("Este valor ya no está guardado.");
 
   const bytes = await deps.readPdf(filing.local_path);
-  const pages = countPdfPages(bytes);
-  const userText = [
-    "<informe>",
-    JSON.stringify({
-      empresa: security.name,
-      tipo_segun_usuario: KIND_TEXT[filing.period_type],
-      cierre_segun_usuario: filing.period_end,
-      conceptos: CONCEPTS.map((c) => ({ id: c.id, nombre: c.label, tipo: c.period === "instant" ? "balance (a una fecha)" : "del periodo" })),
-    }),
-    "</informe>",
-    "Extrae las cifras siguiendo las instrucciones y el esquema de salida.",
-  ].join("\n");
+  const pages = await countPdfPages(bytes);
+  const userText = pdfUserText(security.name, filing);
 
   const rate = await checkBudget(db, {
     budgetEur: deps.budgetEur,
@@ -201,7 +223,38 @@ export async function extractPdfFacts(
     throw new AiAnalysisError("La IA devolvió las cifras del PDF con un formato inesperado. No se ha guardado nada.");
   }
 
-  const outcome = toFacts(checked.data, filing.accession_no, pages);
+  const saved = await saveExtraction(db, securityId, filing, checked.data, pages);
+  return { status: "created", ...saved, costEur: cost.eur };
+}
+
+/** Qué documento es y qué conceptos se buscan: lo mismo para la API y para claude.ai. */
+export function pdfUserText(company: string, filing: Pick<FilingRow, "period_type" | "period_end">): string {
+  return [
+    "<informe>",
+    JSON.stringify({
+      empresa: company,
+      tipo_segun_usuario: KIND_TEXT[filing.period_type],
+      cierre_segun_usuario: filing.period_end,
+      conceptos: CONCEPTS.map((c) => ({ id: c.id, nombre: c.label, tipo: c.period === "instant" ? "balance (a una fecha)" : "del periodo" })),
+    }),
+    "</informe>",
+    "Extrae las cifras siguiendo las instrucciones y el esquema de salida.",
+  ].join("\n");
+}
+
+/**
+ * Guarda las cifras ya validadas por el esquema: comprobaciones deterministas
+ * (fechas, páginas), corrección del periodo si el documento dice otro y huecos.
+ */
+export async function saveExtraction(
+  db: Db,
+  securityId: number,
+  filing: FilingRow,
+  data: PdfExtraction,
+  pages: number,
+): Promise<{ facts: number; discarded: number; notes: string[] }> {
+  const filingId = filing.id;
+  const outcome = toFacts(data, filing.accession_no, pages);
   const notes = [...outcome.notes];
   // Si el documento es de otro periodo distinto del indicado, manda el documento
   if (ISO_DATE.test(outcome.periodEnd) && !near(outcome.periodEnd, filing.period_end) && outcome.facts.some((f) => f.periodEnd === outcome.periodEnd)) {
@@ -213,5 +266,5 @@ export async function extractPdfFacts(
   const gaps: ConceptGap[] = CONCEPTS.filter((c) => !found.has(c.id)).map((c) => ({ accession: filing.accession_no, concept: c.id }));
   await replaceFilingFacts(db, securityId, filingId, outcome.facts, gaps, "pdf-extraction");
   if (outcome.discarded > 0) notes.push(`${outcome.discarded} cifras descartadas por fechas o páginas incoherentes.`);
-  return { status: "created", facts: outcome.facts.length, discarded: outcome.discarded, costEur: cost.eur, notes };
+  return { facts: outcome.facts.length, discarded: outcome.discarded, notes };
 }

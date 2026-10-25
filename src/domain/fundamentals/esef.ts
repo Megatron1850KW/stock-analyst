@@ -13,8 +13,9 @@ import type { FilingRef } from "./select-filings";
  * - Fechas: en xBRL-JSON el final de un periodo es el instante siguiente
  *   («2026-02-01T00:00:00» = cierre del 31-01-2026); se pasa a la fecha de cierre.
  * - Unidades: iso4217:EUR → EUR, xbrli:shares → shares, EUR/shares para el BPA.
- * - Las etiquetas propias de la empresa (p. ej. itx:…) se conservan con su
- *   prefijo, pero el modelo común solo usa ifrs-full (ver concepts.ts).
+ * - Las etiquetas propias de la empresa (p. ej. itx:…) se guardan con el
+ *   prefijo común «ext», sea cual sea el que use cada año, para que los pocos
+ *   mapeos documentados en concepts.ts (UniCredit) valgan para todos sus informes.
  */
 
 export const ESEF_FORM = "ESEF";
@@ -59,8 +60,13 @@ export interface EsefFilingInfo {
  * Añade las cifras de un informe ESEF a `target` (con forma de companyfacts),
  * cada una marcada con el id del informe como «accession».
  */
+/** Espacios de nombres de taxonomías estándar (NIIF, US-GAAP, SEC, XBRL, divisas, unidades). */
+const STANDARD_NS = /xbrl\.ifrs\.org|fasb\.org|xbrl\.sec\.gov|xbrl\.org\/|iso4217|utr/i;
+
 export function addXbrlJson(target: CompanyFacts, doc: XbrlJson, filing: EsefFilingInfo): number {
   let added = 0;
+  const namespaces: Record<string, string> = doc.documentInfo?.namespaces ?? {};
+  const prefixOf = (p: string) => (namespaces[p] && !STANDARD_NS.test(namespaces[p]) ? "ext" : p);
   for (const fact of Object.values(doc.facts)) {
     const dims = fact.dimensions;
     if (Object.keys(dims).some((k) => !CORE_DIMENSIONS.has(k))) continue;
@@ -78,7 +84,7 @@ export function addXbrlJson(target: CompanyFacts, doc: XbrlJson, filing: EsefFil
       const len = (Date.parse(entry.end) - Date.parse(entry.start)) / DAY;
       entry.fp = len >= 330 && len <= 400 ? "FY" : null;
     }
-    const concepts = (target.facts[prefix] ??= {});
+    const concepts = (target.facts[prefixOf(prefix)] ??= {});
     const concept = (concepts[name] ??= { units: {} });
     (concept.units[unit] ??= []).push(entry);
     added++;

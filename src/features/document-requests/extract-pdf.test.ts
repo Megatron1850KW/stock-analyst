@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { deflateSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 import { createClaudeClient } from "@/data/claude/client";
 import { monthSpend } from "@/db/ai-repo";
@@ -53,8 +54,17 @@ async function setup(output: unknown = OUT, periodEnd = "2026-07-31") {
 }
 
 describe("extracción de cifras de un PDF subido (datos FICTICIOS)", () => {
-  it("cuenta las páginas del PDF para estimar el coste", () => {
-    expect(countPdfPages(PDF)).toBe(6);
+  it("cuenta las páginas del PDF para estimar el coste", async () => {
+    expect(await countPdfPages(PDF)).toBe(6);
+  });
+
+  it("cuenta también las páginas guardadas en flujos de objetos comprimidos", async () => {
+    // PDF 1.5 FICTICIO: 2 páginas sueltas y 33 dentro de un /ObjStm comprimido
+    const objs = Array.from({ length: 33 }, () => "<< /Type /Page /Parent 2 0 R >>").join("\n") + "\n<< /Type /Pages /Count 35 >>";
+    const z = deflateSync(Buffer.from(objs, "latin1"));
+    const head = Buffer.from("%PDF-1.5\n1 0 obj << /Type /Page >> endobj\n3 0 obj << /Type /Page >> endobj\n4 0 obj\n<< /Type /ObjStm /N 34 /First 0 /Filter /FlateDecode /Length " + z.length + " >>\nstream\n", "latin1");
+    const tail = Buffer.from("\nendstream\nendobj\n%%EOF", "latin1");
+    expect(await countPdfPages(new Uint8Array(Buffer.concat([head, z, tail])))).toBe(35);
   });
 
   it("aplica la escala en el código y descarta lo incoherente", () => {

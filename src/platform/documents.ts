@@ -10,7 +10,8 @@ const storedSchema = z.object({
 });
 export type StoredDocument = z.infer<typeof storedSchema>;
 
-export const ACCEPTED_FILES = ".pdf,.zip,application/pdf,application/zip";
+// .xbri: paquete de informe XBRL (es un ZIP con otro nombre), como el ESEF 2025 de EssilorLuxottica
+export const ACCEPTED_FILES = ".pdf,.zip,.xbri,application/pdf,application/zip";
 
 /**
  * Guarda el archivo en la carpeta de datos de la app. Viaja en binario (no
@@ -27,6 +28,8 @@ export async function storeDocument(securityId: number, file: File): Promise<Sto
 }
 
 export const openDocument = (path: string) => invoke("document_open", { path });
+/** Muestra el archivo en el Finder, seleccionado. */
+export const revealDocument = (path: string) => invoke("document_reveal", { path });
 export const deleteDocumentFile = (path: string) => invoke("document_delete", { path });
 
 /** Bytes de un PDF guardado (para la extracción de cifras con Claude). */

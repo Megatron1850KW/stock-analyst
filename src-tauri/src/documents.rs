@@ -123,6 +123,17 @@ pub fn document_open(app: AppHandle, path: String) -> Result<(), DocError> {
     Ok(())
 }
 
+/// Muestra el informe en el Finder, seleccionado, para arrastrarlo a claude.ai (modo manual).
+#[tauri::command]
+pub fn document_reveal(app: AppHandle, path: String) -> Result<(), DocError> {
+    let p = inside_documents(&app, &path)?;
+    #[cfg(target_os = "macos")]
+    std::process::Command::new("open").arg("-R").arg(&p).spawn()?;
+    #[cfg(not(target_os = "macos"))]
+    let _ = p;
+    Ok(())
+}
+
 /// Tamaño máximo de un PDF que se envía a Claude (la API admite 32 MB por petición).
 const MAX_PDF_FOR_AI: u64 = 30 * 1024 * 1024;
 

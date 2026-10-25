@@ -33,6 +33,13 @@
  *   menos coste de las ventas y se etiqueta como cifra calculada.
  * - Capex: pagos por inmovilizado material. Algunas empresas lo desglosan en
  *   varias líneas; si solo hay PaymentsToAcquireProductiveAssets se usa esa.
+ * - Bancos: «RevenuesNetOfInterestExpense» va antes que RevenueFromContract…,
+ *   que en un banco solo recoge las comisiones (American Express: 32.962 M
+ *   frente a 58.606 M de ingresos totales en el 10-Q de sep. 2026).
+ * - Etiquetas propias («ext»): solo UniCredit, que presenta ventas y patrimonio
+ *   con su extensión (comprobado en su ESEF 2025). Su deuda NO se mapea: en un
+ *   banco los valores emitidos y los depósitos son su materia prima, y medirlos
+ *   contra la caja generada como en una industrial daría una alarma falsa.
  * - Las cifras de flujo de caja de un 10-Q son acumuladas del año (YTD); se
  *   guardan con sus fechas de inicio y fin para no confundirlas con trimestres.
  */
@@ -41,7 +48,8 @@ export type ConceptKind = "money" | "perShare" | "shares";
 export type PeriodType = "duration" | "instant";
 
 export interface TagRef {
-  taxonomy: "us-gaap" | "ifrs-full" | "dei";
+  /** "ext": extensión propia de la empresa (prefijo «ext» en su ESEF), solo para casos documentados abajo. */
+  taxonomy: "us-gaap" | "ifrs-full" | "dei" | "ext";
   tag: string;
 }
 
@@ -56,6 +64,7 @@ export interface ConceptDef {
 const g = (tag: string): TagRef => ({ taxonomy: "us-gaap", tag });
 const i = (tag: string): TagRef => ({ taxonomy: "ifrs-full", tag });
 const d = (tag: string): TagRef => ({ taxonomy: "dei", tag });
+const x = (tag: string): TagRef => ({ taxonomy: "ext", tag });
 
 export const CONCEPTS: ConceptDef[] = [
   // Cuenta de resultados
@@ -66,6 +75,9 @@ export const CONCEPTS: ConceptDef[] = [
     period: "duration",
     tags: [
       g("Revenues"),
+      // Bancos y financieras (p. ej. American Express): el total es neto de intereses;
+      // su RevenueFromContractWithCustomer… es solo una parte (las comisiones)
+      g("RevenuesNetOfInterestExpense"),
       g("RevenueFromContractWithCustomerExcludingAssessedTax"),
       g("RevenueFromContractWithCustomerIncludingAssessedTax"),
       g("SalesRevenueNet"),
@@ -73,6 +85,9 @@ export const CONCEPTS: ConceptDef[] = [
       i("Revenue"),
       i("RevenueFromContractsWithCustomers"),
       i("RevenueFromSaleOfGoods"),
+      // Bancos italianos (UniCredit): «margine di intermediazione», renglón 120 del
+      // formato del Banco de Italia = margen de intereses + comisiones netas + negociación + dividendos
+      x("GrossIncome"),
     ],
   },
   {
@@ -197,7 +212,15 @@ export const CONCEPTS: ConceptDef[] = [
     label: "Patrimonio neto",
     kind: "money",
     period: "instant",
-    tags: [g("StockholdersEquity"), g("StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest"), i("EquityAttributableToOwnersOfParent"), i("Equity")],
+    tags: [
+      g("StockholdersEquity"),
+      g("StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest"),
+      i("EquityAttributableToOwnersOfParent"),
+      i("Equity"),
+      // UniCredit no usa las etiquetas NIIF del patrimonio, sino las suyas
+      x("TotalEquityAttributableToOwnersOfParent"),
+      x("TotalEquity"),
+    ],
   },
 
   // Acciones

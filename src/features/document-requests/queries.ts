@@ -2,11 +2,11 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClaudeClient } from "@/data/claude/client";
 import { deleteUpload, resolveDocumentRequest } from "@/db/repo";
 import { aiSpendKey } from "@/features/ai/queries";
-import { requireApi } from "@/features/ai/mode";
+import { apiReady, requireApi } from "@/features/ai/mode";
 import { appDb } from "@/platform/database";
 import { deleteDocumentFile, readEsefReport, readPdf, storeDocument } from "@/platform/documents";
-import { secrets } from "@/platform/secrets";
 import { extractPdfFacts, type ExtractResult } from "./extract-pdf";
+import { buildManualPdfPrompt, saveManualPdf } from "./manual-pdf";
 import { readUploadedEsef } from "./read-esef";
 import { registerUpload, type UploadForm } from "./upload";
 
@@ -63,7 +63,8 @@ export function useUploadDocument(securityId: number) {
     mutationFn: async ({ form, file }: { form: UploadForm; file: File }): Promise<UploadOutcome> => {
       const stored = await storeDocument(securityId, file);
       const filingId = await registerUpload(await appDb(), form, file, stored);
-      if (stored.kind === "pdf" && !(await secrets.has("anthropic_api_key"))) return { filingId, extraction: null, extractionError: null };
+      // Un PDF solo se lee solo en el modo API con clave; si no, se lee desde la lista (claude.ai) o queda guardado
+      if (stored.kind === "pdf" && !(await apiReady())) return { filingId, extraction: null, extractionError: null };
       try {
         return { filingId, extraction: await readUpload(securityId, { id: filingId, local_path: stored.path }), extractionError: null };
       } catch (e) {
@@ -80,6 +81,19 @@ export function useReadUpload(securityId: number) {
     mutationFn: ({ filing, ...opts }: { filing: { id: number; local_path: string | null }; force?: boolean; allowOverBudget?: boolean }) =>
       readUpload(securityId, filing, opts),
     onSettled: invalidate,
+  });
+}
+
+/** Modo manual: texto para claude.ai con las instrucciones y el esquema de las cifras de un PDF. */
+export function useManualPdfPrompt(securityId: number) {
+  return useMutation({ mutationFn: async (filingId: number) => buildManualPdfPrompt(await appDb(), securityId, filingId) });
+}
+
+export function useSaveManualPdf(securityId: number) {
+  const invalidate = useInvalidate(securityId);
+  return useMutation({
+    mutationFn: async ({ filingId, answer }: { filingId: number; answer: string }) => saveManualPdf({ db: await appDb(), readPdf }, securityId, filingId, answer),
+    onSuccess: invalidate,
   });
 }
 

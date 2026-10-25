@@ -78,7 +78,57 @@ test("sube un informe en PDF y lo lista", async ({ page }) => {
   // Un archivo que no es PDF ni ZIP se rechaza antes de enviarlo
   await page.getByRole("button", { name: "Subir informe" }).click();
   await page.getByLabel("Archivo del informe").setInputFiles({ name: "notas.txt", mimeType: "text/plain", buffer: Buffer.from("hola") });
-  await expect(page.getByRole("alert")).toContainText("Solo PDF o ZIP");
+  await expect(page.getByRole("alert")).toContainText("Solo PDF o paquete ESEF");
+  // Sin fecha, el botón explica qué falta; un paquete .xbri trae el cierre en su nombre
+  const again = page.getByRole("region", { name: "Subir informe" });
+  await again.getByLabel("Archivo del informe").setInputFiles({ name: "informe.zip", mimeType: "application/zip", buffer: Buffer.from("PK\x03\x04 FICTICIO") });
+  await expect(again).toContainText("Falta la fecha de cierre");
+  await again.getByLabel("Archivo del informe").setInputFiles({ name: "fict-2025-12-31-1-fr.xbri", mimeType: "application/octet-stream", buffer: Buffer.from("PK\x03\x04 FICTICIO") });
+  await expect(again.getByLabel("Cierre del periodo que cubre")).toHaveValue("2025-12-31");
+  await expect(again.getByRole("button", { name: "Guardar informe" })).toBeEnabled();
+});
+
+test("modo manual: lee un semestral en PDF con claude.ai pegando la respuesta FICTICIA", async ({ page }) => {
+  const { aiMode: _mode, ...manual } = SETTINGS;
+  const { calls } = await installTauriMock(page, { settings: manual, secrets: ["prices_api_key"] });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/#/watchlist");
+  await page.getByLabel("Ticker o ISIN").fill("FICT");
+  await page.getByRole("button", { name: "Añadir" }).click();
+  await page.getByRole("link", { name: "FICT" }).click();
+
+  await page.getByRole("button", { name: "Subir informe" }).click();
+  const up = page.getByRole("region", { name: "Subir informe" });
+  await up.getByLabel("Archivo del informe").setInputFiles({ name: "Informe H1 2026.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.7 FICTICIO") });
+  await up.getByLabel("Tipo de informe").selectOption("half");
+  await up.getByLabel("Cierre del periodo que cubre").fill("2026-06-30");
+  await up.getByRole("button", { name: "Guardar informe" }).click();
+
+  const list = page.getByRole("region", { name: "Informes subidos" });
+  await expect(list).toContainText("cifras sin leer");
+  await list.getByRole("button", { name: "Leer con Claude.ai" }).click();
+  const panel = list.getByLabel("Leer Informe H1 2026.pdf con Claude.ai");
+  await expect(panel.getByLabel("Texto para Claude")).toHaveValue(/Te adjunto un informe en PDF[\s\S]*2026-06-30/);
+  await expect(panel.getByRole("button", { name: "Mostrar el PDF en el Finder" })).toBeVisible();
+  await shot(page, "27-pdf-manual");
+
+  // Respuesta FICTICIA (el PDF simulado tiene 2 páginas)
+  const answer = {
+    moneda: "USD",
+    tipo: "semestral",
+    periodo: { inicio: "2026-01-01", fin: "2026-06-30" },
+    cifras: [
+      { concepto: "revenue", valor: 640, escala: "millones", inicio: "2026-01-01", fin: "2026-06-30", pagina: 1, etiqueta: "Ventas (ficticio)" },
+      { concepto: "cash", valor: 210, escala: "millones", inicio: null, fin: "2026-06-30", pagina: 2, etiqueta: "Caja (ficticio)" },
+    ],
+    notas: "",
+  };
+  await panel.getByLabel("Respuesta de Claude").fill(JSON.stringify(answer));
+  await panel.getByRole("button", { name: "Guardar", exact: true }).click();
+  await expect(panel).toBeHidden();
+  await expect(list).toContainText("2 cifras leídas");
+  await expect(list.getByRole("button", { name: "Volver a leer con Claude.ai" })).toBeVisible();
+  expect(calls).not.toContain("claude_request");
 });
 
 test("sin nombre y email para la SEC no busca acciones de EE. UU. y lo explica", async ({ page }) => {
@@ -223,12 +273,12 @@ test("modo Claude.ai manual (por defecto): copiar, pegar la respuesta FICTICIA y
   await expect(panel.getByRole("link", { name: /Abrir claude.ai/ })).toHaveAttribute("href", "https://claude.ai/new");
 
   await panel.getByLabel("Respuesta de Claude").fill("No puedo ayudarte con eso");
-  await panel.getByRole("button", { name: "Guardar análisis" }).click();
+  await panel.getByRole("button", { name: "Guardar", exact: true }).click();
   await expect(panel.getByRole("alert")).toContainText("No encuentro el JSON");
   await shot(page, "26-ia-manual");
 
   await panel.getByLabel("Respuesta de Claude").fill("```json\n" + JSON.stringify(FAKE_ANALYSIS) + "\n```");
-  await panel.getByRole("button", { name: "Guardar análisis" }).click();
+  await panel.getByRole("button", { name: "Guardar", exact: true }).click();
   await expect(panel).toBeHidden();
   await expect(ia).toContainText("Redactado en claude.ai (copiado a mano)");
   await expect(ia).toContainText(FAKE_ANALYSIS.veredicto.resumen);

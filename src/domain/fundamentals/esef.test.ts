@@ -89,3 +89,17 @@ describe("informes ESEF (xBRL-JSON) — datos ficticios", () => {
     ]);
   });
 });
+
+describe("etiquetas propias de la empresa en el xBRL-JSON (FICTICIO)", () => {
+  it("se guardan con el prefijo común «ext» aunque cada año usen otro", () => {
+    const fact = (concept: string, value: string) => ({ value, decimals: "-6", dimensions: { concept, entity: "scheme:FICTICIO", period: "2024-01-01T00:00:00/2025-01-01T00:00:00", unit: "iso4217:EUR" } });
+    const doc = {
+      documentInfo: { documentType: "https://xbrl.org/2021/xbrl-json", namespaces: { uc24: "https://www.banco-ficticio.example/esef/2024-12-31", "ifrs-full": "https://xbrl.ifrs.org/taxonomy/2023-03-23/ifrs-full" } },
+      facts: { a: fact("uc24:GrossIncome", "24270000000"), b: fact("ifrs-full:ProfitLoss", "9774000000") },
+    };
+    const target = emptyFacts("FICTICIO", "BANCO FICTICIO");
+    addXbrlJson(target, doc, { accession: "FICTICIO-2024", filed: "2025-03-01" });
+    expect(target.facts.ext?.GrossIncome?.units.EUR?.[0]).toMatchObject({ end: "2024-12-31", val: 24_270_000_000 });
+    expect(target.facts["ifrs-full"]?.ProfitLoss).toBeDefined();
+  });
+});

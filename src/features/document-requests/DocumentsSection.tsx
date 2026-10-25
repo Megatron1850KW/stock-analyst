@@ -1,15 +1,17 @@
 import { ExternalLink as ExternalIcon, FileText, FolderOpen, Inbox, Sparkles, Trash2, Upload } from "lucide-react";
 import { ExternalLink } from "@/components/ui/external-link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { DocumentRequestRow, FactRow, FilingRow } from "@/db/repo";
 import { BudgetExceededError } from "@/features/ai/budget";
 import { formatDate, formatNumber } from "@/lib/format";
 import { formLabel } from "@/features/watchlist/ficha/format";
-import { openDocument } from "@/platform/documents";
+import { ClaudeAiSteps } from "@/features/ai/ManualAnalysisPanel";
+import { useSettings } from "@/features/settings/queries";
+import { openDocument, revealDocument } from "@/platform/documents";
 import { monthText } from "./missing";
-import { useDeleteUpload, useDismissRequest, useReadUpload } from "./queries";
+import { useDeleteUpload, useDismissRequest, useManualPdfPrompt, useReadUpload, useSaveManualPdf } from "./queries";
 import { UploadPanel } from "./UploadPanel";
 
 /** Las direcciones web de la solicitud se pueden pulsar (se abren en tu navegador). */
@@ -36,6 +38,39 @@ function RequestCard({ r, name, onUpload, onDismiss }: { r: DocumentRequestRow; 
         </Button>
       </div>
     </li>
+  );
+}
+
+/** Un ZIP ESEF se lee sin IA ni coste: se puede volver a leer cuando mejora la lectura. */
+const isZip = (f: { local_path: string | null }) => !!f.local_path?.toLowerCase().endsWith(".zip");
+
+/** Modo manual: cifras de un PDF con claude.ai (adjuntando el PDF) y pegando la respuesta. */
+function ManualPdfPanel({ securityId, filing, onDone }: { securityId: number; filing: FilingRow; onDone: () => void }) {
+  const prompt = useManualPdfPrompt(securityId);
+  const save = useSaveManualPdf(securityId);
+  const { mutate } = prompt;
+  useEffect(() => mutate(filing.id), [mutate, filing.id]);
+  if (prompt.error) return <p role="alert" className="text-[12.5px] text-negative-text">{prompt.error.message}</p>;
+  if (!prompt.data) return <div className="h-24 animate-pulse rounded-xl bg-surface" aria-busy />;
+  return (
+    <ClaudeAiSteps
+      label={`Leer ${filing.original_name ?? "PDF"} con Claude.ai`}
+      text={prompt.data}
+      textHint="Lleva las instrucciones y la lista de cifras que necesita la app."
+      attach={
+        <p className="mt-1 text-[12.5px]">
+          Adjunta el PDF con el botón <strong>+</strong> de claude.ai o arrastrándolo.{" "}
+          <button type="button" className="text-accent-text hover:underline" onClick={() => filing.local_path && void revealDocument(filing.local_path)}>
+            Mostrar el PDF en el Finder
+          </button>
+          . Si tiene cientos de páginas, puede que el plan gratuito no lo lea entero: en ese caso, guarda solo las páginas de los estados financieros.
+        </p>
+      }
+      saving={save.isPending}
+      error={save.error}
+      onSave={(answer) => save.mutate({ filingId: filing.id, answer }, { onSuccess: onDone })}
+      onCancel={onDone}
+    />
   );
 }
 
@@ -72,6 +107,8 @@ export function DocumentsSection({
     );
   }
   const [uploading, setUploading] = useState<{ request: DocumentRequestRow | null } | null>(null);
+  const [manualPdf, setManualPdf] = useState<number | null>(null);
+  const aiMode = useSettings().data?.aiMode ?? "manual";
   const del = useDeleteUpload(securityId);
   const dismiss = useDismissRequest(securityId);
   const pending = requests.filter((r) => r.status === "pending");
@@ -131,10 +168,19 @@ export function DocumentsSection({
                       : "cifras sin leer"}
                   </p>
                 </div>
-                {!factsBy.get(f.id) && f.local_path && (
-                  <Button size="sm" variant="secondary" disabled={read.isPending} onClick={() => readFiling(f)}>
+                {!isZip(f) && aiMode === "manual" && f.local_path && (
+                  <Button size="sm" variant="secondary" disabled={manualPdf === f.id} onClick={() => setManualPdf(f.id)}>
+                    <Sparkles aria-hidden /> {factsBy.get(f.id) ? "Volver a leer con Claude.ai" : "Leer con Claude.ai"}
+                  </Button>
+                )}
+                {(isZip(f) || (!factsBy.get(f.id) && aiMode === "api")) && f.local_path && (
+                  <Button size="sm" variant="secondary" disabled={read.isPending} onClick={() => readFiling(f, !!factsBy.get(f.id))}>
                     <Sparkles aria-hidden />
-                    {read.isPending && read.variables?.filing.id === f.id ? "Leyendo…" : f.local_path.toLowerCase().endsWith(".zip") ? "Leer cifras" : "Leer cifras con IA"}
+                    {read.isPending && read.variables?.filing.id === f.id
+                      ? "Leyendo…"
+                      : isZip(f)
+                        ? factsBy.get(f.id) ? "Volver a leer" : "Leer cifras"
+                        : "Leer cifras con IA"}
                   </Button>
                 )}
                 {f.local_path && (
@@ -155,6 +201,15 @@ export function DocumentsSection({
               </li>
             ))}
           </ul>
+          {manualPdf !== null &&
+            (() => {
+              const f = uploads.find((u) => u.id === manualPdf);
+              return f ? (
+                <div className="mt-3">
+                  <ManualPdfPanel key={f.id} securityId={securityId} filing={f} onDone={() => setManualPdf(null)} />
+                </div>
+              ) : null;
+            })()}
         </section>
       )}
 

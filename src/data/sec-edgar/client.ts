@@ -17,6 +17,8 @@ export interface SecClient {
   submissions(cik: string): Promise<Submissions>;
   submissionsFile(name: string): Promise<FilingColumns>;
   companyFacts(cik: string): Promise<CompanyFacts>;
+  /** HTML de un informe (se guarda en el Mac la primera vez). Opcional en los tests. */
+  document?(url: string): Promise<string>;
 }
 
 export class SecFormatError extends Error {
@@ -48,6 +50,7 @@ export function tauriSecClient(userAgent: string): SecClient {
     submissionsFile: async (file) =>
       parse(filingColumnsSchema, await fetchRaw("submissions_file", { file }), "la lista de informes antiguos"),
     companyFacts: async (cik) => parse(companyFactsSchema, await fetchRaw("company_facts", { cik }), "los datos XBRL"),
+    document: async (url) => (await fetchSecDocument(url, userAgent)).html,
   };
 }
 

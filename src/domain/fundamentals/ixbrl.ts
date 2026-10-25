@@ -14,6 +14,8 @@ import type { XbrlJson } from "@/data/esef/schemas";
 const IX = "http://www.xbrl.org/2013/inlineXBRL";
 const XBRLI = "http://www.xbrl.org/2003/instance";
 const IFRS_NS = /xbrl\.ifrs\.org\/taxonomy\/[\d-]+\/ifrs-full/;
+/** US-GAAP, dei de la SEC y demás taxonomías estándar: se conserva su prefijo. */
+const STANDARD_NS = /fasb\.org|xbrl\.sec\.gov|xbrl\.ifrs\.org|xbrl\.org\//i;
 
 const text = (el: Element | null | undefined) => (el?.textContent ?? "").trim();
 const children = (el: Element, ns: string, name: string) => Array.from(el.getElementsByTagNameNS(ns, name));
@@ -59,11 +61,23 @@ function canonicalMeasure(unit: string, el: Element): string {
     .join("/");
 }
 
+/** Marca de los hechos desglosados solo por «acciones de clase A» (ver addClassAEps en esef.ts). */
+export const CLASS_A_DIMENSION = "xbrl:clase";
+
+/** ¿El contexto es solo «acciones ordinarias de clase A»? (Visa, Alphabet antes de 2022…) */
+function isOnlyClassA(ctx: Element): boolean {
+  const members = Array.from(ctx.getElementsByTagNameNS("*", "explicitMember"));
+  const typed = ctx.getElementsByTagNameNS("*", "typedMember").length;
+  if (members.length !== 1 || typed > 0) return false;
+  const local = (q: string | null) => (q ?? "").split(":").pop() ?? "";
+  return local(members[0]!.getAttribute("dimension")) === "StatementClassOfStockAxis" && local(text(members[0]!)) === "CommonClassAMember";
+}
+
 export function parseIxbrl(xhtml: string): XbrlJson {
   const doc = new DOMParser().parseFromString(xhtml, "application/xhtml+xml");
   if (doc.getElementsByTagName("parsererror").length > 0) throw new Error("El informe del ZIP no es un XHTML válido.");
 
-  const contexts = new Map<string, { entity: string; period: string; dimensional: boolean }>();
+  const contexts = new Map<string, { entity: string; period: string; dimensional: boolean; classA: boolean }>();
   for (const ctx of children(doc.documentElement, XBRLI, "context")) {
     const id = ctx.getAttribute("id");
     if (!id) continue;
@@ -73,7 +87,7 @@ export function parseIxbrl(xhtml: string): XbrlJson {
     const end = text(ctx.getElementsByTagNameNS(XBRLI, "endDate")[0]);
     const period = instant || (start && end ? `${start}/${end}` : "");
     const dimensional = ctx.getElementsByTagNameNS(XBRLI, "segment").length > 0 || ctx.getElementsByTagNameNS(XBRLI, "scenario").length > 0;
-    if (period) contexts.set(id, { entity: `scheme:${entity}`, period, dimensional });
+    if (period) contexts.set(id, { entity: `scheme:${entity}`, period, dimensional, classA: dimensional && isOnlyClassA(ctx) });
   }
   const units = new Map<string, string>();
   for (const u of children(doc.documentElement, XBRLI, "unit")) {
@@ -96,9 +110,11 @@ export function parseIxbrl(xhtml: string): XbrlJson {
     const value = base * 10 ** scale * (el.getAttribute("sign") === "-" ? -1 : 1);
     const [prefix, local] = name.split(":");
     const ns = el.lookupNamespaceURI(prefix ?? null) ?? "";
-    const concept = IFRS_NS.test(ns) ? `ifrs-full:${local}` : name;
+    // Extensión propia de la empresa: prefijo común «ext» (ver esef.ts)
+    const concept = IFRS_NS.test(ns) ? `ifrs-full:${local}` : STANDARD_NS.test(ns) ? name : `ext:${local}`;
     const dimensions: Record<string, string> = { concept, entity: ctx.entity, period: ctx.period, unit };
-    if (ctx.dimensional) dimensions["xbrl:segment"] = "desglose";
+    if (ctx.classA) dimensions[CLASS_A_DIMENSION] = "A";
+    else if (ctx.dimensional) dimensions["xbrl:segment"] = "desglose";
     facts[`ix-${k++}`] = { value: String(value), decimals: el.getAttribute("decimals"), dimensions };
   }
   return { documentInfo: { documentType: "inline-xbrl", namespaces: {} }, facts };

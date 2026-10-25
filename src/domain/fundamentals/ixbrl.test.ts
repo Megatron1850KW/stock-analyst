@@ -57,6 +57,7 @@ describe("informes ESEF subidos en ZIP (Inline XBRL ficticio)", () => {
     expect(v("cash")).toBe(0);
     expect(n.facts.find((f) => f.concept === "eps_diluted")).toMatchObject({ value: 0.45, unit: "EUR/shares" });
     expect(n.facts.filter((f) => f.concept === "revenue")).toHaveLength(1);
-    expect(facts.facts.fic?.OtroResultado?.units.EUR?.[0]?.val).toBe(-1_000_000);
+    // La extensión propia de la empresa se guarda con el prefijo común «ext»
+    expect(facts.facts.ext?.OtroResultado?.units.EUR?.[0]?.val).toBe(-1_000_000);
   });
 });
