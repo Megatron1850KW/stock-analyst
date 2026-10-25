@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { recommend, trendFromCloses, type RecommendationInput } from "./recommendation";
+import { recommend, roomToMaxEur, trendFromCloses, type RecommendationInput } from "./recommendation";
 
 const base: RecommendationInput = {
   kind: "stock",
@@ -71,5 +71,18 @@ describe("recommend (§8.4)", () => {
   it("media de 10 meses", () => {
     expect(trendFromCloses([1, 2, 3])).toBeNull();
     expect(trendFromCloses([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])).toEqual({ price: 10, average: 5.5 });
+  });
+});
+
+describe("margen hasta el peso máximo (datos FICTICIOS)", () => {
+  it("lo que se puede añadir sin pasar del 15 %", () => {
+    // Cartera de 10.000 € sin la posición: 1.764,71 € dejan la posición en el 15 %
+    const x = roomToMaxEur(10_000, 0, 0.15);
+    expect(x / (10_000 + x)).toBeCloseTo(0.15, 10);
+    // Ya tiene 1.000 € de 10.000 €
+    const y = roomToMaxEur(10_000, 1_000, 0.15);
+    expect((1_000 + y) / (10_000 + y)).toBeCloseTo(0.15, 10);
+    expect(roomToMaxEur(10_000, 2_000, 0.15)).toBe(0);
+    expect(roomToMaxEur(0, 0, 0.15)).toBe(0);
   });
 });

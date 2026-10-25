@@ -18,6 +18,10 @@ export interface PriceRange52 {
   position: number;
   /** Distancia al máximo (−0,12 = un 12 % por debajo). */
   fromHigh: number;
+  /** Media de los cierres semanales de las últimas 52 semanas. */
+  average: number;
+  /** Precio de hoy frente a esa media (0,06 = un 6 % por encima). */
+  vsAverage: number;
 }
 
 export interface PriceStats {
@@ -44,7 +48,15 @@ export function priceStats(weekly: WeeklyBar[], price: { value: number; date: st
   if (year.length >= MIN_WEEKS) {
     const low = Math.min(price.value, ...year.map((b) => b.low ?? b.close));
     const high = Math.max(price.value, ...year.map((b) => b.high ?? b.close));
-    range52 = { low, high, position: high > low ? (price.value - low) / (high - low) : 1, fromHigh: price.value / high - 1 };
+    const average = year.reduce((a, b) => a + b.close, 0) / year.length;
+    range52 = {
+      low,
+      high,
+      position: high > low ? (price.value - low) / (high - low) : 1,
+      fromHigh: price.value / high - 1,
+      average,
+      vsAverage: price.value / average - 1,
+    };
   }
 
   const jan1 = `${price.date.slice(0, 4)}-01-01`;

@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowLeft, CandlestickChart, FileUp, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowDownRight, ArrowLeft, ArrowUpRight, CandlestickChart, FileUp, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { DISCLAIMER } from "@/app/Disclaimer";
@@ -8,10 +8,92 @@ import { ExternalLink } from "@/components/ui/external-link";
 import { countryName } from "@/domain/portfolio/sector";
 import { FundSheetDialog } from "@/features/portfolio/FundSheetDialog";
 import { RiskBadge } from "@/features/technical-risk/RiskBadge";
+import { ActionBadge, WeightBar } from "@/features/portfolio/PositionCard";
+import { Range52, YearToDate } from "@/features/prices/PriceStatsCells";
 import { formatCurrency, formatDate, formatPercent, SIN_DATO } from "@/lib/format";
+import type { WatchlistFund } from "./load-funds";
 import { EXCHANGE_NAMES } from "./import-eu";
 import { justEtfUrl } from "./import-fund";
 import { useRemoveSecurity, useWatchlistFunds } from "./queries";
+
+/** Precio de hoy frente a su media del último año, su rango y lo que va de año. */
+function PriceSection({ f }: { f: WatchlistFund }) {
+  const r = f.stats.range52;
+  const above = r ? r.vsAverage >= 0 : false;
+  return (
+    <section aria-label="Precio del último año" className="rounded-[var(--radius-card)] border border-border bg-surface-raised p-5 shadow-card">
+      <h2 className="font-serif text-[19px] font-semibold tracking-tight">Precio del último año</h2>
+      {!f.price && <p className="mt-2 text-[13.5px] text-muted">Todavía no tiene precio. Pulsa «Actualizar precios» (⌘R).</p>}
+      {f.price && !r && (
+        <p className="mt-2 text-[13.5px] text-muted">Hoy cotiza a {formatCurrency(f.price.close, f.currency)}. Hacen falta al menos 40 semanas de precios para compararlo con su último año.</p>
+      )}
+      {f.price && r && (
+        <>
+          <p className="mt-2 flex items-start gap-2 text-[13.5px] leading-relaxed">
+            {above ? <ArrowUpRight className="mt-0.5 size-4 shrink-0 text-warning-text" aria-hidden /> : <ArrowDownRight className="mt-0.5 size-4 shrink-0 text-positive-text" aria-hidden />}
+            <span>
+              Hoy cotiza a <strong className="tabular">{formatCurrency(f.price.close, f.currency)}</strong>,{" "}
+              {Math.abs(r.vsAverage) < 0.005 ? (
+                <>igual que su precio medio del último año</>
+              ) : (
+                <>
+                  un <strong className="tabular">{formatPercent(Math.abs(r.vsAverage), 1)}</strong> {above ? "por encima" : "por debajo"} de su precio medio del último año
+                </>
+              )}{" "}
+              (<span className="tabular">{formatCurrency(r.average, f.currency)}</span>).
+            </span>
+          </p>
+          <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-[13px]">
+            <div>
+              <dt className="text-muted">Rango de 52 semanas</dt>
+              <dd className="mt-1"><Range52 stats={f.stats} currency={f.currency} /></dd>
+              <dd className="mt-0.5 text-[11.5px] text-muted tabular">{formatCurrency(r.low, f.currency)} – {formatCurrency(r.high, f.currency)}</dd>
+            </div>
+            <div>
+              <dt className="text-muted">En lo que va de año</dt>
+              <dd className="mt-1"><YearToDate stats={f.stats} currency={f.currency} /></dd>
+            </div>
+          </dl>
+          <p className="mt-3 text-[11.5px] text-muted">Media de los cierres semanales de las últimas 52 semanas, guardados en tu Mac. Precio del {formatDate(f.price.date)}.</p>
+        </>
+      )}
+    </section>
+  );
+}
+
+/** Peso en tu cartera, cuánto puedes añadir sin pasar del máximo y la recomendación. */
+function PortfolioSection({ f }: { f: WatchlistFund }) {
+  const fit = f.fit;
+  const label = f.kind === "etc" ? "ETC" : "ETF";
+  return (
+    <section aria-label="En tu cartera" className="rounded-[var(--radius-card)] border border-border bg-surface-raised p-5 shadow-card">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="font-serif text-[19px] font-semibold tracking-tight">En tu cartera</h2>
+        {fit && <ActionBadge action={fit.recommendation.action} label={!f.held && fit.recommendation.action === "Comprar más" ? "Comprar" : undefined} />}
+      </div>
+      {!fit && (
+        <p className="mt-2 text-[13.5px] text-muted">
+          Cuando registres tus operaciones en <Link to="/portfolio" className="underline underline-offset-2">Mi Portfolio</Link>, aquí verás cuánto pesa este {label}, cuánto puedes añadir sin desequilibrar tu cartera y si conviene comprar más.
+        </p>
+      )}
+      {fit && (
+        <>
+          <div className="mt-3">
+            {f.held ? <WeightBar weight={fit.weight} /> : <p className="text-[13px] text-muted">Aún no lo tienes en cartera.</p>}
+          </div>
+          {fit.roomEur > 0 && (
+            <p className="mt-3 text-[13.5px] leading-relaxed">
+              Puedes {f.held ? "añadir" : "comprar"} hasta <strong className="tabular">{formatCurrency(fit.roomEur, "EUR", 0)}</strong> sin que pase del {formatPercent(fit.maxPosition, 0)} de tu cartera ({formatCurrency(fit.totalEur, "EUR", 0)}).
+            </p>
+          )}
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-[12.5px] text-muted">
+            {fit.recommendation.reasons.map((x) => <li key={x}>{x}</li>)}
+          </ul>
+        </>
+      )}
+    </section>
+  );
+}
 
 /** Ficha de un ETF/ETC de la watchlist (§5.5): sin estados financieros, solo su ficha, su coste y su tendencia. */
 export function FundDetailPage() {
@@ -103,10 +185,13 @@ export function FundDetailPage() {
             <Link to="/riesgo-tecnico"><CandlestickChart aria-hidden /> Ver sus velas</Link>
           </Button>
         </section>
+
+        <PriceSection f={f} />
+        <PortfolioSection f={f} />
       </div>
 
       <p className="mt-5 text-[12px] text-muted">
-        Los {label} no tienen informes de empresa: no hay análisis de estados financieros. La recomendación de comprar más o mantener solo se da para lo que tienes en cartera. {DISCLAIMER}
+        Los {label} no tienen informes de empresa: no hay análisis de estados financieros. La recomendación solo mira el equilibrio de tu cartera y la tendencia de fondo del precio. {DISCLAIMER}
       </p>
       <FundSheetDialog h={sheet ? { row: { id: f.id, ticker: f.ticker, name: f.name, kind: f.kind, isin: f.isin }, fund: f.fund } : null} onClose={() => setSheet(false)} />
     </div>

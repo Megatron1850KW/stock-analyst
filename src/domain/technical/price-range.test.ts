@@ -21,6 +21,13 @@ describe("rango de 52 semanas y año en curso", () => {
     expect(s.range52!.fromHigh).toBeCloseTo(150 / (179 * 1.02) - 1, 5);
   });
 
+  it("compara el precio con su media de las últimas 52 semanas", () => {
+    const s = priceStats(bars, { value: 150, date: "2026-10-24" });
+    // Cierres de las velas 28 a 79 (128…179): media 153,5
+    expect(s.range52!.average).toBeCloseTo(153.5, 5);
+    expect(s.range52!.vsAverage).toBeCloseTo(150 / 153.5 - 1, 10);
+  });
+
   it("compara con el último cierre de diciembre", () => {
     const s = priceStats(bars, { value: 179, date: "2026-10-24" });
     expect(s.ytdBase!.date < "2026-01-01").toBe(true);
