@@ -7,6 +7,7 @@ import { tauriSecClient } from "@/data/sec-edgar/client";
 import { deleteTransaction, insertTransaction, setSecurityClassification, type TransactionInput } from "@/db/portfolio-repo";
 import { getFxRates, isTracked, removeFromWatchlist, saveFxRates } from "@/db/repo";
 import { FxTable, majorUnit } from "@/domain/portfolio/fx";
+import { requireApi } from "@/features/ai/mode";
 import { aiSpendKey, startInitialAnalysis } from "@/features/ai/queries";
 import { AiAnalysisError } from "@/features/ai/equity-analysis";
 import { refreshFx } from "@/features/fx/refresh";
@@ -16,7 +17,6 @@ import { secUserAgent } from "@/features/settings/schema";
 import type { ImportStep } from "@/features/watchlist/import-us";
 import { appDb } from "@/platform/database";
 import { readPdf, storeDocument } from "@/platform/documents";
-import { secrets } from "@/platform/secrets";
 import { loadSettings } from "@/platform/settings-store";
 import { findOrImportHolding, type HoldingKind } from "./add-holding";
 import { extractFundProfile, saveFundProfileEdit, type FundProfile } from "./fund-profile";
@@ -128,8 +128,7 @@ export function useUploadFundSheet(securityId: number) {
   return useMutation({
     mutationFn: async ({ file, allowOverBudget }: { file: File; allowOverBudget?: boolean }) => {
       if (!/\.pdf$/i.test(file.name)) throw new AiAnalysisError("Sube la ficha o el KID en PDF.");
-      if (!(await secrets.has("anthropic_api_key"))) throw new AiAnalysisError("Falta la clave de Claude. Añádela en Ajustes para leer la ficha.");
-      const settings = await loadSettings();
+      const settings = await requireApi("Rellena tú los datos de la ficha.");
       const stored = await storeDocument(securityId, file);
       return extractFundProfile(
         { db: await appDb(), client: createClaudeClient(), readPdf, model: settings.aiModelExtraction, budgetEur: settings.aiMonthlyBudgetEur },

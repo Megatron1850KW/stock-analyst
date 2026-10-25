@@ -2,11 +2,10 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClaudeClient } from "@/data/claude/client";
 import { deleteUpload, resolveDocumentRequest } from "@/db/repo";
 import { aiSpendKey } from "@/features/ai/queries";
-import { AiAnalysisError } from "@/features/ai/equity-analysis";
+import { requireApi } from "@/features/ai/mode";
 import { appDb } from "@/platform/database";
 import { deleteDocumentFile, readEsefReport, readPdf, storeDocument } from "@/platform/documents";
 import { secrets } from "@/platform/secrets";
-import { loadSettings } from "@/platform/settings-store";
 import { extractPdfFacts, type ExtractResult } from "./extract-pdf";
 import { readUploadedEsef } from "./read-esef";
 import { registerUpload, type UploadForm } from "./upload";
@@ -24,8 +23,7 @@ function useInvalidate(securityId: number) {
 
 /** Lee con Claude las cifras de un PDF subido (una sola vez por archivo, salvo `force`). */
 export async function extractUpload(securityId: number, filingId: number, opts: { force?: boolean; allowOverBudget?: boolean } = {}): Promise<ExtractResult> {
-  if (!(await secrets.has("anthropic_api_key"))) throw new AiAnalysisError("Falta la clave de Claude. Añádela en Ajustes para leer las cifras del PDF.");
-  const settings = await loadSettings();
+  const settings = await requireApi("Sin la API, el PDF queda guardado pero sus cifras no se leen solas: si puedes, sube el informe en ZIP ESEF, que se lee sin IA.");
   return extractPdfFacts(
     { db: await appDb(), client: createClaudeClient(), readPdf, model: settings.aiModelExtraction, budgetEur: settings.aiMonthlyBudgetEur },
     securityId,

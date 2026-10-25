@@ -40,7 +40,9 @@ function invalidateAll(qc: QueryClient) {
 /** Analiza un informe nuevo: datos (determinista) y, después, la IA. */
 async function process(qc: QueryClient, reportId: number) {
   const d = await deps();
-  const out = await processNewReport({ ...d, analyze: (id) => analyzeSecurity(id) }, reportId);
+  // Sin la API (modo manual o sin IA) solo se ponen al día los datos; el texto lo pides tú en la ficha
+  const api = d.settings.aiMode === "api";
+  const out = await processNewReport({ ...d, analyze: (id) => (api ? analyzeSecurity(id) : Promise.resolve(null)) }, reportId);
   invalidateAll(qc);
   void qc.invalidateQueries({ queryKey: ["ai-analysis"] });
   void qc.invalidateQueries({ queryKey: ["ai-spend"] });
@@ -60,12 +62,16 @@ export async function runCheck(qc: QueryClient, force: boolean): Promise<CheckRe
     const result = await checkNewReports(d, { force });
     for (const r of result.found) {
       const auto = d.settings.newReportAction === "auto";
-      await notify(APP, `Ha salido el ${r.label} de ${r.ticker}. ${auto ? "Lo estoy analizando." : "¿Analizar ahora? Ábrelo en el Calendario."}`).catch(() => false);
+      await notify(APP, `Ha salido el ${r.label} de ${r.ticker}. ${auto ? "Lo estoy poniendo al día." : "¿Analizar ahora? Ábrelo en el Calendario."}`).catch(() => false);
       if (auto) {
         const [row] = (await listNewReports(d.db, true)).filter((x) => x.security_id === r.securityId && x.label === r.label);
         if (row) {
           const out = await process(qc, row.id).catch((e: unknown) => ({ aiError: e instanceof Error ? e.message : String(e) }));
-          await notify(APP, out.aiError ? `${r.ticker}: datos actualizados, pero el análisis con IA no se hizo (${out.aiError})` : `${r.ticker}: análisis del ${r.label} listo.`).catch(() => false);
+          const done =
+            d.settings.aiMode === "api"
+              ? `${r.ticker}: análisis del ${r.label} listo.`
+              : `${r.ticker}: cifras del ${r.label} al día.${d.settings.aiMode === "manual" ? " Para el texto del analista, usa «Analizar con Claude.ai» en su ficha." : ""}`;
+          await notify(APP, out.aiError ? `${r.ticker}: datos actualizados, pero el análisis con IA no se hizo (${out.aiError})` : done).catch(() => false);
         }
       }
     }

@@ -5,11 +5,10 @@ import { tauriSecClient } from "@/data/sec-edgar/client";
 import { removePeer } from "@/db/peers-repo";
 import { deleteIfUnused } from "@/db/repo";
 import { aiSpendKey } from "@/features/ai/queries";
-import { AiAnalysisError } from "@/features/ai/equity-analysis";
+import { apiReady, requireApi } from "@/features/ai/mode";
 import { secUserAgent } from "@/features/settings/schema";
 import { looksLikeIsin } from "@/features/watchlist/import-us";
 import { appDb } from "@/platform/database";
-import { secrets } from "@/platform/secrets";
 import { loadSettings } from "@/platform/settings-store";
 import { providersFor } from "@/features/prices/refresh";
 import { loadPeerGroup } from "./load";
@@ -36,7 +35,7 @@ async function syncDeps() {
  * descarga sus datos. Coste típico: unas décimas de céntimo con Haiku.
  */
 export async function findPeers(securityId: number, opts: { force?: boolean; allowOverBudget?: boolean } = {}): Promise<PeerSyncResult> {
-  if (!(await secrets.has("anthropic_api_key"))) throw new AiAnalysisError("Falta la clave de Claude. Añádela en Ajustes, o añade tú los competidores.");
+  await requireApi("Añade tú los competidores con su ticker o ISIN.");
   const { settings, db, sec, eu, prices } = await syncDeps();
   const { stored } = await proposePeers(
     { db, client: createClaudeClient(), tickers: sec ? sec.tickers : null, model: settings.aiModelExtraction, budgetEur: settings.aiMonthlyBudgetEur },
@@ -102,7 +101,7 @@ export function useRemovePeer(securityId: number) {
 /** Búsqueda inicial de competidores al dar de alta un valor (si hay clave). Corre en segundo plano. */
 export function startInitialPeers(qc: QueryClient, securityId: number): void {
   void (async () => {
-    if (!(await secrets.has("anthropic_api_key"))) return;
+    if (!(await apiReady())) return;
     const mutation = qc.getMutationCache().build(qc, {
       mutationKey: findKey(securityId),
       mutationFn: () => findPeers(securityId),

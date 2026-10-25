@@ -5,7 +5,7 @@ import { installTauriMock } from "./tauri-mock";
  * Datos REALES de la SEC guardados en tests/fixtures/sec (sin conexión). Los
  * precios son reales si existen en tests/fixtures/prices; si no, FICTICIOS.
  */
-const SETTINGS = { secUserAgentName: "Usuario Prueba", secUserAgentEmail: "prueba@example.com", priceProvider: "tiingo" };
+const SETTINGS = { aiMode: "api", secUserAgentName: "Usuario Prueba", secUserAgentEmail: "prueba@example.com", priceProvider: "tiingo" };
 const SCREENSHOTS = process.env.SCREENSHOT_DIR;
 
 test("MU y GOOG con datos reales de la SEC", async ({ page }) => {

@@ -66,14 +66,10 @@ export interface RunOptions {
   allowOverBudget?: boolean;
 }
 
-export interface RunDeps {
-  db: Db;
+export interface RunDeps extends PrepareDeps {
   client: Anthropic;
-  /** Descarga el HTML de un informe de la SEC. */
-  fetchDocument: (url: string) => Promise<string>;
   model: AnalysisModel;
   budgetEur: number;
-  prompt?: Prompt;
   now?: Date;
 }
 
@@ -114,8 +110,36 @@ export function buildUserMessage(summary: object, docs: AnalysisDocument[], exce
 
 const supportsServerFallback = (model: AnalysisModel) => model !== "claude-haiku-5-5";
 
-export async function runEquityAnalysis(deps: RunDeps, securityId: number, opts: RunOptions = {}): Promise<RunResult> {
-  const { db, client, model } = deps;
+export interface PrepareDeps {
+  db: Db;
+  /** Descarga el HTML de un informe de la SEC. */
+  fetchDocument: (url: string) => Promise<string>;
+  prompt?: Prompt;
+}
+
+/** Todo lo que se le da a la IA, listo para la API o para copiarlo en claude.ai. */
+export interface PreparedAnalysis {
+  securityId: number;
+  ticker: string;
+  name: string;
+  cacheKey: string;
+  prompt: Prompt;
+  filingIds: number[];
+  documents: AnalysisDocument[];
+  userMessage: string;
+  snapshot: AnalysisSnapshot;
+}
+
+/**
+ * Prepara el análisis: cifras calculadas + extractos de los informes. Si ya
+ * hay uno guardado para el mismo informe y prompt (y no se fuerza), lo devuelve.
+ */
+export async function prepareAnalysis(
+  deps: PrepareDeps,
+  securityId: number,
+  opts: { force?: boolean; limits?: Record<SectionId, number> } = {},
+): Promise<{ cached: AnalysisRow } | { prepared: PreparedAnalysis }> {
+  const { db } = deps;
   const prompt = deps.prompt ?? EQUITY_ANALYSIS_PROMPT;
   const detail = await loadSecurityDetail(db, securityId);
   if (!detail.security || !detail.analysis) throw new AiAnalysisError("Este valor ya no está guardado.");
@@ -127,7 +151,7 @@ export async function runEquityAnalysis(deps: RunDeps, securityId: number, opts:
   const key = cacheKey(security.ticker, newest.accession_no, prompt);
   if (!opts.force) {
     const cached = await getAnalysisByKey(db, key);
-    if (cached) return { status: "cached", row: cached };
+    if (cached) return { cached };
   }
 
   // Extractos de los informes (un fallo de descarga no impide el análisis: se indica)
@@ -138,7 +162,7 @@ export async function runEquityAnalysis(deps: RunDeps, securityId: number, opts:
     if (!f.url) doc.error = "Sin enlace al documento";
     else {
       try {
-        const list = extractSections(f.form_type, await deps.fetchDocument(f.url));
+        const list = extractSections(f.form_type, await deps.fetchDocument(f.url), opts.limits);
         excerpts.set(f.accession_no, list);
         doc.sections = list.map((e) => ({ section: e.section, truncated: e.truncated, fullLength: e.fullLength }));
         if (list.length === 0) doc.error = "No se reconocieron sus secciones";
@@ -154,7 +178,28 @@ export async function runEquityAnalysis(deps: RunDeps, securityId: number, opts:
     );
   }
 
-  const userMessage = buildUserMessage(numericSummary(security, detail.analysis), docs, excerpts);
+  return {
+    prepared: {
+      securityId,
+      ticker: security.ticker,
+      name: security.name,
+      cacheKey: key,
+      prompt,
+      filingIds: filings.map((f) => f.id),
+      documents: docs,
+      userMessage: buildUserMessage(numericSummary(security, detail.analysis), docs, excerpts),
+      snapshot: snapshotOf(detail.analysis),
+    },
+  };
+}
+
+export async function runEquityAnalysis(deps: RunDeps, securityId: number, opts: RunOptions = {}): Promise<RunResult> {
+  const { db, client, model } = deps;
+  const ready = await prepareAnalysis(deps, securityId, { force: opts.force });
+  if ("cached" in ready) return { status: "cached", row: ready.cached };
+  const { prepared } = ready;
+  const { prompt, userMessage, documents: docs } = prepared;
+  const key = prepared.cacheKey;
 
   // Presupuesto: se avisa antes de gastar
   const rate = await checkBudget(db, {
@@ -205,10 +250,10 @@ export async function runEquityAnalysis(deps: RunDeps, securityId: number, opts:
     throw new AiAnalysisError(`El análisis de la IA está incompleto (${problems.join(" ")}). No se ha guardado.`);
   }
 
-  const stored: StoredAnalysis = { analysis: checked.data, documents: docs, servedModel: response.model, costApprox: cost.approx, snapshot: snapshotOf(detail.analysis) };
+  const stored: StoredAnalysis = { analysis: checked.data, documents: docs, servedModel: response.model, costApprox: cost.approx, snapshot: prepared.snapshot };
   const analysisId = await saveAnalysis(db, {
     securityId,
-    filingIds: filings.map((f) => f.id),
+    filingIds: prepared.filingIds,
     cacheKey: key,
     model: response.model,
     promptVersion: prompt.key,

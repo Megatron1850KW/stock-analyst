@@ -9,6 +9,7 @@ import { ExternalLink } from "@/components/ui/external-link";
 import { Tooltip } from "@/components/ui/tooltip";
 import type { CalendarRow, NewReportRow } from "@/db/calendar-repo";
 import { useSettings } from "@/features/settings/queries";
+import type { Settings } from "@/features/settings/schema";
 import { cn } from "@/lib/cn";
 import { formatDate } from "@/lib/format";
 import { useCalendar, useCheckNow, useDismissReport, useProcessReport } from "./queries";
@@ -34,7 +35,7 @@ const parsePeriod = (r: CalendarRow): { label: string; basis: string } => {
   }
 };
 
-function NewReportCard({ r }: { r: NewReportRow }) {
+function NewReportCard({ r, aiMode }: { r: NewReportRow; aiMode: Settings["aiMode"] }) {
   const process = useProcessReport();
   const dismiss = useDismissReport();
   const busy = process.isPending || dismiss.isPending;
@@ -64,7 +65,12 @@ function NewReportCard({ r }: { r: NewReportRow }) {
           </Button>
         </div>
       </div>
-      <p className="mt-3 text-[11.5px] text-muted">Analizar vuelve a leer sus informes (sin coste) y escribe el análisis con IA, que sí tiene coste y respeta tu presupuesto mensual.</p>
+      <p className="mt-3 text-[11.5px] text-muted">
+        {aiMode === "api"
+          ? "Analizar vuelve a leer sus informes (sin coste) y escribe el análisis con IA, que sí tiene coste y respeta tu presupuesto mensual."
+          : "Analizar vuelve a leer sus informes y pone al día cifras e indicadores, sin IA y sin coste."}
+        {aiMode === "manual" && " Para el texto del analista, después pulsa «Analizar con Claude.ai» en su ficha."}
+      </p>
       {process.error && <p role="alert" className="mt-2 text-[12.5px] text-negative-text">{process.error.message}</p>}
     </li>
   );
@@ -112,7 +118,7 @@ export function CalendarPage() {
           {fresh.length > 0 && (
             <section aria-label="Informes nuevos">
               <h2 className="mb-3 font-serif text-[19px] font-semibold">Informes nuevos</h2>
-              <ul className="space-y-3">{fresh.map((r) => <NewReportCard key={r.id} r={r} />)}</ul>
+              <ul className="space-y-3">{fresh.map((r) => <NewReportCard key={r.id} r={r} aiMode={settings?.aiMode ?? "manual"} />)}</ul>
             </section>
           )}
 

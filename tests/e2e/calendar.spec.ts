@@ -5,7 +5,7 @@ import { installTauriMock } from "./tauri-mock";
  * Calendario y aviso de informe nuevo con la SEC FICTICIA (tests/fixtures/ficticio):
  * tras el alta, la SEC ficticia «publica» el 10-Q de Q3 2026 de FICT.
  */
-const SETTINGS = { secUserAgentName: "Usuario Prueba", secUserAgentEmail: "prueba@example.com", priceProvider: "tiingo" };
+const SETTINGS = { aiMode: "api", secUserAgentName: "Usuario Prueba", secUserAgentEmail: "prueba@example.com", priceProvider: "tiingo" };
 const SCREENSHOTS = process.env.SCREENSHOT_DIR;
 
 async function shot(page: Page, name: string, fullPage = false) {
