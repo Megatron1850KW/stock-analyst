@@ -32,9 +32,11 @@ openssl req -x509 -newkey rsa:2048 -nodes -days 3650 -config "$TMP/cert.cnf" \
   -keyout "$TMP/key.pem" -out "$TMP/cert.pem" 2>/dev/null
 # Contraseña de un solo uso para el paso de importación (se borra con la carpeta temporal)
 PASS="$(openssl rand -hex 16)"
-LEGACY=""
-openssl version | grep -q "^OpenSSL 3" && LEGACY="-legacy"
-openssl pkcs12 -export $LEGACY -inkey "$TMP/key.pem" -in "$TMP/cert.pem" \
+# El Llavero solo acepta PKCS12 con cifrado 3DES y comprobación SHA-1; OpenSSL 3
+# (p. ej. el de Homebrew) usa por defecto AES y SHA-256, así que se fijan a mano.
+P12_OPTS="-keypbe PBE-SHA1-3DES -certpbe PBE-SHA1-3DES -macalg sha1"
+openssl version | grep -q "^OpenSSL 3" && P12_OPTS="-legacy $P12_OPTS"
+openssl pkcs12 -export $P12_OPTS -inkey "$TMP/key.pem" -in "$TMP/cert.pem" \
   -name "$NAME" -out "$TMP/id.p12" -passout "pass:$PASS"
 security import "$TMP/id.p12" -k "$KEYCHAIN" -P "$PASS" -T /usr/bin/codesign >/dev/null
 # Confiar en el certificado solo para firmar código (macOS pide la contraseña del Mac una vez)
