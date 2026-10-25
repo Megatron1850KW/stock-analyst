@@ -34,6 +34,8 @@ export interface SecurityInfo {
   currency: string;
   sector: string | null;
   country: string | null;
+  /** ETC o ETF de materias primas: su sector es «Materias primas». */
+  commodity?: boolean;
   /**
    * Reparto de un ETF por sectores y países según su ficha (pesos de 0 a 1).
    * Si existe, la exposición de la cartera «mira dentro» del fondo.
@@ -247,7 +249,9 @@ export function buildPortfolio(input: {
     annualizedPct: xirr(portfolioFlows),
     unvalued: positions.length - valued.length,
     bySector: group(
-      (p) => p.security.sector ?? (p.security.kind === "stock" ? "Sin dato" : p.security.kind === "etf" ? "ETF sin ficha" : "Materias primas (ETC)"),
+      (p) =>
+        p.security.sector ??
+        (p.security.commodity || p.security.kind === "etc" ? "Materias primas" : p.security.kind === "etf" ? "ETF sin ficha" : "Sin dato"),
       (p) => p.security.breakdown?.sectors,
     ),
     byCountry: group((p) => p.security.country ?? "Sin dato", (p) => p.security.breakdown?.countries),

@@ -101,3 +101,12 @@ describe("importación en bloque", () => {
     expect(o).toMatchObject({ status: "failed", message: expect.stringMatching(/como ETF/) });
   });
 });
+
+describe("materias primas", () => {
+  it("reconoce ETC y cestas de materias primas por nombre o índice", async () => {
+    const { isCommodity } = await import("./load");
+    expect(isCommodity("etc", "Xtrackers Physical Gold", null)).toBe(true);
+    expect(isCommodity("etf", "iShares Diversified Commodity Swap UCITS ETF", null)).toBe(true);
+    expect(isCommodity("etf", "Vanguard S&P 500", "S&P 500")).toBe(false);
+  });
+});
