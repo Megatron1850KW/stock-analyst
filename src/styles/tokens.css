@@ -12,6 +12,10 @@
   --text-muted: #6b6a65;
   --accent: #cc785c;
   --accent-text: #a4543a;
+  /* Relleno de botones con texto encima (AA 4,5:1) */
+  --accent-fill: #ad5b3f;
+  --accent-fill-hover: #8f4630;
+  --on-accent: #ffffff;
   --accent-soft: #d4a27f;
   --sand: #ebdbbc;
   --positive: #5a8a5e;
@@ -42,6 +46,9 @@
     --text-muted: #a8a69e;
     --accent: #d98b6f;
     --accent-text: #e3a088;
+    --accent-fill: #d98b6f;
+    --accent-fill-hover: #e3a088;
+    --on-accent: #1f1e1d;
     --accent-soft: #d4a27f;
     --sand: #4a4234;
     --positive: #7aaa7e;
@@ -69,6 +76,9 @@
   --text-muted: #a8a69e;
   --accent: #d98b6f;
   --accent-text: #e3a088;
+  --accent-fill: #d98b6f;
+  --accent-fill-hover: #e3a088;
+  --on-accent: #1f1e1d;
   --accent-soft: #d4a27f;
   --sand: #4a4234;
   --positive: #7aaa7e;

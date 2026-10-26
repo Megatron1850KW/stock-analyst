@@ -63,7 +63,7 @@ function Mark({ c }: { c: BuffettCriterion | undefined }) {
   const [Icon, tone, word] = c.pass === true ? [Check, "text-positive-text", "Cumple"] : c.pass === false ? [X, "text-negative-text", "No cumple"] : [Minus, "text-muted", "Sin dato"];
   return (
     <Tooltip content={<span><strong>{c.label}.</strong> {c.text}</span>}>
-      <span tabIndex={0} className={cn("inline-flex cursor-help rounded outline-none focus-visible:ring-2 focus-visible:ring-klein", tone)} aria-label={`${c.label}: ${word}`}>
+      <span role="img" tabIndex={0} className={cn("inline-flex cursor-help rounded outline-none focus-visible:ring-2 focus-visible:ring-klein", tone)} aria-label={`${c.label}: ${word}`}>
         <Icon className="size-4" aria-hidden />
       </span>
     </Tooltip>

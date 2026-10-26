@@ -257,7 +257,7 @@ export function PortfolioPage() {
               <FileUp aria-hidden /> Importar
             </Button>
             <Button onClick={() => setDialog({ input: "" })} disabled={!inDesktopApp}>
-              <Plus aria-hidden /> Nueva operación <kbd className="ml-1 font-sans text-[11px] opacity-80">⌘N</kbd>
+              <Plus aria-hidden /> Nueva operación <kbd className="ml-1 font-sans text-[11px]">⌘N</kbd>
             </Button>
           </div>
         }
