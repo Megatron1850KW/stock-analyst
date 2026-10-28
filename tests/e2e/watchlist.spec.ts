@@ -55,6 +55,29 @@ test("añade un ticker (empresa ficticia), muestra la ficha y el origen de cada 
   await expect(page.getByText("Cifras tal como aparecen en los informes de la SEC")).toBeVisible();
 });
 
+test("«Quitar» pide confirmación dentro de la app y quita el valor (ficticio)", async ({ page }) => {
+  // El WebView de macOS no muestra window.confirm y responde «no»: lo imitamos
+  page.on("dialog", (d) => void d.dismiss());
+  await installTauriMock(page, { settings: SETTINGS, secrets: ["prices_api_key"] });
+  await page.goto("/#/watchlist");
+  await page.getByLabel("Ticker o ISIN").fill("fict");
+  await page.getByRole("button", { name: "Añadir" }).click();
+  await page.getByRole("row", { name: /FICT/ }).getByRole("link", { name: "FICT" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: /FICTICIA CORP/ })).toBeVisible();
+
+  // Cancelar no quita nada
+  await page.getByRole("button", { name: "Quitar", exact: true }).click();
+  const dlg = page.getByRole("dialog", { name: "¿Quitar FICT de la watchlist?" });
+  await expect(dlg).toBeVisible();
+  await dlg.getByRole("button", { name: "Cancelar" }).click();
+  await expect(dlg).toBeHidden();
+  await expect(page.getByRole("heading", { level: 1, name: /FICTICIA CORP/ })).toBeVisible();
+
+  await page.getByRole("button", { name: "Quitar", exact: true }).click();
+  await dlg.getByRole("button", { name: "Quitar" }).click();
+  await expect(page.getByText("Añade tu primer ticker")).toBeVisible();
+});
+
 test("sube un informe en PDF y lo lista", async ({ page }) => {
   const { uploads } = await installTauriMock(page, { settings: SETTINGS, secrets: ["prices_api_key"] });
   await page.goto("/#/watchlist");

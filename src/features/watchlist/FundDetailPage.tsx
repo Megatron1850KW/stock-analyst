@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from "react-router";
 import { DISCLAIMER } from "@/app/Disclaimer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ExternalLink } from "@/components/ui/external-link";
 import { countryName } from "@/domain/portfolio/sector";
 import { FundSheetDialog } from "@/features/portfolio/FundSheetDialog";
@@ -14,7 +15,7 @@ import { formatCurrency, formatDate, formatPercent, SIN_DATO } from "@/lib/forma
 import type { WatchlistFund } from "./load-funds";
 import { EXCHANGE_NAMES } from "./import-eu";
 import { justEtfUrl } from "./import-fund";
-import { useRemoveSecurity, useWatchlistFunds } from "./queries";
+import { describeError, useRemoveSecurity, useWatchlistFunds } from "./queries";
 
 /** Precio de hoy frente a su media del último año, su rango y lo que va de año. */
 function PriceSection({ f }: { f: WatchlistFund }) {
@@ -102,6 +103,7 @@ export function FundDetailPage() {
   const { data, isLoading } = useWatchlistFunds(id);
   const remove = useRemoveSecurity();
   const [sheet, setSheet] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(false);
   const f = data?.[0];
 
   if (isLoading) return <div className="h-40 animate-pulse rounded-[var(--radius-card)] bg-surface" />;
@@ -139,12 +141,20 @@ export function FundDetailPage() {
         </div>
         <Button
           variant="secondary"
-          onClick={() => {
-            if (window.confirm(`¿Quitar ${f.ticker} de la watchlist?`)) remove.mutate(f.id, { onSuccess: () => navigate("/watchlist") });
-          }}
+          onClick={() => setConfirmRemove(true)}
         >
           <Trash2 aria-hidden /> Quitar
         </Button>
+        <ConfirmDialog
+          open={confirmRemove}
+          title={`¿Quitar ${f.ticker} de la watchlist?`}
+          description="Si no está en tu cartera, se borran también sus datos guardados."
+          confirmLabel="Quitar"
+          pending={remove.isPending}
+          error={remove.error ? describeError(remove.error) : null}
+          onClose={() => { setConfirmRemove(false); remove.reset(); }}
+          onConfirm={() => remove.mutate(f.id, { onSuccess: () => navigate("/watchlist") })}
+        />
       </header>
 
       <div className="grid gap-5 md:grid-cols-2">

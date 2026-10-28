@@ -3,6 +3,7 @@ import { ExternalLink } from "@/components/ui/external-link";
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { DocumentRequestRow, FactRow, FilingRow } from "@/db/repo";
 import { BudgetExceededError } from "@/features/ai/budget";
 import { formatDate, formatNumber } from "@/lib/format";
@@ -99,13 +100,13 @@ export function DocumentsSection({
       { filing: f, force },
       {
         onError: (e) => {
-          if (e instanceof BudgetExceededError && window.confirm(`${e.message} ¿Quieres leerlo de todos modos?`)) {
-            read.mutate({ filing: f, force, allowOverBudget: true });
-          }
+          if (e instanceof BudgetExceededError) setOverBudget({ filing: f, force, message: e.message });
         },
       },
     );
   }
+  const [overBudget, setOverBudget] = useState<{ filing: FilingRow; force: boolean; message: string } | null>(null);
+  const [toDelete, setToDelete] = useState<FilingRow | null>(null);
   const [uploading, setUploading] = useState<{ request: DocumentRequestRow | null } | null>(null);
   const [manualPdf, setManualPdf] = useState<number | null>(null);
   const aiMode = useSettings().data?.aiMode ?? "manual";
@@ -192,9 +193,7 @@ export function DocumentsSection({
                   size="sm"
                   variant="danger"
                   aria-label={`Borrar ${f.original_name ?? "informe"}`}
-                  onClick={() => {
-                    if (window.confirm("¿Borrar este informe de tu Mac?")) del.mutate(f.id);
-                  }}
+                  onClick={() => setToDelete(f)}
                 >
                   <Trash2 aria-hidden />
                 </Button>
@@ -226,6 +225,27 @@ export function DocumentsSection({
           ))}
         </ul>
       </details>
+
+      <ConfirmDialog
+        open={toDelete !== null}
+        title="¿Borrar este informe de tu Mac?"
+        description={toDelete?.original_name ?? undefined}
+        confirmLabel="Borrar"
+        pending={del.isPending}
+        onClose={() => setToDelete(null)}
+        onConfirm={() => toDelete && del.mutate(toDelete.id, { onSettled: () => setToDelete(null) })}
+      />
+      <ConfirmDialog
+        open={overBudget !== null}
+        title="Presupuesto de IA superado"
+        description={overBudget ? `${overBudget.message} ¿Quieres leerlo de todos modos?` : undefined}
+        confirmLabel="Leer de todos modos"
+        onClose={() => setOverBudget(null)}
+        onConfirm={() => {
+          if (overBudget) read.mutate({ filing: overBudget.filing, force: overBudget.force, allowOverBudget: true });
+          setOverBudget(null);
+        }}
+      />
     </div>
   );
 }
