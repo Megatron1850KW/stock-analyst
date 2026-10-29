@@ -1,10 +1,11 @@
 import { AlertTriangle, ArrowLeft, RefreshCw, Trash2 } from "lucide-react";
 import { alphaVantageProvider } from "@/data/prices/alphavantage";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { DISCLAIMER } from "@/app/Disclaimer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { SourceValue } from "@/components/ui/source-value";
 import { AiAnalysisSection } from "@/features/ai/AiAnalysisSection";
 import { analysisFilings } from "@/features/ai/equity-analysis";
@@ -39,6 +40,7 @@ export function SecurityDetailPage() {
   const { data, isLoading, error } = useSecurityDetail(id);
   const remove = useRemoveSecurity();
   const reimport = useAddTicker();
+  const [confirmRemove, setConfirmRemove] = useState(false);
 
   if (isLoading) return <div className="h-40 animate-pulse rounded-[var(--radius-card)] bg-surface" />;
   if (error || !data?.security || !data.analysis) {
@@ -97,12 +99,20 @@ export function SecurityDetailPage() {
             </Button>
             <Button
               variant="danger"
-              onClick={() => {
-                if (window.confirm(`¿Quitar ${s.ticker} de la watchlist?`)) remove.mutate(s.id, { onSuccess: () => navigate("/watchlist") });
-              }}
+              onClick={() => setConfirmRemove(true)}
             >
               <Trash2 aria-hidden /> Quitar
             </Button>
+            <ConfirmDialog
+              open={confirmRemove}
+              title={`¿Quitar ${s.ticker} de la watchlist?`}
+              description="Si no está en tu cartera ni es competidor de otro valor, se borran también sus datos guardados."
+              confirmLabel="Quitar"
+              pending={remove.isPending}
+              error={remove.error ? describeError(remove.error) : null}
+              onClose={() => { setConfirmRemove(false); remove.reset(); }}
+              onConfirm={() => remove.mutate(s.id, { onSuccess: () => navigate("/watchlist") })}
+            />
           </div>
         </div>
       </header>
