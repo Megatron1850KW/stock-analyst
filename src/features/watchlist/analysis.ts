@@ -1,4 +1,6 @@
 import { adrRatio } from "@/domain/valuation/adr";
+import { pricesInReportingCurrency } from "@/domain/valuation/currency";
+import { FxTable, type FxRate } from "@/domain/portfolio/fx";
 import { providerLabel } from "@/data/prices/provider";
 import type { BarRow, FactRow, FilingRow, LatestQuoteRow, PriceHistoryMeta, SecurityRow, SplitRow } from "@/db/repo";
 import {
@@ -74,6 +76,8 @@ export function buildAnalysis(input: {
   splits: SplitRow[];
   quote: LatestQuoteRow | null;
   priceMeta: PriceHistoryMeta | null;
+  /** Tipos del BCE, para valorar con el precio en la divisa de las cuentas. */
+  fx?: FxRate[];
 }): Analysis {
   // Los informes que subiste cuentan en cuanto tienen cifras (extraídas del PDF)
   const withFacts = new Set(input.facts.map((f) => f.filing_id));
@@ -118,9 +122,13 @@ export function buildAnalysis(input: {
   }
 
   const adr = adrRatio(input.security.ticker, input.security.market);
-  const multiples = price ? currentMultiples(current, price, input.splits, input.security.reporting_currency, adr) : null;
-  const history = historicalMultiples(years, monthly, input.splits, adr);
-  const valuation = multiples ? valuationScore(multiples, history, monthly) : null;
+  // Los múltiplos piden precio y cuentas en la misma divisa
+  const reportingUnit = current.revenue?.unit ?? input.security.reporting_currency;
+  const fx = input.fx?.length ? new FxTable(input.fx) : null;
+  const inReporting = price ? pricesInReportingCurrency(price, monthly, reportingUnit, fx) : null;
+  const multiples = inReporting ? currentMultiples(current, inReporting.price, input.splits, input.security.reporting_currency, adr) : null;
+  const history = historicalMultiples(years, inReporting?.monthly ?? monthly, input.splits, adr);
+  const valuation = multiples && inReporting ? valuationScore(multiples, history, inReporting.monthly) : null;
 
   const { annual, interim } = latestReports(core);
   const qRev = interim ? quarterMetric("Ventas del último trimestre", lastQuarterGrowth(core, input.facts, "revenue")) : null;

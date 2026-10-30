@@ -122,6 +122,17 @@ describe("cartera (datos FICTICIOS)", () => {
     expect(fx.calls.at(-1)).toBe("2026-10-23:USD");
   });
 
+  it("tipos del BCE para valorar un valor que publica en dólares y cotiza en peniques", async () => {
+    const db = memoryDb();
+    await db.execute("INSERT INTO securities (id, isin, name, kind, currency, in_watchlist) VALUES (1, 'GB00FICT0001', 'MINERA FICTICIA', 'stock', 'GBp', 1)");
+    await db.execute("INSERT INTO financial_facts (security_id, concept, value, unit, period_end, origin) VALUES (1, 'revenue', 100, 'USD', '2025-12-31', 'user')");
+    const fx = fakeFx();
+    const r = await refreshFx(db, fx, new Date("2026-10-24"));
+    expect(r.currencies).toEqual(["GBP", "USD"]);
+    // 11 años atrás (más la semana de margen), para la historia de 10 años
+    expect(fx.calls).toEqual(["2015-10-09:GBP,USD"]);
+  });
+
   it("vision board: rentabilidad en euros, recomendación y escenarios, sin IA", async () => {
     const { db, deps } = await setup();
     const stock = await findOrImportHolding(deps, "FICT", "stock");

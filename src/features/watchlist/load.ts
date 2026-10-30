@@ -3,6 +3,7 @@ import {
   getDocumentRequests,
   getFacts,
   getFilings,
+  getFxRates,
   getGaps,
   getLatestQuote,
   getPriceBars,
@@ -14,7 +15,7 @@ import { buildAnalysis } from "./analysis";
 
 /** Todo lo guardado de un valor y su análisis determinista. */
 export async function loadSecurityDetail(db: Db, id: number) {
-  const [security, filings, facts, gaps, monthly, splits, quote, priceMeta, requests] = await Promise.all([
+  const [security, filings, facts, gaps, monthly, splits, quote, priceMeta, requests, fx] = await Promise.all([
     getSecurity(db, id),
     getFilings(db, id),
     getFacts(db, id),
@@ -24,8 +25,9 @@ export async function loadSecurityDetail(db: Db, id: number) {
     getLatestQuote(db, id),
     getPriceHistoryMeta(db, id),
     getDocumentRequests(db, id),
+    getFxRates(db),
   ]);
-  const analysis = security ? buildAnalysis({ security, filings, facts, monthly, splits, quote, priceMeta }) : null;
+  const analysis = security ? buildAnalysis({ security, filings, facts, monthly, splits, quote, priceMeta, fx }) : null;
   return { security, filings, facts, gaps, priceMeta, requests, analysis };
 }
 
