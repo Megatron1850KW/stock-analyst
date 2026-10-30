@@ -102,6 +102,8 @@ export interface PriceInput {
   currency: string;
   source: string;
   fetchedAt: string;
+  /** Cómo se obtuvo, si no es la cotización tal cual (p. ej. pasada a la divisa de las cuentas). */
+  note?: string;
 }
 
 export interface CurrentMultiples {
@@ -122,7 +124,7 @@ export function currentMultiples(f: Fundamentals, price: PriceInput, splits: Spl
   const capFormula = "Precio × Acciones diluidas";
   let marketCap: Metric;
   if (mismatch) {
-    marketCap = none("Capitalización", "money", capFormula, `Las cuentas están en ${unit} y el precio en ${price.currency}; el cambio de divisa llega en la fase de cartera.`);
+    marketCap = none("Capitalización", "money", capFormula, `Las cuentas están en ${unit} y el precio en ${price.currency}, y faltan los tipos de cambio del BCE para igualarlos. Se descargan al actualizar precios.`);
   } else if (!f.shares) {
     marketCap = none("Capitalización", "money", capFormula, "No hay número de acciones en los informes.");
   } else {
@@ -137,7 +139,7 @@ export function currentMultiples(f: Fundamentals, price: PriceInput, splits: Spl
       kind: "money",
       value: price.value * shares.value,
       formula: capFormula,
-      inputs: [{ label: "Precio", value: price.value, unit: price.currency, sources: [] }, shares],
+      inputs: [{ label: "Precio", value: price.value, unit: price.currency, sources: [], ...(price.note ? { note: price.note } : {}) }, shares],
     };
   }
   const cap: Input | null = marketCap.value === null ? null : { label: "Capitalización", value: marketCap.value, unit, sources: marketCap.inputs.flatMap((i) => i.sources) };

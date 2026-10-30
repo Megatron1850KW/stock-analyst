@@ -139,7 +139,7 @@ export const CONCEPTS: ConceptDef[] = [
     label: "Amortizaciones",
     kind: "money",
     period: "duration",
-    tags: [g("DepreciationDepletionAndAmortization"), g("DepreciationAndAmortization"), g("DepreciationAmortizationAndAccretionNet"), g("Depreciation"), i("DepreciationAndAmortisationExpense")],
+    tags: [g("DepreciationDepletionAndAmortization"), g("DepreciationAndAmortization"), g("DepreciationAmortizationAndAccretionNet"), g("Depreciation"), i("DepreciationAndAmortisationExpense"), i("AdjustmentsForDepreciationAndAmortisationExpense")],
   },
 
   // Flujo de caja
@@ -155,7 +155,7 @@ export const CONCEPTS: ConceptDef[] = [
     label: "Inversión en activos (capex)",
     kind: "money",
     period: "duration",
-    tags: [g("PaymentsToAcquirePropertyPlantAndEquipment"), g("PaymentsToAcquireProductiveAssets"), i("PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities")],
+    tags: [g("PaymentsToAcquirePropertyPlantAndEquipment"), g("PaymentsToAcquireProductiveAssets"), i("PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities"), i("PurchaseOfPropertyPlantAndEquipmentIntangibleAssetsOtherThanGoodwillInvestmentPropertyAndOtherNoncurrentAssets")],
   },
   { id: "share_based_comp", label: "Pagos en acciones", kind: "money", period: "duration", tags: [g("ShareBasedCompensation"), g("AllocatedShareBasedCompensationExpense")] },
   { id: "dividends_paid", label: "Dividendos pagados", kind: "money", period: "duration", tags: [g("PaymentsOfDividends"), g("PaymentsOfDividendsCommonStock"), i("DividendsPaidClassifiedAsFinancingActivities"), i("DividendsPaidToEquityHoldersOfParentClassifiedAsFinancingActivities")] },
