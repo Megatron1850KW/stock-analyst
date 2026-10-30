@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseYahooChart, yahooBars, yahooQuote, yahooSplits, yahooSymbol } from "./yahoo";
+import { monthlyWithoutGaps, parseYahooChart, yahooBars, yahooQuote, yahooSplits, yahooSymbol } from "./yahoo";
 
 // Respuesta FICTICIA con la forma de /v8/finance/chart de Yahoo Finance
 const day = (iso: string) => Date.parse(`${iso}T07:00:00Z`) / 1000;
@@ -36,5 +36,29 @@ describe("Yahoo Finance (datos FICTICIOS)", () => {
     const raw = JSON.stringify({ chart: { result: null, error: { code: "Not Found", description: "No data found, symbol may be delisted" } } });
     expect(() => parseYahooChart(raw, "NADA.MC")).toThrow(/no tiene NADA\.MC/);
     expect(() => parseYahooChart("<html>", "X")).toThrow(/no es JSON/);
+  });
+});
+
+describe("serie mensual de Yahoo con huecos", () => {
+  // Velas FICTICIAS
+  const bar = (date: string, close: number) => ({ date, open: close, high: close, low: close, close, volume: null });
+
+  it("si viene un punto cada tres meses, rehace los meses con las semanales", () => {
+    const monthly = [bar("2016-01-01", 1), bar("2016-04-01", 2), bar("2016-07-01", 3), bar("2016-10-01", 4)];
+    const weekly = [bar("2016-06-27", 10), bar("2016-07-04", 11), bar("2016-07-25", 12), bar("2016-08-01", 13), bar("2016-09-26", 14), bar("2016-10-03", 15)];
+    expect(monthlyWithoutGaps(monthly, weekly).map((b) => [b.date, b.close])).toEqual([
+      ["2016-01-01", 1],
+      ["2016-04-01", 2],
+      ["2016-06-01", 10],
+      ["2016-07-01", 12],
+      ["2016-08-01", 13],
+      ["2016-09-01", 14],
+      ["2016-10-01", 15],
+    ]);
+  });
+
+  it("sin huecos, la mensual se queda como está", () => {
+    const monthly = [bar("2016-01-01", 1), bar("2016-02-01", 2)];
+    expect(monthlyWithoutGaps(monthly, [bar("2016-02-01", 9)])).toBe(monthly);
   });
 });

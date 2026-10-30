@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { z } from "zod";
+import { aggregateBars } from "@/domain/technical/candles";
 import type { PriceBar, PriceHistory, PriceProvider, Quote, Split, SymbolTarget } from "./provider";
 
 /**
@@ -104,6 +105,23 @@ export function yahooQuote(chart: YahooChart): Quote {
   return { symbol: chart.meta.symbol, price, open: sameDay?.open ?? null, high: sameDay?.high ?? null, low: sameDay?.low ?? null, volume: sameDay?.volume ?? null, date };
 }
 
+const monthIndex = (date: string) => Number(date.slice(0, 4)) * 12 + Number(date.slice(5, 7));
+
+/**
+ * Serie mensual sin huecos. A veces Yahoo devuelve la «mensual» con un punto
+ * cada tres meses (p. ej. Rio Tinto en Xetra), y entonces no llega a los 2 años
+ * de historia que pide la valoración. En ese caso, los meses que cubre la serie
+ * semanal se rehacen con ella (cierre de la última semana que empieza en el
+ * mes) y la mensual solo se usa antes.
+ */
+export function monthlyWithoutGaps(monthly: PriceBar[], weekly: PriceBar[]): PriceBar[] {
+  const gaps = monthly.some((b, k) => k > 0 && monthIndex(b.date) - monthIndex(monthly[k - 1]!.date) > 1);
+  if (!gaps || weekly.length === 0) return monthly;
+  const fromWeekly = aggregateBars(weekly, "1mo");
+  const first = fromWeekly[0]!.date;
+  return [...monthly.filter((b) => b.date.slice(0, 7) < first.slice(0, 7)), ...fromWeekly];
+}
+
 /** Yahoo llama GBp a los peniques de Londres, igual que OpenFIGI. */
 const sameCurrency = (a: string | null | undefined, b: string) => !a || a.toUpperCase() === b.toUpperCase();
 
@@ -118,7 +136,7 @@ export const yahooProvider: PriceProvider = {
     const monthlyChart = await chart(symbol, "monthly");
     const since = (bars: PriceBar[]) => bars.filter((b) => b.date >= from);
     const weekly = since(yahooBars(weeklyChart));
-    return { bars: weekly, weekly, monthly: since(yahooBars(monthlyChart)), splits: yahooSplits(monthlyChart) };
+    return { bars: weekly, weekly, monthly: monthlyWithoutGaps(since(yahooBars(monthlyChart)), weekly), splits: yahooSplits(monthlyChart) };
   },
   resolveSymbol: async (target) => {
     const symbol = yahooSymbol(target);
