@@ -128,3 +128,29 @@ describe("coste", () => {
     expect(costUsd({ input_tokens: 1_000_000, output_tokens: 0 }, "otro")).toBe(5);
   });
 });
+
+describe("informes subidos en PDF (datos FICTICIOS)", () => {
+  const row = (id: number, period_type: "annual" | "interim", period_end: string, role: "core" | "upload", local_path: string | null = null) => ({
+    id, form_type: "x", period_type, period_end, filed_at: null, accession_no: `a-${id}`, url: null, fetched_at: "", role, source: role === "upload" ? "user-upload" : "sec-edgar",
+    local_path, original_name: local_path ? `informe-${id}.pdf` : null, bytes: null,
+  });
+
+  it("si solo hay informes subidos, analiza el último anual y el semestral posterior", async () => {
+    const { analysisFilings } = await import("./equity-analysis");
+    const picked = analysisFilings([
+      row(1, "annual", "2024-09-30", "upload", "/d/1.pdf"),
+      row(2, "annual", "2025-09-30", "upload", "/d/2.pdf"),
+      row(3, "interim", "2025-09-30", "upload", "/d/3.pdf"),
+      row(4, "interim", "2026-03-31", "upload", "/d/4.pdf"),
+    ]);
+    expect(picked.map((f) => f.id)).toEqual([2, 4]);
+  });
+
+  it("en el modo manual los PDF se adjuntan y el texto lo dice", async () => {
+    const { buildUserMessage } = await import("./equity-analysis");
+    const docs = [{ id: "upload-1", form: "Anual (PDF)", periodEnd: "2025-09-30", filedAt: null, url: null, sections: [], error: "PDF subido", attachment: { name: "anual-2025.pdf", path: "/d/1.pdf" } }];
+    const text = buildUserMessage({}, docs, new Map());
+    expect(text).toContain('"pdf_adjunto":"anual-2025.pdf"');
+    expect(text).toContain("ADJUNTOS en PDF");
+  });
+});

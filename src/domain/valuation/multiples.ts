@@ -64,6 +64,21 @@ function monthEnd(date: string): string {
 /** Fecha en la que se publicaron las acciones usadas (para saber qué splits faltan por aplicar). */
 const sharesFiledAt = (shares: Input) => shares.sources[0]?.filing.filed_at ?? shares.sources[0]?.periodEnd ?? "";
 
+/** Plazo legal máximo para publicar el informe anual en la UE (Directiva de Transparencia): 4 meses tras el cierre. */
+export const ANNUAL_PUBLICATION_MONTHS = 4;
+
+/**
+ * Fecha desde la que el informe anual era público. Los informes que subes tú
+ * (PDF o ZIP) no traen fecha de presentación: se toma la más tardía posible
+ * (cierre + 4 meses), así la serie nunca usa cifras antes de que existieran.
+ */
+export function publishedBy(filing: { filed_at: string | null; period_end: string }): string {
+  if (filing.filed_at) return filing.filed_at.slice(0, 10);
+  const d = new Date(`${filing.period_end.slice(0, 10)}T00:00:00Z`);
+  d.setUTCMonth(d.getUTCMonth() + ANNUAL_PUBLICATION_MONTHS);
+  return d.toISOString().slice(0, 10);
+}
+
 /**
  * Serie mensual de múltiplos. En cada mes se usa el último informe anual que
  * ya estaba publicado entonces (sin mirar al futuro), con las acciones
@@ -71,13 +86,14 @@ const sharesFiledAt = (shares: Input) => shares.sources[0]?.filing.filed_at ?? s
  */
 export function historicalMultiples(years: YearFundamentals[], monthly: PricePoint[], splits: SplitInfo[], adrRatio = 1): MultiplePoint[] {
   const usable = years
-    .filter((y) => y.shares && y.statement.filing.filed_at)
-    .sort((a, b) => a.statement.filing.filed_at!.localeCompare(b.statement.filing.filed_at!));
+    .filter((y) => y.shares)
+    .map((y) => ({ y, published: publishedBy(y.statement.filing) }))
+    .sort((a, b) => a.published.localeCompare(b.published));
   const out: MultiplePoint[] = [];
   for (const bar of monthly) {
     const end = monthEnd(bar.date);
     let year: YearFundamentals | undefined;
-    for (const y of usable) if (y.statement.filing.filed_at! <= end) year = y;
+    for (const u of usable) if (u.published <= end) year = u.y;
     if (!year) continue;
     // Precio de un ADR: cada uno vale `adrRatio` acciones ordinarias
     const shares = (year.shares!.value * splitFactorAfter(splits, sharesFiledAt(year.shares!))) / adrRatio;

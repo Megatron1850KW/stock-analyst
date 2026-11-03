@@ -19,6 +19,7 @@ import { currencySymbol } from "./ficha/format";
 import {
   currentMultiples,
   historicalMultiples,
+  ANNUAL_PUBLICATION_MONTHS,
   type CurrentMultiples,
   type MultiplePoint,
   type PricePoint,
@@ -31,8 +32,14 @@ import {
  */
 
 export interface GrowthHeadline {
-  /** "quarter": último trimestre vs. el mismo del año anterior; "year": último ejercicio. */
-  basis: "quarter" | "year";
+  /**
+   * "quarter": último trimestre vs. el mismo del año anterior; "ytd": lo que va
+   * de ejercicio (p. ej. el semestre) vs. lo mismo del año anterior, cuando el
+   * intermedio no da el trimestre suelto; "year": último ejercicio.
+   */
+  basis: "quarter" | "ytd" | "year";
+  /** Periodo en llano: «último trimestre», «último semestre», «últimos 9 meses», «último año». */
+  period: string;
   revenue: Metric;
   netIncome: Metric;
 }
@@ -54,15 +61,25 @@ export interface Analysis {
   warnings: string[];
 }
 
-function quarterMetric(label: string, g: ReturnType<typeof lastQuarterGrowth>): Metric | null {
+/** «último trimestre», «último semestre», «últimos 9 meses»… */
+export function interimPeriodText(months: number): string {
+  if (months <= 4) return "último trimestre";
+  if (months === 6) return "último semestre";
+  return `últimos ${months} meses`;
+}
+
+function quarterMetric(what: string, g: ReturnType<typeof lastQuarterGrowth>): Metric | null {
   if (!g) return null;
   const input = (s: Sourced, l: string) => ({ label: l, value: s.value, unit: s.unit, sources: [s] });
+  const period = interimPeriodText(g.months);
+  const Period = period.charAt(0).toUpperCase() + period.slice(1);
+  const same = g.months <= 4 ? "Mismo trimestre del año anterior" : "Mismo periodo del año anterior";
   return {
-    label,
+    label: `${what} (${period})`,
     kind: "percent",
     value: g.growth,
-    formula: "Último trimestre ÷ Mismo trimestre del año anterior − 1",
-    inputs: [input(g.current, "Último trimestre"), input(g.previous, "Mismo trimestre del año anterior")],
+    formula: `${Period} ÷ ${same} − 1`,
+    inputs: [input(g.current, Period), input(g.previous, same)],
   };
 }
 
@@ -121,6 +138,12 @@ export function buildAnalysis(input: {
     warnings.push(`El proveedor de precios solo da datos desde ${input.priceMeta.first_date.slice(0, 7)}: la comparación a 10 años no es posible.`);
   }
 
+  if (years.some((y) => y.shares && !y.statement.filing.filed_at)) {
+    warnings.push(
+      `Los informes anuales que subiste no traen fecha de publicación: para la valoración histórica se toma la más tardía que permite la ley (cierre + ${ANNUAL_PUBLICATION_MONTHS} meses).`,
+    );
+  }
+
   const adr = adrRatio(input.security.ticker, input.security.market);
   // Los múltiplos piden precio y cuentas en la misma divisa
   const reportingUnit = current.revenue?.unit ?? input.security.reporting_currency;
@@ -131,14 +154,22 @@ export function buildAnalysis(input: {
   const valuation = multiples && inReporting ? valuationScore(multiples, history, inReporting.monthly) : null;
 
   const { annual, interim } = latestReports(core);
-  const qRev = interim ? quarterMetric("Ventas del último trimestre", lastQuarterGrowth(core, input.facts, "revenue")) : null;
-  const qNi = interim ? quarterMetric("Beneficio del último trimestre", lastQuarterGrowth(core, input.facts, "net_income")) : null;
+  // Trimestre suelto si lo hay; si no (semestral europeo), lo que va de ejercicio frente al año anterior
+  const qGrowth = (concept: string) => {
+    const quarter = lastQuarterGrowth(core, input.facts, concept);
+    return quarter ?? lastQuarterGrowth(core, input.facts, concept, true);
+  };
+  const gRev = interim ? qGrowth("revenue") : null;
+  const gNi = interim ? qGrowth("net_income") : null;
+  const qRev = quarterMetric("Ventas", gRev);
+  const qNi = quarterMetric("Beneficio", gNi);
   const lastYear = years.filter((y) => !annual || y.periodEnd <= annual.period_end).at(-1);
   const growth: GrowthHeadline =
-    qRev && qNi
-      ? { basis: "quarter", revenue: qRev, netIncome: qNi }
+    gRev && gNi && qRev && qNi && gRev.months === gNi.months
+      ? { basis: gRev.months <= 4 ? "quarter" : "ytd", period: interimPeriodText(gRev.months), revenue: qRev, netIncome: qNi }
       : {
           basis: "year",
+          period: "último año",
           revenue: lastYear?.revenueGrowth ?? { label: "Crecimiento de ventas", kind: "percent", value: null, formula: "", inputs: [], note: "Sin dato" },
           netIncome: lastYear?.netIncomeGrowth ?? { label: "Crecimiento del beneficio", kind: "percent", value: null, formula: "", inputs: [], note: "Sin dato" },
         };

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ExternalLink } from "@/components/ui/external-link";
 import { cn } from "@/lib/cn";
 import { describeApiError, type PreparedAnalysis } from "./equity-analysis";
+import { revealDocument } from "@/platform/documents";
 import { approxTokens } from "./manual";
 import { useSaveManual } from "./queries";
 
@@ -115,11 +116,29 @@ export function ClaudeAiSteps({
 /** Análisis narrativo de una acción en el modo manual. */
 export function ManualAnalysisPanel({ securityId, prepared, text, onDone }: { securityId: number; prepared: PreparedAnalysis; text: string; onDone: () => void }) {
   const save = useSaveManual(securityId);
+  const pdfs = prepared.documents.flatMap((d) => (d.attachment ? [d.attachment] : []));
   return (
     <ClaudeAiSteps
       label="Análisis con Claude.ai"
       text={text}
-      textHint="Lleva las instrucciones, las cifras calculadas y extractos de sus dos últimos informes."
+      textHint={pdfs.length ? "Lleva las instrucciones y las cifras calculadas; el texto de los informes lo leerá de los PDF que adjuntes." : "Lleva las instrucciones, las cifras calculadas y extractos de sus dos últimos informes."}
+      attach={
+        pdfs.length ? (
+          <div className="mt-1.5 text-[12px] text-muted">
+            <p>Adjunta {pdfs.length === 1 ? "este PDF" : `estos ${pdfs.length} PDF`} (son los informes que subiste):</p>
+            <ul className="mt-1 space-y-0.5">
+              {pdfs.map((p) => (
+                <li key={p.path}>
+                  <span className="font-mono text-[11.5px]">{p.name}</span>{" · "}
+                  <button type="button" className="text-accent-text hover:underline" onClick={() => void revealDocument(p.path)}>
+                    Mostrar en el Finder
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : undefined
+      }
       saving={save.isPending}
       error={save.error}
       onSave={(answer) => save.mutate({ prepared, answer }, { onSuccess: onDone })}

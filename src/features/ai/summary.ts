@@ -40,7 +40,7 @@ export function numericSummary(security: SecurityRow, a: Analysis) {
       nivel_de_deuda: a.debt,
     },
     crecimiento_titular: {
-      base: a.growth.basis === "quarter" ? "último trimestre vs. mismo trimestre del año anterior" : "último ejercicio vs. el anterior",
+      base: a.growth.basis === "year" ? "último ejercicio vs. el anterior" : `${a.growth.period} vs. el mismo periodo del año anterior`,
       ventas: pct(a.growth.revenue.value),
       beneficio_neto: pct(a.growth.netIncome.value),
     },

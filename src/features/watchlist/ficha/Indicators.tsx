@@ -296,9 +296,9 @@ export function DebtIndicator({ a }: { a: Analysis }) {
 
 /* ---------- ¿Crece? ---------- */
 
-function growthSentence(m: Metric, what: string, basis: "quarter" | "year"): ReactNode {
+function growthSentence(m: Metric, what: string, growth: Analysis["growth"]): ReactNode {
   if (m.value === null) return null;
-  const when = basis === "quarter" ? "que hace un año (último trimestre)" : "que el año anterior";
+  const when = growth.basis === "year" ? "que el año anterior" : `que hace un año (${growth.period})`;
   return (
     <>
       {what}{" "}
@@ -317,8 +317,8 @@ export function GrowthIndicator({ a }: { a: Analysis }) {
     ventas: y.revenue ? y.revenue.value / 1e6 : null,
     beneficio: y.netIncome ? y.netIncome.value / 1e6 : null,
   }));
-  const rev = growthSentence(a.growth.revenue, "Vende", a.growth.basis);
-  const ni = growthSentence(a.growth.netIncome, "Gana", a.growth.basis);
+  const rev = growthSentence(a.growth.revenue, "Vende", a.growth);
+  const ni = growthSentence(a.growth.netIncome, "Gana", a.growth);
   const up = (a.growth.revenue.value ?? 0) >= 0;
   return (
     <IndicatorCard

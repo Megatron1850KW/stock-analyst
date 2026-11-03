@@ -176,7 +176,9 @@ function SourcesNote({ stored }: { stored: StoredAnalysis }) {
       {stored.documents.map((d) => (
         <li key={d.id}>
           {docLabel(d, d.id)} (nº {d.id}):{" "}
-          {d.error
+          {d.attachment
+            ? `PDF entero adjuntado en claude.ai (${d.attachment.name})`
+            : d.error
             ? `no se pudo leer (${d.error})`
             : d.sections.map((s) => `${lowerFirst(SECTION_LABELS[s.section])}${s.truncated ? " (recortado)" : ""}`).join(", ")}
         </li>

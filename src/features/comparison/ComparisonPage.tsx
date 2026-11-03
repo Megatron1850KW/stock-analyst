@@ -159,7 +159,7 @@ function GrowthCell({ r }: { r: ComparisonRow }) {
             {signedPercent(g)}
           </p>
         )}
-        <p className="text-[11px] text-muted">{r.growth.basis === "quarter" ? "último trimestre" : "último año"}</p>
+        <p className="text-[11px] text-muted">{r.growth.period}</p>
       </div>
       <Sparkline values={r.revenue} />
     </div>

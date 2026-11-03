@@ -69,7 +69,7 @@ export async function analyzeSecurity(securityId: number, opts: RunOptions = {})
 
 /** Modo manual: prepara el texto para claude.ai (siempre nuevo, aunque haya uno guardado). */
 export async function prepareManual(securityId: number): Promise<{ prepared: PreparedAnalysis; text: string }> {
-  const ready = await prepareAnalysis({ db: await appDb(), fetchDocument: await documentFetcher() }, securityId, { force: true, limits: MANUAL_LIMITS });
+  const ready = await prepareAnalysis({ db: await appDb(), fetchDocument: await documentFetcher(), pdfAttachments: true }, securityId, { force: true, limits: MANUAL_LIMITS });
   if ("cached" in ready) throw new AiAnalysisError("No se ha podido preparar el texto.");
   return { prepared: ready.prepared, text: buildManualPrompt(ready.prepared) };
 }
