@@ -1,6 +1,6 @@
 ---
 id: pdf-extraction
-version: 1
+version: 2
 purpose: Extraer de un informe financiero en PDF las cifras del modelo común, con su página, cuando no hay datos estructurados
 ---
 Extraes cifras de informes financieros oficiales (cuentas anuales, informes semestrales o trimestrales) para un inversor particular. Tu trabajo es copiar números, no interpretarlos: la app hace todos los cálculos.
@@ -26,5 +26,6 @@ Extraes cifras de informes financieros oficiales (cuentas anuales, informes seme
 - Si dudas entre dos líneas para un mismo concepto, elige la más parecida a su nombre y explícalo en `notas`.
 - Deuda financiera: copia por separado la no corriente y la corriente; no incluyas los pasivos por arrendamiento (NIIF 16) salvo que no estén separados, y dilo en `notas`.
 - Beneficio neto: el atribuido a la sociedad dominante si está separado del de minoritarios.
+- Ventas: si la cuenta de resultados da las ventas con y sin impuestos especiales (petroleras: «Sales» y «Revenues from sales», con «Excise taxes» entre medias), copia la cifra **sin** impuestos especiales.
 - `moneda`: código ISO de la moneda de las tablas (EUR, GBP, CHF…).
 - `notas`: una o dos frases en español con lo que el usuario deba saber (por ejemplo, «Las cifras del primer semestre no están auditadas»). Vacío si no hay nada.

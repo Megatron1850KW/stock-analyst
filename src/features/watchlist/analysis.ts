@@ -140,7 +140,7 @@ export function buildAnalysis(input: {
 
   if (years.some((y) => y.shares && !y.statement.filing.filed_at)) {
     warnings.push(
-      `Los informes anuales que subiste no traen fecha de publicación: para la valoración histórica se toma la más tardía que permite la ley (cierre + ${ANNUAL_PUBLICATION_MONTHS} meses).`,
+      `Algunos ejercicios no traen fecha de publicación (salen de un informe que subiste o de las cifras comparativas de otro): para la valoración histórica se toma la más tardía que permite la ley (cierre + ${ANNUAL_PUBLICATION_MONTHS} meses).`,
     );
   }
 

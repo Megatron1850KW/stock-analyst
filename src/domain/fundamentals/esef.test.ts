@@ -103,3 +103,25 @@ describe("etiquetas propias de la empresa en el xBRL-JSON (FICTICIO)", () => {
     expect(target.facts["ifrs-full"]?.ProfitLoss).toBeDefined();
   });
 });
+
+describe("petrolera con etiquetas propias (FICTICIA, con la forma del ESEF de TotalEnergies)", () => {
+  it("toma el capex y las ventas sin impuestos especiales de su extensión", () => {
+    const FY25 = "2025-01-01T00:00:00/2026-01-01T00:00:00";
+    const doc = {
+      documentInfo: { documentType: "https://xbrl.org/2021/xbrl-json", namespaces: { pet: "https://www.petrolera-ficticia.example/esef/2025", "ifrs-full": "https://xbrl.ifrs.org/taxonomy/2024-03-27/ifrs-full" } },
+      facts: {
+        a: fact("ifrs-full:RevenueFromContractsWithCustomers", "200000000000", FY25, "iso4217:USD"),
+        b: fact("pet:RevenueFromContractsWithCustomersExcludingExciseTax", "180000000000", FY25, "iso4217:USD"),
+        c: fact("pet:PurchaseOfPropertyPlantAndEquipmentAndIntangibleAssets", "17000000000", FY25, "iso4217:USD"),
+        d: fact("ifrs-full:CashFlowsFromUsedInOperatingActivities", "27000000000", FY25, "iso4217:USD"),
+      },
+    };
+    const target = emptyFacts("PETROFICT", "PETROLERA FICTICIA");
+    const accession = "PETROFICT-2025-12-31-ESEF-FR-0";
+    addXbrlJson(target, xbrlJsonSchema.parse(doc), { accession, filed: "2026-03-27" });
+    const norm = normalizeCompanyFacts(target, [{ accession, form: "ESEF", periodType: "annual", reportDate: "2025-12-31", filingDate: "2026-03-27", primaryDocument: "/x.json" }]);
+    const get = (c: string) => norm.facts.find((f) => f.concept === c && f.periodEnd === "2025-12-31");
+    expect(get("revenue")).toMatchObject({ value: 180_000_000_000, sourceTag: "ext:RevenueFromContractsWithCustomersExcludingExciseTax" });
+    expect(get("capex")).toMatchObject({ value: 17_000_000_000, sourceTag: "ext:PurchaseOfPropertyPlantAndEquipmentAndIntangibleAssets" });
+  });
+});

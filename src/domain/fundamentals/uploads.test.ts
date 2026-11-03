@@ -75,4 +75,14 @@ describe("informes subidos en PDF (datos ficticios)", () => {
     expect(g.growth).toBeCloseTo(0.2);
     expect(g.months).toBe(6);
   });
+
+  it("los comparativos de un ESEF (filings.xbrl.org) también cuentan; los de la SEC no", () => {
+    const esef: FilingInfo = { id: 9, form_type: "ESEF", period_type: "annual", period_end: "2022-12-31", filed_at: "2023-03-28", accession_no: "esef-22", url: null, source: "filings.xbrl.org" };
+    const f2 = [
+      fact(9, "revenue", "2022-01-01", "2022-12-31", 300 * M),
+      fact(9, "revenue", "2021-01-01", "2021-12-31", 250 * M),
+    ];
+    expect(yearlyFundamentals([esef], f2).map((y) => y.periodEnd)).toEqual(["2021-12-31", "2022-12-31"]);
+    expect(yearlyFundamentals([{ ...esef, source: "sec-edgar" }], f2).map((y) => y.periodEnd)).toEqual(["2022-12-31"]);
+  });
 });
