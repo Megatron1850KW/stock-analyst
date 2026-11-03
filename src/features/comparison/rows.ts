@@ -1,3 +1,5 @@
+import { sectorFromSic } from "@/domain/portfolio/sector";
+import { isFinancial } from "@/domain/scoring/financial";
 import type { DebtLevel } from "@/domain/scoring/debt-level";
 import type { Outcome } from "@/domain/scoring/peer-verdict";
 import type { Verdict } from "@/domain/scoring/valuation-score";
@@ -63,7 +65,7 @@ export function comparisonRow(
   const a = detail.analysis;
   if (!s || !a) return null;
   const netDebt = a.current.netDebt.value;
-  const financial = a.current.grossMargin.value === null && a.current.operatingMargin.value === null && a.current.netMargin.value !== null;
+  const financial = isFinancial(a.current, s.sector ?? sectorFromSic(s.sic));
   const fcf = a.current.freeCashFlow.value;
   return {
     id: s.id,
