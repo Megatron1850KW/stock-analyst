@@ -26,7 +26,7 @@ export interface ComparisonRow {
     /** Deuda neta ÷ caja libre (negativo = caja neta); null sin caja libre positiva. Sirve para ordenar. */
     ratio: number | null;
   };
-  growth: { value: number | null; basis: "quarter" | "year" };
+  growth: { value: number | null; basis: "quarter" | "ytd" | "year"; period: string };
   operatingMargin: number | null;
   /** Beneficio bruto ÷ ventas (últimos 12 meses o último año). */
   grossMargin: number | null;
@@ -75,7 +75,7 @@ export function comparisonRow(
     valuation: { verdict: a.valuation?.verdict ?? null, score: a.valuation?.score ?? null, deviation: a.valuation?.deviation ?? null },
     fcfYield: a.multiples?.fcfYield.value ?? null,
     debt: { level: a.debt, years: netDebt !== null && netDebt > 0 ? a.current.debtYears.value : null, netCash: netDebt !== null && netDebt <= 0, ratio: netDebt !== null && fcf !== null && fcf > 0 ? netDebt / fcf : null },
-    growth: { value: a.growth.revenue.value, basis: a.growth.basis },
+    growth: { value: a.growth.revenue.value, basis: a.growth.basis, period: a.growth.period },
     operatingMargin: a.current.operatingMargin.value,
     grossMargin: a.current.grossMargin.value,
     netMargin: a.current.netMargin.value,

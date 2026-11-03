@@ -39,6 +39,11 @@ export interface AnalysisDocument {
   sections: { section: SectionId; truncated: boolean; fullLength: number }[];
   /** Por qué no se pudo leer, si no se pudo. */
   error?: string;
+  /**
+   * Informe que subiste en PDF (sin texto que la app pueda recortar): en el
+   * modo manual se adjunta el PDF en claude.ai, que lo lee entero.
+   */
+  attachment?: { name: string; path: string };
 }
 
 /** Lo que se guarda en analyses.result_json. */
@@ -79,12 +84,18 @@ export function cacheKey(ticker: string, documentId: string, prompt: Prompt): st
   return `${ticker}|${documentId}|${prompt.key}`;
 }
 
-/** Informes cuyos extractos se envían: el último anual y, si es posterior, el último intermedio. */
+/**
+ * Informes cuyos extractos se envían: el último anual y, si es posterior, el
+ * último intermedio. Cuentan también los que subiste (PDF o ZIP), como en la ficha.
+ */
 export function analysisFilings(filings: FilingRow[]): FilingRow[] {
-  const core = filings.filter((f) => f.role === "core");
-  const { annual, interim } = latestReports(core);
+  const usable = filings.filter((f) => f.role === "core" || (f.role === "upload" && !!f.local_path));
+  const { annual, interim } = latestReports(usable);
   return [annual, interim].filter((f): f is FilingRow => !!f);
 }
+
+/** Nombre con el que buscar el PDF en el Finder. */
+const attachmentName = (f: FilingRow) => f.original_name ?? f.local_path!.split("/").pop()!;
 
 export function buildUserMessage(summary: object, docs: AnalysisDocument[], excerpts: Map<string, Excerpt[]>): string {
   const lines = [
@@ -92,9 +103,24 @@ export function buildUserMessage(summary: object, docs: AnalysisDocument[], exce
     JSON.stringify(summary, null, 1),
     "</resumen_numerico>",
     "<documentos>",
-    JSON.stringify(docs.map((d) => ({ id: d.id, tipo: d.form, periodo_hasta: d.periodEnd, presentado: d.filedAt, leido: !d.error }))),
+    JSON.stringify(
+      docs.map((d) => ({
+        id: d.id,
+        tipo: d.form,
+        periodo_hasta: d.periodEnd,
+        presentado: d.filedAt,
+        leido: !d.error || !!d.attachment,
+        ...(d.attachment ? { pdf_adjunto: d.attachment.name } : {}),
+      })),
+    ),
     "</documentos>",
   ];
+  const attached = docs.filter((d) => d.attachment);
+  if (attached.length) {
+    lines.push(
+      `Los informes con «pdf_adjunto» van ADJUNTOS en PDF en esta conversación (${attached.map((d) => d.attachment!.name).join(", ")}): léelos para el modelo de negocio, el outlook, los catalizadores y los riesgos. En cita.documento pon su id, en cita.seccion la sección y la página, y en cita.texto una frase literal del PDF. Si no ves algún PDF adjunto, dilo en vez de inventar.`,
+    );
+  }
   for (const d of docs) {
     for (const e of excerpts.get(d.id) ?? []) {
       lines.push(
@@ -115,6 +141,8 @@ export interface PrepareDeps {
   /** Descarga el HTML de un informe de la SEC. */
   fetchDocument: (url: string) => Promise<string>;
   prompt?: Prompt;
+  /** Modo manual: los PDF que subiste se adjuntan en claude.ai en vez de recortar su texto. */
+  pdfAttachments?: boolean;
 }
 
 /** Todo lo que se le da a la IA, listo para la API o para copiarlo en claude.ai. */
@@ -159,7 +187,10 @@ export async function prepareAnalysis(
   const excerpts = new Map<string, Excerpt[]>();
   for (const f of filings) {
     const doc: AnalysisDocument = { id: f.accession_no, form: f.form_type, periodEnd: f.period_end, filedAt: f.filed_at, url: f.url, sections: [] };
-    if (!f.url) doc.error = "Sin enlace al documento";
+    if (!f.url && f.role === "upload" && f.local_path?.toLowerCase().endsWith(".pdf")) {
+      doc.error = deps.pdfAttachments ? "PDF subido: se adjunta en claude.ai" : "PDF subido: la IA por API no lee PDF aún; usa el modo «Claude.ai manual» y adjúntalo";
+      if (deps.pdfAttachments) doc.attachment = { name: attachmentName(f), path: f.local_path };
+    } else if (!f.url) doc.error = "Sin enlace al documento";
     else {
       try {
         const list = extractSections(f.form_type, await deps.fetchDocument(f.url), opts.limits);
@@ -172,7 +203,7 @@ export async function prepareAnalysis(
     }
     docs.push(doc);
   }
-  if (docs.every((d) => d.sections.length === 0)) {
+  if (docs.every((d) => d.sections.length === 0 && !d.attachment)) {
     throw new AiAnalysisError(
       `No se ha podido leer el texto de ningún informe (${docs.map((d) => `${d.form}: ${d.error}`).join("; ")}). Sin él, la IA solo repetiría las cifras.`,
     );

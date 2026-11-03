@@ -107,7 +107,7 @@ function yearFact(list: FactInfo[], concept: string, end: string): FactInfo | nu
 export function annualStatements(filings: FilingInfo[], facts: FactInfo[], concepts: string[]): AnnualStatement[] {
   const byFiling = groupFacts(facts);
   const annual = filings.filter((f) => f.period_type === "annual").sort((a, b) => a.period_end.localeCompare(b.period_end));
-  return annual.map((filing, k) => {
+  const own = annual.map((filing, k) => {
     const list = byFiling.get(filing.id) ?? [];
     const values: Partial<Record<string, Sourced>> = {};
     for (const concept of concepts) {
@@ -126,6 +126,56 @@ export function annualStatements(filings: FilingInfo[], facts: FactInfo[], conce
     }
     return { periodEnd: filing.period_end, filing, values };
   });
+  return [...comparativeYears(annual, filings, byFiling, concepts), ...own].sort((a, b) => a.periodEnd.localeCompare(b.periodEnd));
+}
+
+/**
+ * Ejercicios anteriores que solo aparecen como comparativos en los informes
+ * que subiste (la columna del año anterior de un anual, o un resumen de varios
+ * años que trae la propia empresa). Solo con informes subidos: en la SEC y en
+ * filings.xbrl.org cada ejercicio ya tiene su propio informe. Cada cifra queda
+ * marcada como comparativa y con el documento y la página de donde sale; el
+ * ejercicio no tiene fecha de presentación propia (se estima al valorar).
+ */
+function comparativeYears(annual: FilingInfo[], filings: FilingInfo[], byFiling: Map<number, FactInfo[]>, concepts: string[]): AnnualStatement[] {
+  const uploads = filings.filter((f) => f.source === "user-upload");
+  const firstAnnual = annual[0]?.period_end;
+  if (uploads.length === 0 || !firstAnnual) return [];
+  // Cierres de ejercicio con ventas de un año completo, anteriores al primer anual
+  const ends = new Set<string>();
+  for (const f of uploads) {
+    for (const fact of byFiling.get(f.id) ?? []) {
+      if (fact.concept !== "revenue" || !fact.period_start) continue;
+      const len = days(fact.period_start, fact.period_end);
+      if (len < 300 || len > 400 || days(fact.period_end, firstAnnual) <= 10 || fact.period_end > firstAnnual) continue;
+      ends.add(fact.period_end);
+    }
+  }
+  // Primero los anuales (cifras auditadas, beneficio atribuible), del más cercano al más lejano; luego los demás
+  const sources = [...uploads].sort((a, b) =>
+    a.period_type !== b.period_type ? (a.period_type === "annual" ? -1 : 1) : a.period_end.localeCompare(b.period_end),
+  );
+  const out: AnnualStatement[] = [];
+  for (const end of [...ends].sort()) {
+    if (out.some((s) => days(s.periodEnd, end) <= 10)) continue;
+    const values: Partial<Record<string, Sourced>> = {};
+    let main: FilingInfo | null = null;
+    for (const concept of concepts) {
+      for (const src of sources) {
+        const f = yearFact(byFiling.get(src.id) ?? [], concept, end);
+        if (f) {
+          values[concept] = sourced(f, src, true);
+          main ??= src;
+          break;
+        }
+      }
+    }
+    if (!main) continue;
+    // Informe «virtual» del ejercicio: mismo documento de origen, pero con su cierre y sin fecha de presentación
+    const filing: FilingInfo = { ...main, period_type: "annual", period_end: end, filed_at: null };
+    out.push({ periodEnd: end, filing, values });
+  }
+  return out;
 }
 
 /** Cifra de flujo de los últimos doce meses, con las piezas que la forman. */
@@ -206,18 +256,21 @@ export function latestInstant(filings: FilingInfo[], facts: FactInfo[], concept:
 
 /**
  * Crecimiento del último trimestre frente al mismo trimestre del año
- * anterior, con las dos cifras del mismo informe intermedio.
+ * anterior, con las dos cifras del mismo informe intermedio. Con
+ * `allowCumulative`, si el informe solo da el acumulado del ejercicio (un
+ * semestral europeo, p. ej.), compara ese acumulado con el del año anterior.
  */
 export function lastQuarterGrowth(
   filings: FilingInfo[],
   facts: FactInfo[],
   concept: string,
-): { current: Sourced; previous: Sourced; growth: number } | null {
+  allowCumulative = false,
+): { current: Sourced; previous: Sourced; growth: number; months: number } | null {
   const interim = filings.filter((f) => f.period_type === "interim").sort((a, b) => b.period_end.localeCompare(a.period_end))[0];
   if (!interim) return null;
   const list = groupFacts(facts).get(interim.id) ?? [];
   const own = ownPeriodFact(list, interim, concept);
-  if (!own || own.cumulative || !own.fact.period_start) return null;
+  if (!own || (own.cumulative && !allowCumulative) || !own.fact.period_start) return null;
   const len = days(own.fact.period_start, own.fact.period_end);
   const prev = list.find(
     (f) =>
@@ -227,5 +280,6 @@ export function lastQuarterGrowth(
       Math.abs(days(f.period_start, f.period_end) - len) <= 10,
   );
   if (!prev || prev.value <= 0) return null;
-  return { current: sourced(own.fact, interim), previous: sourced(prev, interim), growth: own.fact.value / prev.value - 1 };
+  const months = Math.round(len / 30.4);
+  return { current: sourced(own.fact, interim), previous: sourced(prev, interim), growth: own.fact.value / prev.value - 1, months };
 }

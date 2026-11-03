@@ -12,7 +12,7 @@ const row = (ticker: string, p: { dev?: number | null; fcf?: number | null; rati
   valuation: { verdict: p.dev == null ? null : p.dev < -0.15 ? "Barata" : p.dev > 0.15 ? "Cara" : "Justa", score: null, deviation: p.dev ?? null },
   fcfYield: p.fcf ?? null,
   debt: { level: p.ratio === undefined && !p.netCash ? null : "Baja", years: null, netCash: !!p.netCash, ratio: p.ratio ?? null },
-  growth: { value: p.growth ?? null, basis: "year" },
+  growth: { value: p.growth ?? null, basis: "year", period: "último año" },
   operatingMargin: null,
   grossMargin: null, netMargin: null, financial: false,
   revenue: [],
