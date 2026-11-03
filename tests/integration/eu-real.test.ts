@@ -50,7 +50,8 @@ describe("Inditex con informes ESEF REALES", () => {
     // Sin BPA diluido: acciones = beneficio ÷ BPA básico (1,996 €) ≈ 3.116 millones
     expect(c.shares?.value).toBeCloseTo(3_116_232_465, -4);
     expect(c.shares?.note).toMatch(/básico/);
-    expect(analysis!.years.map((y) => y.periodEnd)).toEqual(["2021-01-31", "2022-01-31", "2023-01-31", "2024-01-31", "2025-01-31", "2026-01-31"]);
+    // El ejercicio 2019 (cierre 31-01-2020) sale de los comparativos del ESEF más antiguo
+    expect(analysis!.years.map((y) => y.periodEnd)).toEqual(["2020-01-31", "2021-01-31", "2022-01-31", "2023-01-31", "2024-01-31", "2025-01-31", "2026-01-31"]);
   });
 
   it("con un precio (SUPUESTO de 50 €, solo para el test) calcula sus múltiplos", async () => {

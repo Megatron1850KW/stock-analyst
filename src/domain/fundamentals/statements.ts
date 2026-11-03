@@ -132,13 +132,14 @@ export function annualStatements(filings: FilingInfo[], facts: FactInfo[], conce
 /**
  * Ejercicios anteriores que solo aparecen como comparativos en los informes
  * que subiste (la columna del año anterior de un anual, o un resumen de varios
- * años que trae la propia empresa). Solo con informes subidos: en la SEC y en
- * filings.xbrl.org cada ejercicio ya tiene su propio informe. Cada cifra queda
+ * años que trae la propia empresa) y en los anuales ESEF: filings.xbrl.org
+ * solo tiene informes desde 2021-2022 y los anteriores salen como
+ * comparativos. No con la SEC, que ya da un informe por ejercicio. Cada cifra queda
  * marcada como comparativa y con el documento y la página de donde sale; el
  * ejercicio no tiene fecha de presentación propia (se estima al valorar).
  */
 function comparativeYears(annual: FilingInfo[], filings: FilingInfo[], byFiling: Map<number, FactInfo[]>, concepts: string[]): AnnualStatement[] {
-  const uploads = filings.filter((f) => f.source === "user-upload");
+  const uploads = filings.filter((f) => f.source === "user-upload" || f.source === "filings.xbrl.org");
   const firstAnnual = annual[0]?.period_end;
   if (uploads.length === 0 || !firstAnnual) return [];
   // Cierres de ejercicio con ventas de un año completo, anteriores al primer anual

@@ -40,8 +40,9 @@
  * - Bancos: «RevenuesNetOfInterestExpense» va antes que RevenueFromContract…,
  *   que en un banco solo recoge las comisiones (American Express: 32.962 M
  *   frente a 58.606 M de ingresos totales en el 10-Q de sep. 2026).
- * - Etiquetas propias («ext»): solo UniCredit, que presenta ventas y patrimonio
- *   con su extensión (comprobado en su ESEF 2025). Su deuda NO se mapea: en un
+ * - Etiquetas propias («ext»): UniCredit, que presenta ventas y patrimonio
+ *   con su extensión (comprobado en su ESEF 2025), y TotalEnergies, que da con
+ *   la suya el capex y las ventas sin impuestos especiales (ESEF 2022-2025). Su deuda NO se mapea: en un
  *   banco los valores emitidos y los depósitos son su materia prima, y medirlos
  *   contra la caja generada como en una industrial daría una alarma falsa.
  * - Las cifras de flujo de caja de un 10-Q son acumuladas del año (YTD); se
@@ -86,6 +87,10 @@ export const CONCEPTS: ConceptDef[] = [
       g("RevenueFromContractWithCustomerIncludingAssessedTax"),
       g("SalesRevenueNet"),
       g("SalesRevenueGoodsNet"),
+      // Petroleras que venden carburante (TotalEnergies): «Sales» incluye los impuestos
+      // especiales que recaudan para el Estado; sus «Revenues from sales» los excluyen.
+      // Se usa la cifra sin impuestos, la misma que dan sus informes semestrales.
+      x("RevenueFromContractsWithCustomersExcludingExciseTax"),
       i("Revenue"),
       i("RevenueFromContractsWithCustomers"),
       i("RevenueFromSaleOfGoods"),
@@ -155,7 +160,9 @@ export const CONCEPTS: ConceptDef[] = [
     label: "Inversión en activos (capex)",
     kind: "money",
     period: "duration",
-    tags: [g("PaymentsToAcquirePropertyPlantAndEquipment"), g("PaymentsToAcquireProductiveAssets"), i("PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities"), i("PurchaseOfPropertyPlantAndEquipmentIntangibleAssetsOtherThanGoodwillInvestmentPropertyAndOtherNoncurrentAssets")],
+    tags: [g("PaymentsToAcquirePropertyPlantAndEquipment"), g("PaymentsToAcquireProductiveAssets"), i("PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities"), i("PurchaseOfPropertyPlantAndEquipmentIntangibleAssetsOtherThanGoodwillInvestmentPropertyAndOtherNoncurrentAssets"),
+      // TotalEnergies (tot:): «Intangible assets and property, plant and equipment additions», sin etiqueta NIIF estándar
+      x("PurchaseOfPropertyPlantAndEquipmentAndIntangibleAssets")],
   },
   { id: "share_based_comp", label: "Pagos en acciones", kind: "money", period: "duration", tags: [g("ShareBasedCompensation"), g("AllocatedShareBasedCompensationExpense")] },
   { id: "dividends_paid", label: "Dividendos pagados", kind: "money", period: "duration", tags: [g("PaymentsOfDividends"), g("PaymentsOfDividendsCommonStock"), i("DividendsPaidClassifiedAsFinancingActivities"), i("DividendsPaidToEquityHoldersOfParentClassifiedAsFinancingActivities")] },
