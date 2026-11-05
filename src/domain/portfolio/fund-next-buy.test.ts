@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { fundTrendValuation } from "@/domain/valuation/fund-valuation";
 import { companyExposure, complementOf, nextFundBuys, type NextBuyCandidate, type NextBuyPortfolio } from "./fund-next-buy";
-import { companyKey, holdingLabel } from "./holdings";
+import { companyKey, holdingLabel, tickerFor, tickerIndex } from "./holdings";
 
 // Todo ficticio salvo los nombres tal como los escriben las fichas
 const series = (last: number) => Array.from({ length: 60 }, (_, t) => 100 * 1.01 ** t * (t === 59 ? last : 1));
@@ -86,5 +86,29 @@ describe("¿Qué comprar después? (§5.5)", () => {
   it("indica cuánto cabe hasta el 15 %", () => {
     const r = nextFundBuys([{ ...base, heldEur: 500 }], portfolio);
     expect(r.ranking[0]!.roomEur).toBeCloseTo((0.15 * 10_000 - 500) / 0.85, 6);
+  });
+});
+
+describe("tickers de las posiciones", () => {
+  // Filas con el formato de company_tickers_exchange.json de la SEC (extracto real de nombres)
+  const index = tickerIndex([
+    { cik: "1652044", name: "Alphabet Inc.", ticker: "GOOGL", exchange: "Nasdaq" },
+    { cik: "1652044", name: "Alphabet Inc.", ticker: "GOOG", exchange: "Nasdaq" },
+    { cik: "2488", name: "ADVANCED MICRO DEVICES INC", ticker: "AMD", exchange: "Nasdaq" },
+    { cik: "70858", name: "BANK OF AMERICA CORP /DE/", ticker: "BAC", exchange: "NYSE" },
+    { cik: "1", name: "Ficticia Uno Corp", ticker: "FUA", exchange: "NYSE" },
+    { cik: "2", name: "Ficticia Uno Holdings", ticker: "FUB", exchange: "Nasdaq" },
+    { cik: "3", name: "Nestle SA", ticker: "NSRGY", exchange: "OTC" },
+  ]);
+  it("usa el ticker cuando la empresa es inequívoca", () => {
+    expect(tickerFor("ADVANCED MICRO DEVICES USD0.01", index)).toBe("AMD");
+    expect(tickerFor("ALPHABET INC-CL A USD0.001", index)).toBe("GOOGL");
+    expect(tickerFor("ALPHABET INC-CL C USD0.001", index)).toBe("GOOG");
+    expect(tickerFor("Bank of America Corp", index)).toBe("BAC");
+  });
+  it("sin ticker si es ambiguo o solo cotiza fuera de NYSE/Nasdaq", () => {
+    expect(tickerFor("FICTICIA UNO", index)).toBeNull();
+    expect(tickerFor("NESTLE SA-REG", index)).toBeNull();
+    expect(tickerFor("Empresa Desconocida", index)).toBeNull();
   });
 });

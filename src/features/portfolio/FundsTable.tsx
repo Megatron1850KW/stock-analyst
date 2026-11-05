@@ -16,6 +16,7 @@ import type { Trend } from "@/domain/portfolio/recommendation";
 import type { FundProfile } from "./fund-profile";
 import { isCommodity, type Holding } from "./load";
 import { ActionBadge } from "./PositionCard";
+import { useHoldingTickers } from "./holding-tickers";
 
 /** Un ETF/ETC en la tabla: de tu cartera (con valor y recomendación) o solo de tu watchlist. */
 export interface FundLine {
@@ -64,7 +65,7 @@ const source = (f: FundProfile, field: string) =>
   `Ficha del fondo${f.asOf ? ` a ${formatDate(f.asOf)}` : ""}${f.pages[field] ? `, página ${f.pages[field]}` : ""}.`;
 
 /** Lista corta de pesos con barra: las `n` mayores y el resto en «Otros». */
-function Shares({ items, n, label, f, field }: { items: { name: string; weight: number }[]; n: number; label: string; f: FundProfile; field: string }) {
+function Shares({ items, n, label, f, field }: { items: { name: string; full?: string; weight: number }[]; n: number; label: string; f: FundProfile; field: string }) {
   const top = items.slice(0, n);
   const rest = items.slice(n).reduce((t, x) => t + x.weight, 0);
   const max = Math.max(...top.map((x) => x.weight), 0.0001);
@@ -75,7 +76,7 @@ function Shares({ items, n, label, f, field }: { items: { name: string; weight: 
           <p className="font-medium">{label}</p>
           <ul className="mt-1 tabular">
             {items.map((x) => (
-              <li key={x.name} className="flex justify-between gap-4"><span>{x.name}</span><span>{formatPercent(x.weight, 1)}</span></li>
+              <li key={x.full ?? x.name} className="flex justify-between gap-4"><span>{x.full && x.full !== x.name ? `${x.name} · ${x.full}` : x.name}</span><span>{formatPercent(x.weight, 1)}</span></li>
             ))}
           </ul>
           <p className="mt-1 text-muted">{source(f, field)}</p>
@@ -84,8 +85,8 @@ function Shares({ items, n, label, f, field }: { items: { name: string; weight: 
     >
       <ul tabIndex={0} aria-label={label} className="w-[150px] space-y-[3px] text-[12px] leading-tight">
         {top.map((x) => (
-          <li key={x.name} className="grid grid-cols-[1fr_auto] items-center gap-x-2">
-            <span className="truncate" title={x.name}>{x.name}</span>
+          <li key={x.full ?? x.name} className="grid grid-cols-[1fr_auto] items-center gap-x-2">
+            <span className="truncate" title={x.full ?? x.name}>{x.name}</span>
             <span className="text-muted tabular">{formatPercent(x.weight, 1)}</span>
             <span aria-hidden className="col-span-2 h-[3px] rounded-full bg-surface">
               <span className="block h-full rounded-full bg-accent/70" style={{ width: `${(x.weight / max) * 100}%` }} />
@@ -98,12 +99,13 @@ function Shares({ items, n, label, f, field }: { items: { name: string; weight: 
   );
 }
 
-function HoldingsCell({ h }: { h: FundLine }) {
+function HoldingsCell({ h, tickers }: { h: FundLine; tickers: Map<string, string> }) {
   const f = h.profile;
   if (h.commodity && !f?.holdings.length) return <Commodity what="posiciones en empresas" />;
   if (!f) return <NoSheet />;
   if (!f.holdings.length) return <span className="text-[12px] text-muted">{SIN_DATO}</span>;
-  const items = f.holdings.map((x) => ({ name: holdingLabel(x.name), weight: x.weight }));
+  // El ticker si se conoce («AMD»); si no, el nombre completo
+  const items = f.holdings.map((x) => ({ name: tickers.get(x.name) ?? holdingLabel(x.name), full: holdingLabel(x.name), weight: x.weight }));
   const top5 = f.holdings.slice(0, 5).reduce((t, x) => t + x.weight, 0);
   return (
     <div>
@@ -196,6 +198,7 @@ function ValuationCell({ h, stocks }: { h: FundLine; stocks: FollowedStock[] }) 
 
 /** ETFs y ETCs frente a frente (§5.5): qué llevan dentro, si están caros, tendencia y peso. Sin estados financieros. */
 export function FundsTable({ holdings, stocks = [] }: { holdings: FundLine[]; stocks?: FollowedStock[] }) {
+  const tickers = useHoldingTickers(holdings).data ?? new Map<string, string>();
   const head = "px-3 py-2 text-left text-[11.5px] font-medium text-muted";
   return (
     <div className="overflow-x-auto rounded-[var(--radius-card)] border border-border bg-surface-raised shadow-card">
@@ -226,7 +229,7 @@ export function FundsTable({ holdings, stocks = [] }: { holdings: FundLine[]; st
                   <p className="line-clamp-2 text-[12.5px]" title={f?.index ?? undefined}>{f?.index ?? <span className="text-muted">{SIN_DATO}</span>}</p>
                   <p className="mt-0.5 text-[12px] text-muted tabular">{f?.ter != null ? `${formatPercent(f.ter, 2)} al año` : "Coste: sin dato"}</p>
                 </td>
-                <td className="px-3 py-3"><HoldingsCell h={h} /></td>
+                <td className="px-3 py-3"><HoldingsCell h={h} tickers={tickers} /></td>
                 <td className="px-3 py-3"><BreakdownCell h={h} field="countries" /></td>
                 <td className="px-3 py-3"><BreakdownCell h={h} field="sectors" /></td>
                 <td className="px-3 py-3"><ValuationCell h={h} stocks={stocks} /></td>

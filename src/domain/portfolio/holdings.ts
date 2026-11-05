@@ -6,7 +6,7 @@
 
 const LEGAL = new Set([
   "inc", "incorporated", "corp", "corporation", "co", "company", "ltd", "limited", "plc", "sa", "nv", "ag", "se", "spa", "asa", "ab", "oyj",
-  "class", "cl", "cls", "a", "b", "c", "the", "com", "reg", "ord", "adr", "shs", "registered", "holding", "holdings", "group", "&",
+  "class", "cl", "cls", "a", "b", "c", "the", "com", "reg", "ord", "adr", "shs", "registered", "holding", "holdings", "group", "&", "of", "and", "de", "del",
 ]);
 
 const strip = (name: string) =>
@@ -32,4 +32,46 @@ export function holdingLabel(name: string): string {
   const s = strip(name).replace(/\s+/g, " ").trim();
   if (s !== s.toUpperCase()) return s;
   return s.toLowerCase().replace(/(^|[\s\-(./])([a-z])/g, (_, p: string, c: string) => p + c.toUpperCase());
+}
+
+/** Clase de acción escrita en el nombre («ALPHABET INC-CL A» → «A»), o «» si no la lleva. */
+export function shareClass(name: string): string {
+  return /(?:^|[\s\-])(?:CL|CLS|CLASS)\.?\s*([A-C])\b/i.exec(name)?.[1]?.toUpperCase() ?? "";
+}
+
+/** Clave de una posición concreta: empresa + clase («alphabet|A»). */
+export const holdingId = (name: string) => `${companyKey(name)}|${shareClass(name)}`;
+
+export interface ListedCompany {
+  cik: string;
+  name: string;
+  ticker: string;
+  exchange: string | null;
+}
+
+/**
+ * Índice empresa → tickers a partir de la lista oficial de la SEC (solo NYSE y
+ * Nasdaq, sin OTC). Si dos empresas distintas comparten clave, no se usa: mejor
+ * el nombre completo que un ticker equivocado.
+ */
+export function tickerIndex(list: ListedCompany[]): Map<string, string[] | null> {
+  const byKey = new Map<string, { cik: string; tickers: string[] } | null>();
+  for (const c of list) {
+    if (!c.exchange || !/^(nyse|nasdaq)$/i.test(c.exchange)) continue;
+    const k = companyKey(c.name);
+    if (!k) continue;
+    const prev = byKey.get(k);
+    if (prev === undefined) byKey.set(k, { cik: c.cik, tickers: [c.ticker] });
+    else if (prev && prev.cik === c.cik) prev.tickers.push(c.ticker);
+    else byKey.set(k, null);
+  }
+  return new Map([...byKey].map(([k, v]) => [k, v ? v.tickers : null]));
+}
+
+/** Ticker de una posición: clase A o sin clase → el primero de la SEC; clase B o C → el segundo (GOOGL / GOOG, BRK-A / BRK-B). */
+export function tickerFor(name: string, index: Map<string, string[] | null>): string | null {
+  const tickers = index.get(companyKey(name));
+  if (!tickers?.length) return null;
+  const cls = shareClass(name);
+  return cls === "B" || cls === "C" ? tickers[1] ?? tickers[0]! : tickers[0]!;
 }
