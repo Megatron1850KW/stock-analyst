@@ -6,3 +6,4 @@ Prompts para Claude (CLAUDE.md §7), uno por archivo y con versión en la cabece
 - `peers.md`: competidores propuestos una sola vez (Haiku).
 - `pdf-extraction.md`: cifras de un informe en PDF cuando no hay datos estructurados (Haiku).
 - `etf-extraction.md`: ficha o KID en PDF de un ETF/ETC (Haiku).
+- `fund-next-buy.md`: segunda opinión en claude.ai (manual) sobre qué ETF/ETC comprar después.

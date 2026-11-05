@@ -9,6 +9,7 @@ import { sectorFromSic } from "@/domain/portfolio/sector";
 import type { OpportunityVerdict } from "@/domain/scoring/peer-verdict";
 import { priceStats, type PriceStats } from "@/domain/technical/price-range";
 import { technicalRisk, type TechnicalRisk } from "@/domain/technical/risk";
+import { fundTrendValuation, type FundValuation } from "@/domain/valuation/fund-valuation";
 import { loadPeerGroup } from "@/features/peers/load";
 import type { Analysis } from "@/features/watchlist/analysis";
 import { loadSecurityDetail } from "@/features/watchlist/load";
@@ -28,6 +29,8 @@ export interface Holding {
   verdict: OpportunityVerdict | null;
   fund: FundProfileRow | null;
   trend: Trend | null;
+  /** ETF/ETC: precio frente a su tendencia de largo plazo («¿Cara o barata?»). */
+  fundValuation: FundValuation | null;
   /** Riesgo técnico de largo plazo (§5.3). */
   technical: TechnicalRisk;
   /** Rango de 52 semanas y año en curso. */
@@ -104,6 +107,7 @@ export async function loadPortfolio(db: Db, now = new Date()): Promise<Portfolio
     let analysis: Analysis | null = null;
     let verdict: OpportunityVerdict | null = null;
     let trend: Trend | null = null;
+    let fundValuation: FundValuation | null = null;
     let g: number | null = null;
     const monthly = await getPriceBars(db, row.id, "1mo");
     const technical = technicalRisk(monthly.slice(-120));
@@ -114,6 +118,7 @@ export async function loadPortfolio(db: Db, now = new Date()): Promise<Portfolio
       g = analysis?.quality.parts.find((p) => p.id === "growth")?.value ?? null;
     } else {
       trend = trendFromCloses(monthly.map((b) => b.close));
+      fundValuation = fundTrendValuation(monthly.map((b) => b.close));
       g = priceCagr(monthly.slice(-120));
     }
     if (position.valueEur !== null) growth.push({ ticker: row.ticker, valueEur: position.valueEur, growth: g, basis: row.kind === "stock" ? "ventas" : "precio" });
@@ -139,6 +144,7 @@ export async function loadPortfolio(db: Db, now = new Date()): Promise<Portfolio
       verdict,
       fund,
       trend,
+      fundValuation,
       technical,
       stats,
       recommendation,

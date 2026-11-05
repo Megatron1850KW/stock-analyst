@@ -4,9 +4,10 @@ import { getPriceBars } from "@/db/repo";
 import { recommend, roomToMaxEur, trendFromCloses, type Recommendation } from "@/domain/portfolio/recommendation";
 import { priceStats, type PriceStats } from "@/domain/technical/price-range";
 import { technicalRisk, type TechnicalRisk } from "@/domain/technical/risk";
+import { fundTrendValuation } from "@/domain/valuation/fund-valuation";
 import { getFundProfiles, type FundProfileRow } from "@/features/portfolio/fund-profile";
 import type { FundLine } from "@/features/portfolio/FundsTable";
-import { loadPortfolio } from "@/features/portfolio/load";
+import { isCommodity, loadPortfolio } from "@/features/portfolio/load";
 
 /** Encaje en tu cartera (solo si has registrado operaciones). */
 export interface PortfolioFit {
@@ -95,6 +96,9 @@ export async function loadWatchlistFunds(db: Db, only?: number): Promise<Watchli
       id: r.id, ticker: r.ticker, name: r.name, kind: r.kind, isin: r.isin, exchange: r.exchange, currency: r.currency,
       profile: fund?.profile ?? null, fund,
       trend,
+      valuation: fundTrendValuation(monthly.map((b) => b.close)),
+      commodity: isCommodity(r.kind, r.name, fund?.profile.index ?? null),
+      technicalLevel: technical.level,
       technical,
       price: daily ? { close: daily.close, date: daily.date } : null,
       position: null, recommendation: null, held: r.held === 1,

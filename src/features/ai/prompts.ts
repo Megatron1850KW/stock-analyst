@@ -2,6 +2,7 @@ import equityAnalysisRaw from "../../../prompts/equity-analysis.md?raw";
 import pdfExtractionRaw from "../../../prompts/pdf-extraction.md?raw";
 import peersRaw from "../../../prompts/peers.md?raw";
 import etfExtractionRaw from "../../../prompts/etf-extraction.md?raw";
+import fundNextBuyRaw from "../../../prompts/fund-next-buy.md?raw";
 
 /** Prompt versionado (CLAUDE.md §7): cabecera con id y versión + texto. */
 export interface Prompt {
@@ -29,3 +30,4 @@ export const EQUITY_ANALYSIS_PROMPT = parsePrompt(equityAnalysisRaw);
 export const PEERS_PROMPT = parsePrompt(peersRaw);
 export const PDF_EXTRACTION_PROMPT = parsePrompt(pdfExtractionRaw);
 export const ETF_EXTRACTION_PROMPT = parsePrompt(etfExtractionRaw);
+export const FUND_NEXT_BUY_PROMPT = parsePrompt(fundNextBuyRaw);

@@ -112,8 +112,25 @@ test("cartera (datos ficticios): operaciones, vision board, ficha de ETF y porta
   await expect(page.getByText("Valor de tu cartera")).toBeVisible();
   await shot(page, "13-portada-cartera");
   await page.getByRole("tab", { name: /ETFs y ETCs/ }).click();
-  await expect(page.getByRole("table", { name: "ETFs y ETCs que sigues" })).toContainText("MSCI World (ficticio)");
+  const funds = page.getByRole("table", { name: "ETFs y ETCs que sigues" });
+  await expect(funds).toContainText("MSCI World (ficticio)");
+  // Lo que lleva dentro: 5 mayores posiciones, países y sectores; sin réplica ni domicilio
+  await expect(funds).not.toContainText("Réplica");
+  await expect(funds.getByRole("list", { name: "Mayores posiciones de FWRL" })).toContainText("Ficticia Corp");
+  await expect(funds.getByRole("list", { name: "Mayores posiciones de FWRL" })).not.toContainText("Energía Ficticia");
+  await expect(funds).toContainText("Las 5 mayores: 14,0 % del fondo");
+  await expect(funds.getByRole("list", { name: "Países de FWRL" })).toContainText("Estados Unidos");
+  await expect(funds.getByRole("list", { name: "Sectores de FWRL" })).toContainText("Tecnología");
+  await expect(funds).toContainText(/vs\. su tendencia de \d+ años|Sin dato/);
+  // ¿Qué comprar después? y la segunda opinión en claude.ai
+  const next = page.getByRole("region", { name: "¿Qué fondo comprar después?" });
+  await expect(next).toBeVisible();
+  await next.getByRole("button", { name: "Copiar texto para claude.ai" }).click();
+  await expect(next.getByLabel("Texto para claude.ai")).toHaveValue(/<fondos>[\s\S]*FWRL[\s\S]*<propuesta_app>/);
+  await funds.scrollIntoViewIfNeeded();
   await shot(page, "14-portada-etfs");
+  await next.scrollIntoViewIfNeeded();
+  await shot(page, "31-etf-que-comprar");
 
   // Ficha del ETF en la watchlist: precio frente a su media del año y encaje en la cartera
   await page.goto("/#/watchlist");
