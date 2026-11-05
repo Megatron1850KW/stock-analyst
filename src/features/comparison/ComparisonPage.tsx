@@ -23,6 +23,7 @@ import { signedPercent } from "@/features/watchlist/ficha/format";
 import { formatCurrency, formatNumber, formatPercent, SIN_DATO } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { fundLineOf, FundsTable, type FundLine } from "@/features/portfolio/FundsTable";
+import { FundsNextBuy } from "@/features/portfolio/FundsNextBuy";
 import { useWatchlistFunds } from "@/features/watchlist/queries";
 import { PortfolioSummary, VisionBoard } from "@/features/portfolio/PortfolioPage";
 import { usePortfolio } from "@/features/portfolio/queries";
@@ -433,10 +434,13 @@ export function ComparisonPage() {
       {tab === "etf" && (
         funds.length > 0 ? (
           <>
-            <FundsTable holdings={funds} />
+            <FundsTable holdings={funds} stocks={(rows ?? []).map((r) => ({ ticker: r.ticker, name: r.name, verdict: r.valuation.verdict }))} />
             <p className="mt-3 text-[11.5px] text-muted">
-              Los ETFs y ETCs no tienen estados financieros: se miran su coste, qué siguen, su tendencia de fondo (precio frente a su media de 10 meses) y el equilibrio de tu cartera. {DISCLAIMER}
+              Los ETFs y ETCs no tienen estados financieros: se miran su coste, lo que llevan dentro según su ficha oficial, su precio frente a su tendencia de largo plazo
+              («¿Cara o barata?»: recta que mejor encaja con sus cierres mensuales de hasta 10 años; franja ámbar = ±15 %), su tendencia de fondo (precio frente a su media de 10 meses) y el equilibrio de tu cartera.
+              Pasa el ratón por una celda para ver la lista completa y su origen. {DISCLAIMER}
             </p>
+            <FundsNextBuy funds={funds} view={portfolio.data ?? null} />
           </>
         ) : (
           <EmptyState

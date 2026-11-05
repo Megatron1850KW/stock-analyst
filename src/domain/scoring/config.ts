@@ -194,3 +194,37 @@ export const BUFFETT_CONFIG = {
   /** Precio sensato: no «Cara» frente a su historia y rentabilidad del dueño (caja libre ÷ capitalización) mínima. */
   minOwnerYield: 0.04,
 };
+
+/**
+ * «¿Cara o barata?» de un ETF/ETC (§5.5). No tiene beneficios propios que
+ * comparar con su historia, así que se mira su precio frente a su tendencia de
+ * largo plazo: la línea recta (en escala logarítmica) que mejor encaja con sus
+ * cierres mensuales de hasta 10 años. Los umbrales son los mismos que los de
+ * las acciones (±15 %).
+ */
+export const FUND_VALUATION_CONFIG = {
+  /** Meses de historia que se usan como máximo (10 años) y como mínimo (3 años). */
+  maxMonths: 120,
+  minMonths: 36,
+  cheapBelow: VALUATION_CONFIG.cheapBelow,
+  expensiveAbove: VALUATION_CONFIG.expensiveAbove,
+  /** Desviación que lleva la puntuación a 0 o a 100 (±50 %), como en las acciones. */
+  fullScaleDeviation: VALUATION_CONFIG.fullScaleDeviation,
+};
+
+/**
+ * «¿Qué comprar después?» entre tus ETFs y ETCs (§5.5 y §8.4): precio frente a
+ * su tendencia × cuánto le aporta a tu cartera (sectores, países y empresas que
+ * aún no tienes). Determinista y con desglose.
+ */
+export const NEXT_BUY_CONFIG = {
+  /** Peso de cada parte del «aporte a tu cartera». */
+  complementWeights: { sectors: 0.4, countries: 0.25, companies: 0.35 },
+  /** Si su mayor sector ya pasa del máximo de tu cartera (35 %) y en el fondo pesa al menos esto, el aporte se reduce a la mitad. */
+  pushSectorFrom: 0.2,
+  pushPenalty: 0.5,
+  /** Peso de la valoración frente al aporte en la nota final (0–100). */
+  weights: { valuation: 0.5, complement: 0.5 },
+  /** Cuántos se proponen como siguiente compra. */
+  top: 3,
+};

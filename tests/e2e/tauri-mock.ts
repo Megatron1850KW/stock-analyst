@@ -85,7 +85,10 @@ export const FAKE_ETF_SHEET = {
   divisa_fondo: "USD",
   dividendos: "acumulación",
   colateral: null,
-  principales_posiciones: [{ nombre: "Ficticia Corp", peso: 4.8 }, { nombre: "Otra Ficticia", peso: 3.9 }, { nombre: "Ficticia Textil", peso: 2.1 }],
+  principales_posiciones: [
+    { nombre: "FICTICIA CORP USD0.001", peso: 4.8 }, { nombre: "Otra Ficticia", peso: 3.9 }, { nombre: "Ficticia Textil", peso: 2.1 },
+    { nombre: "Banco Ficticio", peso: 1.7 }, { nombre: "Farma Ficticia", peso: 1.5 }, { nombre: "Energía Ficticia", peso: 1.2 },
+  ],
   sectores: [
     { nombre: "Tecnología", peso: 26.1 }, { nombre: "Finanzas", peso: 15.8 }, { nombre: "Salud", peso: 11.2 },
     { nombre: "Industria", peso: 10.9 }, { nombre: "Consumo discrecional", peso: 10.3 }, { nombre: "Otros", peso: 25.7 },
