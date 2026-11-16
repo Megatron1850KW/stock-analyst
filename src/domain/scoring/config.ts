@@ -194,3 +194,23 @@ export const BUFFETT_CONFIG = {
   /** Precio sensato: no «Cara» frente a su historia y rentabilidad del dueño (caja libre ÷ capitalización) mínima. */
   minOwnerYield: 0.04,
 };
+
+/**
+ * «Qué compro hoy» (comparativa de hasta 3 posiciones de tu cartera). Cuatro
+ * criterios de 0 a 100 y su peso en la nota final. Un dato que falta (o que
+ * no aplica, como la caja de un ETF) cuenta como 50, neutro.
+ */
+export const NEXT_BUY_CONFIG = {
+  weights: { balance: 0.25, valuation: 0.3, cash: 0.2, growth: 0.25 },
+  missingScore: 50,
+  /** Si el sector pasaría del 35 %, el criterio de peso no da más de estos puntos. */
+  sectorOverCap: 20,
+  /** Riesgo técnico de largo plazo «Alto» resta estos puntos a la nota. */
+  highRiskPenalty: 10,
+  /** ETF/ETC: precio un 15 % por debajo de su media de 10 meses = 100 puntos; un 15 % por encima = 0. */
+  fundTrend: { cheap: -0.15, expensive: 0.15 },
+  /** Caja libre ÷ capitalización: 0 % = 0 puntos, 8 % = 100; margen operativo: 0 % = 0, 25 % = 100. */
+  cash: { fcfYieldGood: 0.08, marginGood: 0.25, fcfWeight: 0.6 },
+  /** Crecimiento anual (ventas; en fondos, precio): −5 % = 0 puntos, +15 % = 100 (como la nota de calidad). */
+  growth: { bad: -0.05, good: 0.15 },
+};

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, ArrowDownRight, ArrowUpRight, CircleAlert, CircleCheck, CircleMinus, Layers, Plus, Sparkles, WalletCards } from "lucide-react";
+import { AlertTriangle, ArrowDownRight, ArrowUpRight, CircleAlert, CircleCheck, CircleMinus, Layers, Plus, ShoppingCart, Sparkles, WalletCards } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router";
 import { AnimatedLogo } from "@/app/AnimatedLogo";
@@ -26,6 +26,7 @@ import { fundLineOf, FundsTable, type FundLine } from "@/features/portfolio/Fund
 import { useWatchlistFunds } from "@/features/watchlist/queries";
 import { PortfolioSummary, VisionBoard } from "@/features/portfolio/PortfolioPage";
 import { usePortfolio } from "@/features/portfolio/queries";
+import { NextBuyPanel } from "@/features/portfolio/NextBuyPanel";
 import { appDb } from "@/platform/database";
 import { comparisonRow, highlights, sortRows, SORT_LABELS, type ComparisonRow, type Highlight, type SortKey } from "./rows";
 
@@ -276,12 +277,13 @@ function HighlightCard({ h }: { h: Highlight }) {
 
 /* ---------- Página ---------- */
 
-type Tab = "watchlist" | "portfolio" | "etf";
+type Tab = "watchlist" | "portfolio" | "etf" | "buy";
 
 function Tabs({ tab, onChange, counts }: { tab: Tab; onChange: (t: Tab) => void; counts: { watchlist: number; funds: number; portfolio: number } }) {
   const items: { id: Tab; label: ReactNode }[] = [
     { id: "watchlist", label: <>Acciones <span className="text-muted tabular">{counts.watchlist}</span></> },
     { id: "etf", label: <>ETFs y ETCs <span className="text-muted tabular">{counts.funds}</span></> },
+    { id: "buy", label: <>Qué compro hoy</> },
     { id: "portfolio", label: <>Mi cartera <span className="text-muted tabular">{counts.portfolio}</span></> },
   ];
   return (
@@ -443,6 +445,19 @@ export function ComparisonPage() {
             icon={Layers}
             title="ETFs y ETCs"
             description="Cuando añadas un ETF o un ETC a tu watchlist (por su ISIN) o a tu cartera, aquí los verás comparados por coste (TER), qué índice o materia prima siguen, tendencia de largo plazo y peso."
+          >
+            <Button asChild><Link to="/portfolio">Ir a Mi Portfolio</Link></Button>
+          </EmptyState>
+        )
+      )}
+      {tab === "buy" && (
+        portfolio.data && portfolio.data.holdings.length > 0 ? (
+          <NextBuyPanel view={portfolio.data} />
+        ) : (
+          <EmptyState
+            icon={ShoppingCart}
+            title="Qué compro hoy"
+            description="Cuando registres tus operaciones podrás elegir hasta tres posiciones de tu cartera y la app te dirá cuál comprar hoy, cuánto y por qué."
           >
             <Button asChild><Link to="/portfolio">Ir a Mi Portfolio</Link></Button>
           </EmptyState>
