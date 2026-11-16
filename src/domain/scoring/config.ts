@@ -201,10 +201,11 @@ export const BUFFETT_CONFIG = {
  * no aplica, como la caja de un ETF) cuenta como 50, neutro.
  */
 export const NEXT_BUY_CONFIG = {
-  weights: { balance: 0.25, valuation: 0.3, cash: 0.2, growth: 0.25 },
+  weights: { balance: 0.2, sector: 0.15, valuation: 0.25, cash: 0.2, growth: 0.2 },
   missingScore: 50,
-  /** Si el sector pasaría del 35 %, el criterio de peso no da más de estos puntos. */
+  /** Si un sector que sea al menos el 20 % del valor pasaría del 35 %, el criterio de sector no da más de estos puntos. */
   sectorOverCap: 20,
+  sectorMainShare: 0.2,
   /** Riesgo técnico de largo plazo «Alto» resta estos puntos a la nota. */
   highRiskPenalty: 10,
   /** ETF/ETC: precio un 15 % por debajo de su media de 10 meses = 100 puntos; un 15 % por encima = 0. */

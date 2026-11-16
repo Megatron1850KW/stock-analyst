@@ -115,10 +115,10 @@ test("cartera (datos ficticios): operaciones, vision board, ficha de ETF y porta
   await expect(page.getByRole("table", { name: "ETFs y ETCs que sigues" })).toContainText("MSCI World (ficticio)");
   await shot(page, "14-portada-etfs");
 
-  // «Qué compro hoy»: entre «ETFs y ETCs» y «Mi cartera»; compara y elige una con sus porqués
+  // «El experto te dice cosas»: a la derecha de «Mi cartera»; compara y elige una con sus porqués
   const tabs = await page.getByRole("tab").allTextContents();
-  expect(tabs.findIndex((t) => t.startsWith("Qué compro hoy"))).toBe(tabs.findIndex((t) => t.startsWith("Mi cartera")) - 1);
-  await page.getByRole("tab", { name: "Qué compro hoy" }).click();
+  expect(tabs.findIndex((t) => t.startsWith("El experto te dice cosas"))).toBe(tabs.findIndex((t) => t.startsWith("Mi cartera")) + 1);
+  await page.getByRole("tab", { name: "El experto te dice cosas" }).click();
   const pick = async (slot: string, ticker: string) => {
     const select = page.getByLabel(slot);
     const label = (await select.locator("option").allTextContents()).find((t) => t.startsWith(`${ticker} ·`))!;
@@ -132,7 +132,8 @@ test("cartera (datos ficticios): operaciones, vision board, ficha de ETF y porta
   await expect(verdict).toContainText(/acciones? por/);
   await expect(verdict).toContainText(/Por qué (FICT|FWRL) y no las otras/);
   const grid = page.getByRole("table", { name: /Comparativa de las posiciones elegidas/ });
-  await expect(grid).toContainText("¿Te equilibra la cartera?");
+  await expect(grid).toContainText("¿Pesa poco en tu cartera?");
+  await expect(grid).toContainText("¿Te diversifica de sector?");
   await expect(grid).toContainText("No aplica: un ETF no tiene estados financieros");
   await expect(grid).toContainText("La elegida");
   await shot(page, "31-que-compro-hoy");

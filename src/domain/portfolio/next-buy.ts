@@ -4,12 +4,15 @@ import type { RiskLevel } from "@/domain/technical/risk";
 import type { Action } from "./recommendation";
 
 /**
- * «Qué compro hoy»: compara hasta 3 posiciones de tu cartera con los mismos
- * cuatro criterios y dice cuál comprar y cuánto. Todo determinista, con los
+ * «El experto te dice cosas» (antes «Qué compro hoy»): compara hasta 3
+ * posiciones de tu cartera con los mismos cinco criterios y dice cuál comprar y cuánto. Todo determinista, con los
  * datos que la app ya tiene guardados (sin IA):
  *
  * 1. Equilibrio de la cartera: el peso que tendría la posición después de la
- *    compra frente al máximo del 15 % (y el sector frente al 35 %).
+ *    compra frente al máximo del 15 %.
+ * 1b. Exposición al sector: cuánto pesan en tu cartera (mirando dentro de tus
+ *    ETFs) los sectores en los que invierte; un sector que casi no tienes
+ *    puntúa alto, y uno por encima del 35 % puntúa bajo.
  * 2. ¿Cara o barata?: la puntuación de valoración frente a su historia; en un
  *    ETF/ETC, su precio frente a su media de 10 meses.
  * 3. ¿Genera caja?: caja libre por cada 100 € que vale y margen operativo.
@@ -22,10 +25,11 @@ import type { Action } from "./recommendation";
  * por qué.
  */
 
-export type CriterionId = "balance" | "valuation" | "cash" | "growth";
+export type CriterionId = "balance" | "sector" | "valuation" | "cash" | "growth";
 
 export const CRITERIA: { id: CriterionId; label: string; question: string }[] = [
-  { id: "balance", label: "Peso en tu cartera", question: "¿Te equilibra la cartera?" },
+  { id: "balance", label: "Peso en tu cartera", question: "¿Pesa poco en tu cartera?" },
+  { id: "sector", label: "Exposición al sector", question: "¿Te diversifica de sector?" },
   { id: "valuation", label: "Cara o barata", question: "¿Está barata?" },
   { id: "cash", label: "Dinero que genera", question: "¿Genera caja?" },
   { id: "growth", label: "Crecimiento", question: "¿Crece?" },
@@ -42,8 +46,14 @@ export interface NextBuyCandidate {
   priceEur: number | null;
   /** ¿Se pueden comprar fracciones? (bróker que las permite: alguna compra suya no fue entera). */
   fractional: boolean;
-  /** Sector y lo que vale ese sector en tu cartera (solo acciones; un ETF ya está repartido). */
-  sector: { name: string; valueEur: number } | null;
+  /** Sector de una acción (o «Materias primas» en un ETC), para mostrarlo. */
+  sector: string | null;
+  /**
+   * En qué sectores invierte (acción: el suyo al 100 %; ETF: el reparto de su
+   * ficha) y cuánto vale cada uno de esos sectores en tu cartera, mirando
+   * dentro de tus ETFs. Vacío si no se sabe.
+   */
+  sectorMix: { key: string; weight: number; portfolioEur: number }[];
   /** Recomendación de la cartera (§8.4). */
   action: Action;
   alerts: string[];
@@ -116,28 +126,49 @@ const pct = (x: number, d = 0) => `${(x * 100).toLocaleString("es-ES", { maximum
 const eur = (x: number) => `${x.toLocaleString("es-ES", { maximumFractionDigits: 0 })} €`;
 const isFund = (c: NextBuyCandidate) => c.kind !== "stock";
 
-function balanceCriterion(c: NextBuyCandidate, totalEur: number, spend: number, cfg: typeof NEXT_BUY_CONFIG, maxPosition: number, maxSector: number): { criterion: Criterion; weightAfter: number | null } {
+function balanceCriterion(c: NextBuyCandidate, totalEur: number, spend: number, maxPosition: number): { criterion: Criterion; weightAfter: number | null } {
   if (c.valueEur === null || totalEur <= 0) return { criterion: { id: "balance", score: null, text: "Sin precio no se puede saber cuánto pesa en tu cartera." }, weightAfter: null };
-  const after = totalEur + spend;
-  const weightAfter = (c.valueEur + spend) / after;
-  let score = scale(weightAfter, maxPosition, 0);
+  const weightAfter = (c.valueEur + spend) / (totalEur + spend);
   const now = c.valueEur / totalEur;
-  let text =
+  const text =
     weightAfter > maxPosition
       ? `Pesa un ${pct(now)} y pasaría a un ${pct(weightAfter)}: por encima del máximo recomendado del ${pct(maxPosition)}.`
       : spend > 0
         ? `Pesa un ${pct(now)} de tu cartera y pasaría a un ${pct(weightAfter)} (máximo ${pct(maxPosition)}).`
         : `Pesa un ${pct(now)} de tu cartera (máximo ${pct(maxPosition)}).`;
-  if (c.sector) {
-    const sectorAfter = (c.sector.valueEur + spend) / after;
-    if (sectorAfter > maxSector) {
-      score = Math.min(score, cfg.sectorOverCap);
-      text += ` El sector ${c.sector.name} pasaría a un ${pct(sectorAfter)} (máximo ${pct(maxSector)}).`;
-    }
-  } else if (isFund(c)) {
-    text += " Un fondo ya reparte el dinero entre muchas empresas.";
+  return { criterion: { id: "balance", score: Math.round(scale(weightAfter, maxPosition, 0)), text }, weightAfter };
+}
+
+/**
+ * Exposición al sector: peso medio en tu cartera, tras la compra, de los
+ * sectores en los que invierte (ponderado por su reparto). 0 % = 100 puntos;
+ * el máximo por sector (35 %) = 0. Si un sector importante del valor pasaría
+ * del máximo, la nota no sube de `sectorOverCap`.
+ */
+function sectorCriterion(c: NextBuyCandidate, totalEur: number, spend: number, cfg: typeof NEXT_BUY_CONFIG, maxSector: number): Criterion {
+  const mix = c.sectorMix.filter((x) => x.weight > 0);
+  const known = mix.reduce((s, x) => s + x.weight, 0);
+  if (mix.length === 0 || known < 0.5 || totalEur <= 0) {
+    return { id: "sector", score: null, text: isFund(c) ? "La ficha de este fondo no trae su reparto por sectores. Cuenta como neutro." : "No se sabe su sector. Indícalo en Mi Portfolio. Cuenta como neutro." };
   }
-  return { criterion: { id: "balance", score: Math.round(score), text }, weightAfter };
+  const after = totalEur + spend;
+  const parts = mix.map((x) => ({ ...x, after: (x.portfolioEur + spend * x.weight) / after, now: x.portfolioEur / totalEur })).sort((a, b) => b.weight - a.weight);
+  const exposure = parts.reduce((s, x) => s + x.weight * x.after, 0) / known;
+  let score = scale(exposure, maxSector, 0);
+  const over = parts.filter((x) => x.weight >= cfg.sectorMainShare && x.after > maxSector);
+  if (over.length) score = Math.min(score, cfg.sectorOverCap);
+
+  let text: string;
+  if (parts.length === 1 || parts[0]!.weight >= 0.9) {
+    const x = parts[0]!;
+    text = `${x.key}: hoy pesa un ${pct(x.now)} de tu cartera, contando lo que llevan dentro tus ETF${spend > 0 ? `, y pasaría a un ${pct(x.after)}` : ""}.`;
+  } else {
+    const top = parts.slice(0, 3).map((x) => `${x.key} ${pct(x.weight)} (en tu cartera ${pct(x.now)})`);
+    text = `Invierte en ${top.join(", ")}${parts.length > 3 ? " y otros" : ""}. De media, esos sectores pesan un ${pct(exposure)} de tu cartera.`;
+  }
+  if (over.length) text += ` ${over.map((x) => x.key).join(" y ")} pasaría del máximo del ${pct(maxSector)}.`;
+  else if (exposure < 0.05) text += " Casi no tienes nada de este sector: te diversifica.";
+  return { id: "sector", score: Math.round(score), text };
 }
 
 function valuationCriterion(c: NextBuyCandidate, cfg: typeof NEXT_BUY_CONFIG): Criterion {
@@ -220,8 +251,8 @@ export function nextBuy(
 ): NextBuyResult {
   const ranked: ScoredCandidate[] = candidates.map((c) => {
     const costEur = c.priceEur === null ? null : amount.mode === "eur" ? amount.value : amount.value * c.priceEur;
-    const { criterion: balance, weightAfter } = balanceCriterion(c, totalEur, costEur ?? 0, cfg, maxPosition, maxSector);
-    const criteria = [balance, valuationCriterion(c, cfg), cashCriterion(c, cfg), growthCriterion(c, cfg)];
+    const { criterion: balance, weightAfter } = balanceCriterion(c, totalEur, costEur ?? 0, maxPosition);
+    const criteria = [balance, sectorCriterion(c, totalEur, costEur ?? 0, cfg, maxSector), valuationCriterion(c, cfg), cashCriterion(c, cfg), growthCriterion(c, cfg)];
     let total = criteria.reduce((s, k) => s + (k.score ?? cfg.missingScore) * cfg.weights[k.id], 0);
     const warnings = [...c.alerts];
     if (c.technical === "Alto") {
@@ -293,7 +324,8 @@ function allocate(eligible: ScoredCandidate[], totalEur: number, amount: Amount,
 }
 
 const BETTER: Record<CriterionId, string> = {
-  balance: "te equilibra mejor la cartera",
+  balance: "pesa menos en tu cartera",
+  sector: "te diversifica más de sector",
   valuation: "está más barata",
   cash: "genera más caja",
   growth: "crece más",
@@ -322,7 +354,7 @@ function explain(winner: ScoredCandidate, ranked: ScoredCandidate[], gap = 10): 
       else if (b - a >= gap) loses.push(BETTER[id]);
     }
     const head = `Frente a ${o} (${winner.total} puntos frente a ${other.total}): `;
-    if (wins.length === 0 && loses.length === 0) out.push(`${head}están muy igualadas; gana por poco en la suma de los cuatro criterios.`);
+    if (wins.length === 0 && loses.length === 0) out.push(`${head}están muy igualadas; gana por poco en la suma de los cinco criterios.`);
     else if (loses.length === 0) out.push(`${head}${winner.candidate.ticker} ${join(wins)}.`);
     else if (wins.length === 0) out.push(`${head}${o} ${join(loses)}, pero ${winner.candidate.ticker} compensa con el resto de criterios.`);
     else out.push(`${head}${winner.candidate.ticker} ${join(wins)}; ${o} ${join(loses)}.`);

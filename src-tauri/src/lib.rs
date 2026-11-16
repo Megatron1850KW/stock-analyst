@@ -72,6 +72,12 @@ fn migrations() -> Vec<Migration> {
             sql: include_str!("../../src/db/migrations/0009_autonomy.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 10,
+            description: "sectores de los fondos",
+            sql: include_str!("../../src/db/migrations/0010_fund_sectors.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
 

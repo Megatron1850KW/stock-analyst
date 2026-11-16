@@ -283,8 +283,8 @@ function Tabs({ tab, onChange, counts }: { tab: Tab; onChange: (t: Tab) => void;
   const items: { id: Tab; label: ReactNode }[] = [
     { id: "watchlist", label: <>Acciones <span className="text-muted tabular">{counts.watchlist}</span></> },
     { id: "etf", label: <>ETFs y ETCs <span className="text-muted tabular">{counts.funds}</span></> },
-    { id: "buy", label: <>Qué compro hoy</> },
     { id: "portfolio", label: <>Mi cartera <span className="text-muted tabular">{counts.portfolio}</span></> },
+    { id: "buy", label: <>El experto te dice cosas</> },
   ];
   return (
     <div role="tablist" aria-label="Qué comparar" className="inline-flex rounded-xl border border-border bg-surface p-1">
@@ -456,7 +456,7 @@ export function ComparisonPage() {
         ) : (
           <EmptyState
             icon={ShoppingCart}
-            title="Qué compro hoy"
+            title="El experto te dice cosas"
             description="Cuando registres tus operaciones podrás elegir hasta tres posiciones de tu cartera y la app te dirá cuál comprar hoy, cuánto y por qué."
           >
             <Button asChild><Link to="/portfolio">Ir a Mi Portfolio</Link></Button>

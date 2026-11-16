@@ -13,9 +13,9 @@ import { nextBuyCandidate } from "./next-buy";
 import { NextBuyAiSection } from "./NextBuyAi";
 
 /**
- * «Qué compro hoy»: eliges hasta 3 posiciones de tu cartera y lo que quieres
+ * «El experto te dice cosas»: eliges hasta 3 posiciones de tu cartera y lo que quieres
  * gastar (en euros o en acciones); la app las compara frente a frente con los
- * cuatro criterios y dice cuál comprar, cuánto y por qué. Cálculo propio, sin IA.
+ * cinco criterios y dice cuál comprar, cuánto y por qué. Cálculo propio, sin IA.
  */
 
 const SLOTS = 3;
@@ -150,7 +150,7 @@ export function NextBuyPanel({ view }: { view: PortfolioView }) {
           </div>
         </div>
         <p className="mt-3 text-[12px] text-muted">
-          Compara con cuatro preguntas: si te equilibra la cartera (máximo 15 % por posición y 35 % por sector), si está barata, cuánto dinero genera y cuánto crece.
+          Compara con cinco preguntas: si pesa poco en tu cartera (máximo 15 %), si te diversifica de sector (máximo 35 %, mirando dentro de tus ETF), si está barata, cuánto dinero genera y cuánto crece.
           {mode === "shares" && " En acciones, el coste de cada una es ese número de acciones a su precio de hoy."}
         </p>
       </section>
@@ -172,7 +172,7 @@ export function NextBuyPanel({ view }: { view: PortfolioView }) {
           <ComparisonGrid columns={columns} winnerId={result.winner?.candidate.id ?? null} />
           <NextBuyAiSection view={view} result={result} amount={{ mode, value: value! }} />
           <p className="text-[11.5px] text-muted">
-            Nota final = peso en cartera {pctW("balance")} + cara o barata {pctW("valuation")} + dinero que genera {pctW("cash")} + crecimiento {pctW("growth")}. Un dato que falta o no aplica cuenta como 50 (neutro).
+            Nota final = peso en cartera {pctW("balance")} + exposición al sector {pctW("sector")} + cara o barata {pctW("valuation")} + dinero que genera {pctW("cash")} + crecimiento {pctW("growth")}. Un dato que falta o no aplica cuenta como 50 (neutro).
             La comparativa es un cálculo propio con los informes y precios guardados en tu Mac, sin IA; la segunda opinión de Claude es opcional y va aparte. El crecimiento es el de los últimos años: es la mejor pista de lo que puede crecer, no una promesa; lo que dice cada empresa de su futuro está en el análisis de su ficha. {DISCLAIMER}
           </p>
         </>
@@ -202,7 +202,7 @@ function Verdict({ result, mode }: { result: NonNullable<ReturnType<typeof nextB
           <p className="flex items-center gap-1.5 text-[11.5px] font-medium tracking-wide text-accent-text uppercase"><Trophy className="size-3.5" aria-hidden /> Compra hoy</p>
           <p className="mt-1 font-serif text-[30px] leading-none font-semibold tracking-tight">{w.candidate.ticker}</p>
           <p className="mt-1 max-w-[260px] truncate text-[12.5px] text-muted" title={w.candidate.name}>{w.candidate.name}</p>
-          <p className="mt-2 text-[13px]"><span className="font-semibold tabular">{w.total}</span><span className="text-muted">/100 en la suma de los cuatro criterios</span></p>
+          <p className="mt-2 text-[13px]"><span className="font-semibold tabular">{w.total}</span><span className="text-muted">/100 en la suma de los cinco criterios</span></p>
         </div>
         <div className="min-w-[240px] flex-1">
           <p className="text-[12px] font-medium text-muted">Cuánto</p>
@@ -248,7 +248,7 @@ function ComparisonGrid({ columns, winnerId }: { columns: ScoredCandidate[]; win
   return (
     <div className="overflow-x-auto rounded-[var(--radius-card)] border border-border bg-surface-raised shadow-card">
       <table className="w-full min-w-[720px] table-fixed border-collapse">
-        <caption className="sr-only">Comparativa de las posiciones elegidas en los cuatro criterios</caption>
+        <caption className="sr-only">Comparativa de las posiciones elegidas en los cinco criterios</caption>
         <colgroup>
           <col className="w-[170px]" />
           {columns.map((c) => <col key={c.candidate.id} />)}

@@ -3,6 +3,8 @@ import { nextBuy, type NextBuyCandidate } from "./next-buy";
 
 // DATOS FICTICIOS para tests: valores y cifras inventadas.
 
+const sec = (name: string, portfolioEur: number) => ({ sector: name, sectorMix: [{ key: name, weight: 1, portfolioEur }] });
+
 const stock = (over: Partial<NextBuyCandidate> = {}): NextBuyCandidate => ({
   id: 1,
   ticker: "FICA",
@@ -11,7 +13,7 @@ const stock = (over: Partial<NextBuyCandidate> = {}): NextBuyCandidate => ({
   valueEur: 5_000,
   priceEur: 100,
   fractional: false,
-  sector: { name: "Tecnología", valueEur: 5_000 },
+  ...sec("Tecnología", 5_000),
   action: "Comprar más",
   alerts: [],
   technical: "Medio",
@@ -41,8 +43,8 @@ describe("Qué compro hoy", () => {
   });
 
   it("el peso en cartera penaliza a la que ya pesa mucho", () => {
-    const heavy = stock({ id: 2, ticker: "PESA", valueEur: 14_000, sector: { name: "Salud", valueEur: 14_000 } });
-    const light = stock({ id: 3, ticker: "LIGE", valueEur: 2_000, sector: { name: "Consumo", valueEur: 2_000 } });
+    const heavy = stock({ id: 2, ticker: "PESA", valueEur: 14_000, ...sec("Salud", 14_000) });
+    const light = stock({ id: 3, ticker: "LIGE", valueEur: 2_000, ...sec("Consumo", 2_000) });
     const r = nextBuy([heavy, light], TOTAL, { mode: "eur", value: 3_000 });
     expect(r.winner?.candidate.ticker).toBe("LIGE");
     const balance = r.ranked.find((x) => x.candidate.ticker === "PESA")!.criteria.find((c) => c.id === "balance")!;
@@ -50,11 +52,42 @@ describe("Qué compro hoy", () => {
     expect(balance.text).toMatch(/por encima del máximo recomendado del 15 %/);
   });
 
-  it("si el sector pasaría del 35 %, el criterio de peso no da más de 20 puntos", () => {
-    const r = nextBuy([stock({ sector: { name: "Tecnología", valueEur: 36_000 } })], TOTAL, { mode: "eur", value: 1_000 });
-    const balance = r.ranked[0]!.criteria.find((c) => c.id === "balance")!;
-    expect(balance.score).toBe(20);
-    expect(balance.text).toMatch(/El sector Tecnología pasaría a un 37 %/);
+  it("si el sector pasaría del 35 %, el criterio de sector no da más de 20 puntos", () => {
+    const r = nextBuy([stock(sec("Tecnología", 36_000))], TOTAL, { mode: "eur", value: 1_000 });
+    const sector = r.ranked[0]!.criteria.find((c) => c.id === "sector")!;
+    expect(sector.score).toBe(0);
+    expect(sector.text).toMatch(/Tecnología: hoy pesa un 36 %.*pasaría a un 37 %.*Tecnología pasaría del máximo del 35 %/);
+  });
+
+  it("un sector que casi no tienes puntúa alto (un banco con la cartera llena de tecnología)", () => {
+    const bank = stock({ id: 2, ticker: "BANC", ...sec("Finanzas", 2_000) });
+    const tech = stock({ id: 3, ticker: "TECN", ...sec("Tecnología", 30_000) });
+    const r = nextBuy([tech, bank], TOTAL, { mode: "eur", value: 1_000 });
+    const score = (t: string) => r.ranked.find((x) => x.candidate.ticker === t)!.criteria.find((c) => c.id === "sector")!;
+    expect(score("BANC").score).toBe(92); // 3.000 / 101.000 ≈ 3 % → 92 puntos
+    expect(score("BANC").text).toMatch(/Casi no tienes nada de este sector: te diversifica/);
+    expect(score("TECN").score).toBe(12); // 31.000 / 101.000 ≈ 31 %
+    expect(r.winner?.candidate.ticker).toBe("BANC");
+    expect(r.why[0]).toMatch(/BANC te diversifica más de sector/);
+  });
+
+  it("un ETF multisector: media de lo que pesan sus sectores en tu cartera", () => {
+    const etf = stock({
+      id: 5, ticker: "FMUL", kind: "etf", cash: null, sector: null,
+      sectorMix: [
+        { key: "Tecnología", weight: 0.4, portfolioEur: 30_000 },
+        { key: "Finanzas", weight: 0.6, portfolioEur: 0 },
+      ],
+    });
+    const sector = nextBuy([etf], TOTAL, { mode: "eur", value: 0.01 }).ranked[0]!.criteria.find((c) => c.id === "sector")!;
+    // 0,4 × 30 % + 0,6 × 0 % = 12 % → 66 puntos
+    expect(sector.score).toBe(66);
+    expect(sector.text).toMatch(/^Invierte en Finanzas 60 % \(en tu cartera 0 %\), Tecnología 40 % \(en tu cartera 30 %\)\. De media, esos sectores pesan un 12 %/);
+  });
+
+  it("sin sector conocido cuenta como neutro", () => {
+    const r = nextBuy([stock({ sector: null, sectorMix: [] })], TOTAL, { mode: "eur", value: 100 });
+    expect(r.ranked[0]!.criteria.find((c) => c.id === "sector")!.score).toBeNull();
   });
 
   it("«Mantener — vigilar» y sin precio no pueden ganar, y se dice", () => {
@@ -67,24 +100,24 @@ describe("Qué compro hoy", () => {
   });
 
   it("un ETF: caja no aplica (neutro), valoración por su media de 10 meses y crecimiento por precio", () => {
-    const etf = stock({ id: 4, ticker: "FETF", kind: "etf", sector: null, cash: null, valuation: { source: "trend", deviation: -0.075 }, growth: { multiYear: 0.1, recent: null, recentPeriod: null } });
+    const etf = stock({ id: 4, ticker: "FETF", kind: "etf", sector: null, sectorMix: [], cash: null, valuation: { source: "trend", deviation: -0.075 }, growth: { multiYear: 0.1, recent: null, recentPeriod: null } });
     const r = nextBuy([etf], TOTAL, { mode: "eur", value: 1_000 });
-    const [balance, valuation, cash, growth] = r.ranked[0]!.criteria;
+    const [balance, , valuation, cash, growth] = r.ranked[0]!.criteria;
     expect(valuation!.score).toBe(75);
     expect(valuation!.text).toMatch(/un 8 % por debajo de su media de 10 meses/);
     expect(cash!.score).toBeNull();
     expect(cash!.text).toMatch(/No aplica/);
     expect(growth!.score).toBe(75);
-    expect(balance!.text).toMatch(/Un fondo ya reparte/);
+    expect(balance!.text).toMatch(/Pesa un 5 %/);
   });
 
   it("si todo en la ganadora pasaría del 15 %, el resto va a la siguiente", () => {
-    const best = stock({ id: 2, ticker: "BEST", valueEur: 13_000, sector: { name: "Salud", valueEur: 13_000 },
+    const best = stock({ id: 2, ticker: "BEST", valueEur: 13_000, ...sec("Salud", 13_000),
       valuation: { source: "history", score: 100, deviation: -0.5, verdict: "Barata" },
       cash: { fcfYield: 0.1, operatingMargin: 0.3, netMargin: 0.2 },
       growth: { multiYear: 0.2, recent: 0.2, recentPeriod: "último trimestre" },
     });
-    const second = stock({ id: 3, ticker: "SEGU", valueEur: 1_000, sector: { name: "Consumo", valueEur: 1_000 } });
+    const second = stock({ id: 3, ticker: "SEGU", valueEur: 1_000, ...sec("Consumo", 1_000) });
     const r = nextBuy([best, second], TOTAL, { mode: "eur", value: 5_000 });
     expect(r.winner?.candidate.ticker).toBe("BEST");
     // Cabe 15 % × 105.000 − 13.000 = 2.750 € → 27 acciones enteras; el resto a SEGU
@@ -95,7 +128,7 @@ describe("Qué compro hoy", () => {
 
   it("si ninguna tiene sitio, el dinero va a la ganadora y se avisa", () => {
     const a = stock({ id: 2, ticker: "GRAA", valueEur: 40_000, sector: null });
-    const b = stock({ id: 3, ticker: "GRAB", valueEur: 50_000, sector: null, valuation: { source: "history", score: 0, deviation: 0.5, verdict: "Cara" } });
+    const b = stock({ id: 3, ticker: "GRAB", valueEur: 50_000, sector: null, sectorMix: [], valuation: { source: "history", score: 0, deviation: 0.5, verdict: "Cara" } });
     const r = nextBuy([a, b], TOTAL, { mode: "eur", value: 1_000 });
     expect(r.plan).toEqual([{ id: 2, ticker: "GRAA", shares: 10, eur: 1_000, weightAfter: 41_000 / 101_000 }]);
     expect(r.overCap).toBe(true);
@@ -114,7 +147,7 @@ describe("Qué compro hoy", () => {
   });
 
   it("en acciones, el coste de cada una es ese número de acciones a su precio", () => {
-    const r = nextBuy([stock(), stock({ id: 2, ticker: "CARA", priceEur: 1_000, sector: { name: "Salud", valueEur: 5_000 } })], TOTAL, { mode: "shares", value: 5 });
+    const r = nextBuy([stock(), stock({ id: 2, ticker: "CARA", priceEur: 1_000, ...sec("Salud", 5_000) })], TOTAL, { mode: "shares", value: 5 });
     expect(r.ranked.find((x) => x.candidate.ticker === "CARA")!.costEur).toBe(5_000);
     expect(r.winner?.candidate.ticker).toBe("FICA");
     expect(r.plan).toEqual([{ id: 1, ticker: "FICA", shares: 5, eur: 500, weightAfter: 5_500 / 100_500 }]);
