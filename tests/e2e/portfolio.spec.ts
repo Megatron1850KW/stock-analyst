@@ -138,6 +138,17 @@ test("cartera (datos ficticios): operaciones, vision board, ficha de ETF y porta
   await shot(page, "31-que-compro-hoy");
   await grid.scrollIntoViewIfNeeded();
   await shot(page, "32-que-compro-hoy-comparativa");
+  // Segunda opinión de Claude: opcional, solo al pulsar; con los mismos datos no se paga dos veces
+  expect(ai.filter((x) => x === "next-buy")).toHaveLength(0);
+  const second = page.getByRole("region", { name: /Segunda opinión de Claude/ });
+  await second.getByRole("button", { name: "Pedir opinión a Claude" }).click();
+  await expect(second).toContainText("Claude compraría");
+  await expect(second).toContainText("Coincide con la app");
+  await expect(second.getByRole("article", { name: "Opinión sobre FWRL" })).toContainText("Lo que se espera que crezca");
+  await expect(second.getByRole("button", { name: "Ya la tienes" })).toBeDisabled();
+  expect(ai.filter((x) => x === "next-buy")).toHaveLength(1);
+  await second.scrollIntoViewIfNeeded();
+  await shot(page, "33-que-compro-hoy-claude");
   await page.getByRole("radio", { name: "Acciones" }).click();
   await page.getByLabel("Cuánto quieres comprar").fill("5");
   await expect(verdict).toContainText("5 acciones por");

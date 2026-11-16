@@ -21,3 +21,15 @@ export async function apiReady(): Promise<boolean> {
   const settings = await loadSettings();
   return settings.aiMode === "api" && (await secrets.has("anthropic_api_key"));
 }
+
+/**
+ * Botones que el usuario pulsa sabiendo que gastan tokens («Qué compro hoy»):
+ * basta con tener la clave, aunque la app esté en modo «Claude.ai manual».
+ * Con la IA desactivada en Ajustes no se llama.
+ */
+export async function requireApiKey(): Promise<Settings> {
+  const settings = await loadSettings();
+  if (settings.aiMode === "off") throw new AiAnalysisError("La IA está desactivada en Ajustes. Actívala para pedir esta opinión.");
+  if (!(await secrets.has("anthropic_api_key"))) throw new AiAnalysisError("Falta la clave de la API de Claude. Añádela en Ajustes.");
+  return settings;
+}

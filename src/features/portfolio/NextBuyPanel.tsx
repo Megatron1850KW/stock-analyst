@@ -10,6 +10,7 @@ import { cn } from "@/lib/cn";
 import { formatCurrency, formatNumber, formatPercent, parseDecimal } from "@/lib/format";
 import type { PortfolioView } from "./load";
 import { nextBuyCandidate } from "./next-buy";
+import { NextBuyAiSection } from "./NextBuyAi";
 
 /**
  * «Qué compro hoy»: eliges hasta 3 posiciones de tu cartera y lo que quieres
@@ -169,9 +170,10 @@ export function NextBuyPanel({ view }: { view: PortfolioView }) {
         <>
           <Verdict result={result} mode={mode} />
           <ComparisonGrid columns={columns} winnerId={result.winner?.candidate.id ?? null} />
+          <NextBuyAiSection view={view} result={result} amount={{ mode, value: value! }} />
           <p className="text-[11.5px] text-muted">
             Nota final = peso en cartera {pctW("balance")} + cara o barata {pctW("valuation")} + dinero que genera {pctW("cash")} + crecimiento {pctW("growth")}. Un dato que falta o no aplica cuenta como 50 (neutro).
-            Cálculo propio con los informes y precios guardados en tu Mac, sin IA. El crecimiento es el de los últimos años: es la mejor pista de lo que puede crecer, no una promesa; lo que dice cada empresa de su futuro está en el análisis de su ficha. {DISCLAIMER}
+            La comparativa es un cálculo propio con los informes y precios guardados en tu Mac, sin IA; la segunda opinión de Claude es opcional y va aparte. El crecimiento es el de los últimos años: es la mejor pista de lo que puede crecer, no una promesa; lo que dice cada empresa de su futuro está en el análisis de su ficha. {DISCLAIMER}
           </p>
         </>
       )}

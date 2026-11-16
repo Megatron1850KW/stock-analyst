@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { gunzipSync } from "node:zlib";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import type { Page } from "@playwright/test";
-import { FAKE_ANALYSIS, fakeReportHtml } from "../helpers/fake-claude";
+import { FAKE_ANALYSIS, fakeNextBuyOpinion, fakeReportHtml } from "../helpers/fake-claude";
 import { fakeDaily } from "../helpers/fake-prices";
 import { avQuoteJson, avSearchJson, avSeriesJson } from "../helpers/fake-alphavantage";
 import { fakeEu } from "../helpers/fake-eu";
@@ -236,9 +236,16 @@ export async function installTauriMock(page: Page, opts: MockOptions = {}) {
         const ticker = /"ticker": ?"([A-Z.-]+)"/.exec(body.messages[0]!.content)?.[1];
         const isPeers = body.system[0]!.text.includes("competidores");
         const isEtf = body.system[0]!.text.includes("fichas comerciales");
-        ai.push(isEtf ? "etf" : isPeers ? "peers" : "analysis");
+        const isNextBuy = body.system[0]!.text.includes("segunda opinión razonada");
+        ai.push(isNextBuy ? "next-buy" : isEtf ? "etf" : isPeers ? "peers" : "analysis");
         let analysis: unknown;
-        if (isEtf) {
+        if (isNextBuy) {
+          // Elige la misma que la app, y opina de todas
+          const content = body.messages[0]!.content;
+          const pick = /"elegida_por_la_app": "([^"]+)"/.exec(content)![1]!;
+          const all = [...content.matchAll(/"ticker": "([^"]+)",\n\s*"nombre"/g)].map((m) => m[1]!);
+          analysis = fakeNextBuyOpinion([pick, ...all.filter((t) => t !== pick)]);
+        } else if (isEtf) {
           analysis = FAKE_ETF_SHEET;
         } else if (isPeers) {
           // Propuesta REAL guardada (Claude Haiku 5.5) para MU y GOOG; FICTICIA para el resto
@@ -260,7 +267,7 @@ export async function installTauriMock(page: Page, opts: MockOptions = {}) {
           content: [{ type: "text", text: JSON.stringify(analysis) }],
           stop_reason: "end_turn",
           stop_sequence: null,
-          usage: isPeers || isEtf
+          usage: isPeers || isEtf || isNextBuy
             ? { input_tokens: 800, output_tokens: 300, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 }
             : { input_tokens: 30_000, output_tokens: 4_000, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
         };
