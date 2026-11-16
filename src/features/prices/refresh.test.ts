@@ -48,6 +48,23 @@ async function setup() {
 }
 
 describe("precios por mercado (datos FICTICIOS)", () => {
+  it("guarda el precio en sesión como el de hoy y el cierre oficial del día anterior", async () => {
+    const { db, ids } = await setup();
+    const base = fakePrices({ calls: [] });
+    const day = { symbol: "FICT", open: null, high: null, low: null, volume: null };
+    const live: PriceProvider = {
+      ...base,
+      quote: async () => ({ ...day, price: 95, date: "2026-10-26", source: "tiingo-iex", previousClose: { ...day, price: 100, date: "2026-10-23" } }),
+    };
+    await refreshPrices(db, { US: live, EU: null }, ids.us, today);
+    expect(await getLatestQuote(db, ids.us)).toMatchObject({ date: "2026-10-26", close: 95, source: "tiingo-iex" });
+    const daily = await db.select<{ date: string; close: number }>("SELECT date, close FROM prices WHERE security_id = ? AND interval = '1d' ORDER BY date", [ids.us]);
+    expect(daily.filter((d) => d.date >= "2026-10-23")).toEqual([
+      { date: "2026-10-23", close: 100 },
+      { date: "2026-10-26", close: 95 },
+    ]);
+  });
+
   it("cada valor va a su proveedor y el símbolo europeo se busca una sola vez", async () => {
     const { db, ids } = await setup();
     const usCalls: string[] = [];

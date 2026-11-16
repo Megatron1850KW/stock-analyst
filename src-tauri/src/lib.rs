@@ -114,6 +114,7 @@ pub fn run() {
             eu::esef_report,
             claude::claude_request,
             prices::price_quote,
+            prices::price_live,
             prices::price_history,
             prices::price_splits,
             prices::price_series,

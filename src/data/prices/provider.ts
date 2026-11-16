@@ -13,6 +13,10 @@ export interface Quote {
   volume: number | null;
   /** Fecha de la cotización (YYYY-MM-DD, hora de Nueva York). */
   date: string;
+  /** Origen si no es el del proveedor (p. ej. «tiingo-iex», precio durante la sesión). */
+  source?: string;
+  /** Cierre oficial del día anterior, que también se guarda (sustituye un precio en sesión guardado ese día). */
+  previousClose?: Quote;
 }
 
 /** Vela diaria ajustada por splits (no por dividendos). */
@@ -198,6 +202,49 @@ export function parseTiingoQuote(raw: string, symbol: string): Quote {
   return { symbol, price: last.close, open: last.open ?? null, high: last.high ?? null, low: last.low ?? null, volume: last.volume ?? null, date: last.date };
 }
 
+/** Fila de https://api.tiingo.com/iex/<ticker> (precio durante la sesión). */
+const tiingoIexSchema = z.array(
+  z.object({
+    timestamp: z.string().refine((t) => !Number.isNaN(Date.parse(t)), "fecha no válida"),
+    tngoLast: z.number().positive().nullish(),
+    last: z.number().positive().nullish(),
+    open: z.number().positive().nullish(),
+    high: z.number().positive().nullish(),
+    low: z.number().positive().nullish(),
+  }),
+);
+
+/** Último precio de la sesión según IEX; null si Tiingo no lo da. */
+export function parseTiingoLive(raw: string, symbol: string): Quote | null {
+  let json: unknown;
+  try {
+    json = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  const parsed = tiingoIexSchema.safeParse(json);
+  const row = parsed.success ? parsed.data[0] : undefined;
+  const price = row?.tngoLast ?? row?.last ?? null;
+  if (!row || price === null) return null;
+  // El volumen de IEX es solo el de ese mercado: no se guarda para no confundir
+  return { symbol, price, open: row.open ?? null, high: row.high ?? null, low: row.low ?? null, volume: null, date: nyDate.format(new Date(row.timestamp)), source: "tiingo-iex" };
+}
+
+/**
+ * Cotización de Tiingo: el cierre diario y, si la sesión de hoy ya ha
+ * empezado, su último precio. El endpoint diario no trae el día en curso hasta
+ * el cierre de Nueva York, así que sin esto la cartera se valoraba al cierre
+ * anterior (con días de −6 % no cuadraba con el bróker).
+ */
+export async function tiingoQuote(symbol: string, fetch: (command: "price_quote" | "price_live") => Promise<string>): Promise<Quote> {
+  const daily = parseTiingoQuote(await fetch("price_quote"), symbol);
+  // El precio en sesión es un extra: si falla, vale el cierre
+  const live = await fetch("price_live")
+    .then((raw) => parseTiingoLive(raw, symbol))
+    .catch(() => null);
+  return live && live.date > daily.date ? { ...live, previousClose: daily } : daily;
+}
+
 /**
  * Tiingo da precios sin ajustar y el factor de split de cada día. Se ajustan
  * aquí solo por splits (no por dividendos), dividiendo cada día anterior a un
@@ -221,7 +268,7 @@ export function parseTiingoHistory(raw: string): PriceHistory {
 export const tiingoProvider: PriceProvider = {
   id: "tiingo",
   label: "Tiingo",
-  quote: async (symbol) => parseTiingoQuote(await invoke<string>("price_quote", { provider: "tiingo", symbol }), symbol),
+  quote: (symbol) => tiingoQuote(symbol, (command) => invoke<string>(command, { provider: "tiingo", symbol })),
   history: async (symbol, from) => parseTiingoHistory(await invoke<string>("price_history", { provider: "tiingo", symbol, from })),
 };
 
@@ -231,4 +278,6 @@ export function providerFor(id: string | null): PriceProvider | null {
   return (id && PROVIDERS[id]) || null;
 }
 
-export const providerLabel = (id: string | null | undefined) => (id && PROVIDERS[id]?.label) || id || "";
+const EXTRA_LABELS: Record<string, string> = { "tiingo-iex": "Tiingo (precio durante la sesión, IEX)" };
+
+export const providerLabel = (id: string | null | undefined) => (id && (PROVIDERS[id]?.label ?? EXTRA_LABELS[id])) || id || "";

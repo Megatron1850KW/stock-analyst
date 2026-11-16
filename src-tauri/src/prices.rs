@@ -58,6 +58,18 @@ async fn tiingo_prices(symbol: &str, start_date: Option<&str>) -> Result<String,
     get_text(TIINGO_HOST, req).await
 }
 
+/// Último precio de la sesión en curso (IEX vía Tiingo). El endpoint diario
+/// solo trae el cierre del día anterior hasta que cierra Nueva York; con este
+/// la cartera se valora al precio de hoy, como el bróker.
+async fn tiingo_iex(symbol: &str) -> Result<String, NetError> {
+    let key = price_key()?;
+    TIINGO_THROTTLE.wait().await;
+    let req = client()
+        .get(format!("https://api.tiingo.com/iex/{}", symbol.to_lowercase()))
+        .header("Authorization", format!("Token {key}"));
+    get_text(TIINGO_HOST, req).await
+}
+
 fn av_key() -> Result<String, NetError> {
     secrets::get("alphavantage_api_key")?
         .ok_or_else(|| NetError::Invalid("Falta la clave de Alpha Vantage (precios europeos). Añádela en Ajustes.".into()))
@@ -126,6 +138,17 @@ pub async fn price_quote(provider: String, symbol: String) -> Result<String, Net
         "fmp" => fmp_get("quote", &[("symbol", symbol.as_str())]).await,
         "tiingo" => tiingo_prices(&symbol, None).await,
         "alphavantage" => av_get("GLOBAL_QUOTE", &[("symbol", symbol.as_str())]).await,
+        other => Err(unsupported(other)),
+    }
+}
+
+/// Precio durante la sesión (solo Tiingo). Se pide junto a la cotización
+/// diaria, una vez al abrir la app o con «Actualizar precios».
+#[tauri::command]
+pub async fn price_live(provider: String, symbol: String) -> Result<String, NetError> {
+    let symbol = validate_symbol(&symbol)?.to_uppercase();
+    match provider.as_str() {
+        "tiingo" => tiingo_iex(&symbol).await,
         other => Err(unsupported(other)),
     }
 }
