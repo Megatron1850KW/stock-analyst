@@ -33,6 +33,8 @@ export interface Holding {
   /** Rango de 52 semanas y año en curso. */
   stats: PriceStats;
   recommendation: Recommendation;
+  /** Crecimiento anual de los últimos años: ventas (acciones) o precio a 10 años (ETFs/ETCs). */
+  growthRate: number | null;
   /** De dónde sale el sector mostrado. */
   sectorSource: "user" | "sic" | "factsheet" | null;
 }
@@ -142,6 +144,7 @@ export async function loadPortfolio(db: Db, now = new Date()): Promise<Portfolio
       technical,
       stats,
       recommendation,
+      growthRate: g,
       sectorSource: row.sector ? ((row.sector_source as Holding["sectorSource"]) ?? "user") : sicSector(row) ? "sic" : null,
     });
   }

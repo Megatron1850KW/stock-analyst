@@ -115,6 +115,44 @@ test("cartera (datos ficticios): operaciones, vision board, ficha de ETF y porta
   await expect(page.getByRole("table", { name: "ETFs y ETCs que sigues" })).toContainText("MSCI World (ficticio)");
   await shot(page, "14-portada-etfs");
 
+  // «Qué compro hoy»: entre «ETFs y ETCs» y «Mi cartera»; compara y elige una con sus porqués
+  const tabs = await page.getByRole("tab").allTextContents();
+  expect(tabs.findIndex((t) => t.startsWith("Qué compro hoy"))).toBe(tabs.findIndex((t) => t.startsWith("Mi cartera")) - 1);
+  await page.getByRole("tab", { name: "Qué compro hoy" }).click();
+  const pick = async (slot: string, ticker: string) => {
+    const select = page.getByLabel(slot);
+    const label = (await select.locator("option").allTextContents()).find((t) => t.startsWith(`${ticker} ·`))!;
+    await select.selectOption({ label });
+  };
+  await pick("Posición 1", "FICT");
+  await pick("Posición 2", "FWRL");
+  await page.getByLabel("Cuánto quieres comprar").fill("1.000");
+  const verdict = page.getByRole("region", { name: "Recomendación" });
+  await expect(verdict).toContainText("Compra hoy");
+  await expect(verdict).toContainText(/acciones? por/);
+  await expect(verdict).toContainText(/Por qué (FICT|FWRL) y no las otras/);
+  const grid = page.getByRole("table", { name: /Comparativa de las posiciones elegidas/ });
+  await expect(grid).toContainText("¿Te equilibra la cartera?");
+  await expect(grid).toContainText("No aplica: un ETF no tiene estados financieros");
+  await expect(grid).toContainText("La elegida");
+  await shot(page, "31-que-compro-hoy");
+  await grid.scrollIntoViewIfNeeded();
+  await shot(page, "32-que-compro-hoy-comparativa");
+  // Segunda opinión de Claude: opcional, solo al pulsar; con los mismos datos no se paga dos veces
+  expect(ai.filter((x) => x === "next-buy")).toHaveLength(0);
+  const second = page.getByRole("region", { name: /Segunda opinión de Claude/ });
+  await second.getByRole("button", { name: "Pedir opinión a Claude" }).click();
+  await expect(second).toContainText("Claude compraría");
+  await expect(second).toContainText("Coincide con la app");
+  await expect(second.getByRole("article", { name: "Opinión sobre FWRL" })).toContainText("Lo que se espera que crezca");
+  await expect(second.getByRole("button", { name: "Ya la tienes" })).toBeDisabled();
+  expect(ai.filter((x) => x === "next-buy")).toHaveLength(1);
+  await second.scrollIntoViewIfNeeded();
+  await shot(page, "33-que-compro-hoy-claude");
+  await page.getByRole("radio", { name: "Acciones" }).click();
+  await page.getByLabel("Cuánto quieres comprar").fill("5");
+  await expect(verdict).toContainText("5 acciones por");
+
   // Ficha del ETF en la watchlist: precio frente a su media del año y encaje en la cartera
   await page.goto("/#/watchlist");
   await page.getByLabel("Ticker o ISIN").fill(FAKE_ETF_ISIN);

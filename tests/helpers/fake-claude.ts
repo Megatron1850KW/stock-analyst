@@ -82,3 +82,20 @@ export function fakeReportHtml(form: "10-K" | "10-Q"): string {
     <div>ITEM 7A. QUANTITATIVE AND QUALITATIVE DISCLOSURES</div><p>Interest rate risk.</p>
     <div>ITEM 8. FINANCIAL STATEMENTS</div></body></html>`;
 }
+
+/** Segunda opinión FICTICIA de «Qué compro hoy» (elige la primera de `tickers`). */
+export function fakeNextBuyOpinion(tickers: string[]) {
+  return {
+    eleccion: tickers[0]!,
+    coincide_con_app: true,
+    resumen: `Respuesta FICTICIA de prueba: compraría ${tickers[0]} porque está más barata y genera más caja que las demás.`,
+    posiciones: tickers.map((t) => ({
+      ticker: t,
+      a_favor: [`${t} genera caja (ficticio)`],
+      en_contra: [`${t} pesa ya bastante (ficticio)`],
+      crecimiento_esperado: "No hay previsiones guardadas: solo crecimiento pasado (ficticio).",
+    })),
+    reparto: "El reparto propuesto es sensato (ficticio).",
+    avisos: [],
+  };
+}
