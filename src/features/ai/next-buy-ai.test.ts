@@ -11,9 +11,11 @@ import { NEXT_BUY_PROMPT } from "./prompts";
 
 // DATOS FICTICIOS para tests: valores y respuestas inventadas.
 
+const sec = (name: string, portfolioEur: number) => ({ sector: name, sectorMix: [{ key: name, weight: 1, portfolioEur }] });
+
 const stock = (id: number, ticker: string, over: Partial<NextBuyCandidate> = {}): NextBuyCandidate => ({
   id, ticker, name: `${ticker} Ficticia`, kind: "stock", valueEur: 5_000, priceEur: 100, fractional: false,
-  sector: { name: "Tecnología", valueEur: 5_000 }, action: "Comprar más", alerts: [], technical: "Medio",
+  ...sec("Tecnología", 5_000), action: "Comprar más", alerts: [], technical: "Medio",
   valuation: { source: "history", score: 50, deviation: 0, verdict: "Justa" },
   cash: { fcfYield: 0.04, operatingMargin: 0.15, netMargin: 0.1 },
   growth: { multiYear: 0.05, recent: 0.05, recentPeriod: "último trimestre" }, quality: 60, ...over,
@@ -26,7 +28,7 @@ function input(): NextBuyAiInput {
 
 describe("Qué compro hoy: segunda opinión de Claude (respuestas FICTICIAS)", () => {
   it("lee el prompt versionado", () => {
-    expect(NEXT_BUY_PROMPT.key).toBe("next-buy@1");
+    expect(NEXT_BUY_PROMPT.key).toBe("next-buy@2");
     expect(NEXT_BUY_PROMPT.text).toContain("No inventes datos");
   });
 

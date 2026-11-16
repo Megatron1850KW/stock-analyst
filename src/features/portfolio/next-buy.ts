@@ -1,6 +1,9 @@
 import type { NextBuyCandidate } from "@/domain/portfolio/next-buy";
 import type { Holding, PortfolioView } from "./load";
 
+/** Partes de una ficha que no son un sector. */
+const NO_SECTOR = new Set(["Otros", "Sin dato", "ETF sin ficha"]);
+
 /**
  * De una posición de «Mi cartera» a candidata de «Qué compro hoy». Solo usa lo
  * ya calculado al cargar la cartera: no hace peticiones ni llama a la IA.
@@ -8,8 +11,11 @@ import type { Holding, PortfolioView } from "./load";
 export function nextBuyCandidate(h: Holding, view: PortfolioView): NextBuyCandidate {
   const p = h.position;
   const a = h.analysis;
-  const sector = h.row.kind === "stock" ? p.security.sector : null;
-  const sectorValue = sector ? view.portfolio.bySector.find((e) => e.key === sector)?.valueEur ?? 0 : 0;
+  const portfolioEur = (key: string) => view.portfolio.bySector.find((e) => e.key === key)?.valueEur ?? 0;
+  // Mismo criterio que la exposición por sectores de la cartera: un fondo con ficha, según su reparto
+  const inside = p.security.breakdown?.sectors?.filter((x) => x.weight > 0 && !NO_SECTOR.has(x.key)) ?? [];
+  const own = p.security.sector ?? (p.security.commodity || h.row.kind === "etc" ? "Materias primas" : null);
+  const sectorMix = inside.length ? inside.map((x) => ({ key: x.key, weight: x.weight, portfolioEur: portfolioEur(x.key) })) : own ? [{ key: own, weight: 1, portfolioEur: portfolioEur(own) }] : [];
   // Fracciones: si alguna compra suya no fue de acciones enteras, su bróker las permite (N26 sí, ING no)
   const fractional = view.transactions.some((t) => t.security_id === h.row.id && t.type === "buy" && Math.abs(t.quantity - Math.round(t.quantity)) > 1e-6);
   return {
@@ -20,7 +26,8 @@ export function nextBuyCandidate(h: Holding, view: PortfolioView): NextBuyCandid
     valueEur: p.valueEur,
     priceEur: p.valueEur !== null && p.shares > 0 ? p.valueEur / p.shares : null,
     fractional,
-    sector: sector ? { name: sector, valueEur: sectorValue } : null,
+    sector: inside.length ? null : own,
+    sectorMix,
     action: h.recommendation.action,
     alerts: h.recommendation.alerts,
     technical: h.technical.level,
