@@ -82,17 +82,21 @@ export async function refreshPrices(
       symbol = await symbolFor(db, provider, target, now);
       if (!symbol) return { status: "skip", message: `${provider.label} no tiene la cotización de ${target.ticker} (${target.name}).` };
       const q = await provider.quote(symbol);
-      await saveQuote(db, {
-        securityId: target.id,
-        date: q.date,
-        open: q.open,
-        high: q.high,
-        low: q.low,
-        close: q.price,
-        volume: q.volume,
-        currency: target.currency,
-        source: provider.id,
-      });
+      // Primero el cierre anterior y después el de hoy, que es el que se muestra
+      for (const day of [q.previousClose, q]) {
+        if (!day) continue;
+        await saveQuote(db, {
+          securityId: target.id,
+          date: day.date,
+          open: day.open,
+          high: day.high,
+          low: day.low,
+          close: day.price,
+          volume: day.volume,
+          currency: target.currency,
+          source: day.source ?? provider.id,
+        });
+      }
       result.updated++;
     } catch (e) {
       // Sin clave o sin consultas para hoy no tiene sentido seguir con ese proveedor

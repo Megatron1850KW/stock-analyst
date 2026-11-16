@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { parseFmpHistory, parseFmpQuote, parseFmpSplits, parseTiingoHistory, parseTiingoQuote } from "./provider";
+import { parseFmpHistory, parseFmpQuote, parseFmpSplits, parseTiingoHistory, parseTiingoLive, parseTiingoQuote, tiingoQuote } from "./provider";
 
 describe("cotización de FMP (respuestas ficticias)", () => {
   it("lee precio, rango del día y fecha en hora de Nueva York", () => {
@@ -57,5 +57,34 @@ describe("Tiingo (respuestas ficticias)", () => {
     expect(parseTiingoQuote(JSON.stringify([row("2026-10-22", 10), row("2026-10-23", 11)]), "FICT")).toMatchObject({ price: 11, date: "2026-10-23" });
     expect(() => parseTiingoQuote(JSON.stringify({ detail: "Invalid token." }), "FICT")).toThrow(/Tiingo rechazó la consulta: Invalid token/);
     expect(() => parseTiingoQuote("[]", "FICT")).toThrow(/no tiene cotización/);
+  });
+
+  // FICTICIO: precios inventados para probar la elección entre cierre y sesión
+  const daily = JSON.stringify([row("2026-11-13", 778.31)]);
+  const iex = (timestamp: string, tngoLast: number) => JSON.stringify([{ ticker: "FICT", timestamp, tngoLast, last: tngoLast, open: 750, high: 760, low: 720, prevClose: 778.31 }]);
+
+  it("lee el precio en sesión de IEX con la fecha de Nueva York", () => {
+    // 16-11 a las 00:30 en Madrid sigue siendo el 15-11 en Nueva York
+    expect(parseTiingoLive(iex("2026-11-15T18:30:00-05:00", 700), "FICT")).toMatchObject({ price: 700, date: "2026-11-15", volume: null, source: "tiingo-iex" });
+    expect(parseTiingoLive(iex("2026-11-16T16:54:52+00:00", 732.88), "FICT")).toMatchObject({ date: "2026-11-16" });
+    expect(parseTiingoLive("[]", "FICT")).toBeNull();
+    expect(parseTiingoLive(JSON.stringify({ detail: "Not permitted" }), "FICT")).toBeNull();
+  });
+
+  it("usa el precio de hoy si la sesión ya empezó y guarda también el cierre anterior", async () => {
+    const q = await tiingoQuote("FICT", async (c) => (c === "price_quote" ? daily : iex("2026-11-16T11:54:52-05:00", 732.88)));
+    expect(q).toMatchObject({ price: 732.88, date: "2026-11-16", source: "tiingo-iex" });
+    expect(q.previousClose).toMatchObject({ price: 778.31, date: "2026-11-13" });
+  });
+
+  it("se queda con el cierre si IEX no trae nada nuevo o falla", async () => {
+    const same = await tiingoQuote("FICT", async (c) => (c === "price_quote" ? daily : iex("2026-11-13T16:00:00-05:00", 778.0)));
+    expect(same).toMatchObject({ price: 778.31, date: "2026-11-13" });
+    expect(same.previousClose).toBeUndefined();
+    const failed = await tiingoQuote("FICT", async (c) => {
+      if (c === "price_quote") return daily;
+      throw new Error("Comando no simulado");
+    });
+    expect(failed).toMatchObject({ price: 778.31, date: "2026-11-13" });
   });
 });
