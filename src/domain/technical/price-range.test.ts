@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { priceStats, type WeeklyBar } from "./price-range";
+import { closeMonthsAgo, monthsBefore, priceStats, type WeeklyBar } from "./price-range";
 
 // DATOS FICTICIOS para tests.
 function weeks(n: number, end: string, f: (i: number) => number): WeeklyBar[] {
@@ -38,6 +38,33 @@ describe("rango de 52 semanas y año en curso", () => {
   it("sin historia suficiente o sin precio, sin dato", () => {
     expect(priceStats(bars.slice(-20), { value: 150, date: "2026-10-24" }).range52).toBeNull();
     expect(priceStats(bars.slice(-20), { value: 150, date: "2026-10-24" }).ytd).toBeNull();
-    expect(priceStats(bars, null)).toEqual({ range52: null, ytd: null, ytdBase: null });
+    expect(priceStats(bars, null)).toEqual({ range52: null, ytd: null, ytdBase: null, sixMonths: null, sixMonthsBase: null });
+  });
+});
+
+describe("precio de hace 6 meses (mapa de calor)", () => {
+  // DATOS FICTICIOS: velas semanales que empiezan en viernes; cierre = 100 + nº de semana
+  const bars = weeks(80, "2026-10-23", (i) => 100 + i);
+
+  it("resta meses de calendario sin pasarse de fin de mes", () => {
+    expect(monthsBefore("2026-11-20", 6)).toBe("2026-05-20");
+    expect(monthsBefore("2026-08-31", 6)).toBe("2026-02-28");
+    expect(monthsBefore("2026-03-15", 6)).toBe("2025-09-15");
+  });
+
+  it("toma el cierre de la semana que contenía esa fecha", () => {
+    // 24-10-2026 − 6 meses = 24-04-2026 → la vela que empieza el viernes 24-04
+    const base = closeMonthsAgo(bars, "2026-10-24", 6)!;
+    expect(base.date).toBe("2026-04-24");
+    const s = priceStats(bars, { value: 150, date: "2026-10-24" });
+    expect(s.sixMonthsBase).toEqual(base);
+    expect(s.sixMonths).toBeCloseTo(150 / base.close - 1, 10);
+  });
+
+  it("sin velas que cubran esa fecha no da cifra", () => {
+    expect(priceStats(bars.slice(-20), { value: 150, date: "2026-10-24" }).sixMonths).toBeNull();
+    // Hueco de más de 10 días antes de la fecha buscada
+    const gap = bars.filter((b) => b.date < "2026-04-01" || b.date > "2026-05-15");
+    expect(closeMonthsAgo(gap, "2026-10-24", 6)).toBeNull();
   });
 });

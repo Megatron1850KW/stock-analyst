@@ -4,7 +4,7 @@ import type { RiskLevel } from "@/domain/technical/risk";
 import type { Action } from "./recommendation";
 
 /**
- * «El experto te dice cosas» (antes «Qué compro hoy»): compara hasta 3
+ * «Comparo tu cositas» (antes «Qué compro hoy»): compara hasta 3
  * posiciones de tu cartera con los mismos cinco criterios y dice cuál comprar y cuánto. Todo determinista, con los
  * datos que la app ya tiene guardados (sin IA):
  *
