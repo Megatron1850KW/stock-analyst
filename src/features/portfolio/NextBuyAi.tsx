@@ -15,7 +15,7 @@ import { appDb } from "@/platform/database";
 import type { PortfolioView } from "./load";
 
 /**
- * Segunda opinión de Claude en «El experto te dice cosas». Opcional: nunca se llama sola,
+ * Segunda opinión de Claude en «Comparo tu cositas». Opcional: nunca se llama sola,
  * solo al pulsar el botón, y con los mismos datos se reutiliza la respuesta
  * guardada (no se paga dos veces).
  */

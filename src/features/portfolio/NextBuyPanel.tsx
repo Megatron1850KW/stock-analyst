@@ -13,7 +13,7 @@ import { nextBuyCandidate } from "./next-buy";
 import { NextBuyAiSection } from "./NextBuyAi";
 
 /**
- * «El experto te dice cosas»: eliges hasta 3 posiciones de tu cartera y lo que quieres
+ * «Comparo tu cositas»: eliges hasta 3 posiciones de tu cartera y lo que quieres
  * gastar (en euros o en acciones); la app las compara frente a frente con los
  * cinco criterios y dice cuál comprar, cuánto y por qué. Cálculo propio, sin IA.
  */

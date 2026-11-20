@@ -115,10 +115,10 @@ test("cartera (datos ficticios): operaciones, vision board, ficha de ETF y porta
   await expect(page.getByRole("table", { name: "ETFs y ETCs que sigues" })).toContainText("MSCI World (ficticio)");
   await shot(page, "14-portada-etfs");
 
-  // «El experto te dice cosas»: a la derecha de «Mi cartera»; compara y elige una con sus porqués
+  // «Comparo tu cositas»: a la derecha de «Mi cartera»; compara y elige una con sus porqués
   const tabs = await page.getByRole("tab").allTextContents();
-  expect(tabs.findIndex((t) => t.startsWith("El experto te dice cosas"))).toBe(tabs.findIndex((t) => t.startsWith("Mi cartera")) + 1);
-  await page.getByRole("tab", { name: "El experto te dice cosas" }).click();
+  expect(tabs.findIndex((t) => t.startsWith("Comparo tu cositas"))).toBe(tabs.findIndex((t) => t.startsWith("Mi cartera")) + 1);
+  await page.getByRole("tab", { name: "Comparo tu cositas" }).click();
   const pick = async (slot: string, ticker: string) => {
     const select = page.getByLabel(slot);
     const label = (await select.locator("option").allTextContents()).find((t) => t.startsWith(`${ticker} ·`))!;
@@ -153,6 +153,24 @@ test("cartera (datos ficticios): operaciones, vision board, ficha de ETF y porta
   await page.getByRole("radio", { name: "Acciones" }).click();
   await page.getByLabel("Cuánto quieres comprar").fill("5");
   await expect(verdict).toContainText("5 acciones por");
+
+  // «Heat Map»: a la derecha de «Comparo tu cositas»; cartera (tamaño = valor) y watchlist, con la variación de 6 meses
+  const allTabs = await page.getByRole("tab").allTextContents();
+  expect(allTabs.findIndex((t) => t.startsWith("Heat Map"))).toBe(allTabs.findIndex((t) => t.startsWith("Comparo tu cositas")) + 1);
+  await page.getByRole("tab", { name: "Heat Map" }).click();
+  const heatPortfolio = page.getByRole("region", { name: "Mi cartera" });
+  const fictTile = heatPortfolio.getByRole("button", { name: /^FICT: / });
+  await expect(fictTile).toHaveAccessibleName(/^FICT: [+−-]?\d+,\d+\s% en 6 meses$/);
+  await expect(heatPortfolio.getByRole("button", { name: /^FWRL: / })).toBeVisible();
+  // FTX no tiene precio: no tiene valor que dibujar
+  await expect(heatPortfolio.getByRole("button", { name: /^FTX: / })).toHaveCount(0);
+  const big = await fictTile.boundingBox();
+  const small = await heatPortfolio.getByRole("button", { name: /^FWRL: / }).boundingBox();
+  expect(big!.width * big!.height).toBeGreaterThan(0);
+  expect(small!.width * small!.height).toBeGreaterThan(0);
+  // Sin acciones en la watchlist: su mapa lo explica
+  await expect(page.getByRole("region", { name: "Lista de seguimiento" })).toContainText("Añade acciones a tu watchlist");
+  await shot(page, "35-heat-map");
 
   // Ficha del ETF en la watchlist: precio frente a su media del año y encaje en la cartera
   await page.goto("/#/watchlist");

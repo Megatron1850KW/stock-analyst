@@ -171,11 +171,14 @@ export interface WatchlistRow {
   price_source: string | null;
   price_fetched_at: string | null;
   updated_at: string;
+  /** Sector puesto a mano o de la ficha; si falta, se deduce del código SIC de la SEC. */
+  sector: string | null;
+  sic: string | null;
 }
 
 export function listWatchlist(db: Db): Promise<WatchlistRow[]> {
   return db.select<WatchlistRow>(
-    `SELECT s.id, s.ticker, s.name, s.exchange, s.currency, s.market, s.kind, s.isin, s.filer_type, s.updated_at,
+    `SELECT s.id, s.ticker, s.name, s.exchange, s.currency, s.market, s.kind, s.isin, s.filer_type, s.updated_at, s.sector, s.sic,
        (SELECT COUNT(*) FROM filings f WHERE f.security_id = s.id AND f.role = 'core' AND f.period_type = 'annual') AS annual_count,
        (SELECT COUNT(*) FROM filings f WHERE f.security_id = s.id AND f.role = 'core' AND f.period_type = 'interim') AS interim_count,
        (SELECT COUNT(DISTINCT g.concept) FROM concept_gaps g

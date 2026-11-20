@@ -352,6 +352,12 @@ test("añade una lista pegada de golpe (ficticia): acción de EE. UU., ETF por I
   await page.goto("/#/");
   await page.getByRole("tab", { name: /ETFs y ETCs/ }).click();
   await expect(page.getByRole("table", { name: "ETFs y ETCs que sigues" }).getByRole("row", { name: /FWRL/ })).toContainText("En tu watchlist");
+
+  // «Heat Map»: solo las acciones de la watchlist, con su variación de 6 meses (o «sin dato»)
+  await page.getByRole("tab", { name: "Heat Map" }).click();
+  const heat = page.getByRole("region", { name: "Lista de seguimiento" });
+  await expect(heat.getByRole("button", { name: /^FICT: (sin dato|[+−-]?\d+,\d+\s% en 6 meses)$/ })).toBeVisible();
+  await expect(heat.getByRole("button", { name: /^FWRL: / })).toHaveCount(0);
 });
 
 test("modo manual: lee la ficha de un ETF (ficticio) con claude.ai pegando la respuesta", async ({ page }) => {

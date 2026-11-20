@@ -23,7 +23,8 @@ import { signedPercent } from "@/features/watchlist/ficha/format";
 import { formatCurrency, formatNumber, formatPercent, SIN_DATO } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { fundLineOf, FundsTable, type FundLine } from "@/features/portfolio/FundsTable";
-import { useWatchlistFunds } from "@/features/watchlist/queries";
+import { useWatchlist, useWatchlistFunds } from "@/features/watchlist/queries";
+import { HeatMapPanel } from "@/features/heatmap/HeatMapPanel";
 import { PortfolioSummary, VisionBoard } from "@/features/portfolio/PortfolioPage";
 import { usePortfolio } from "@/features/portfolio/queries";
 import { NextBuyPanel } from "@/features/portfolio/NextBuyPanel";
@@ -277,14 +278,15 @@ function HighlightCard({ h }: { h: Highlight }) {
 
 /* ---------- Página ---------- */
 
-type Tab = "watchlist" | "portfolio" | "etf" | "buy";
+type Tab = "watchlist" | "portfolio" | "etf" | "buy" | "heatmap";
 
 function Tabs({ tab, onChange, counts }: { tab: Tab; onChange: (t: Tab) => void; counts: { watchlist: number; funds: number; portfolio: number } }) {
   const items: { id: Tab; label: ReactNode }[] = [
     { id: "watchlist", label: <>Acciones <span className="text-muted tabular">{counts.watchlist}</span></> },
     { id: "etf", label: <>ETFs y ETCs <span className="text-muted tabular">{counts.funds}</span></> },
     { id: "portfolio", label: <>Mi cartera <span className="text-muted tabular">{counts.portfolio}</span></> },
-    { id: "buy", label: <>El experto te dice cosas</> },
+    { id: "buy", label: <>Comparo tu cositas</> },
+    { id: "heatmap", label: <>Heat Map</> },
   ];
   return (
     <div role="tablist" aria-label="Qué comparar" className="inline-flex rounded-xl border border-border bg-surface p-1">
@@ -361,6 +363,7 @@ export function ComparisonPage() {
   const { data: rows, isLoading } = useComparison();
   const portfolio = usePortfolio();
   const watchFunds = useWatchlistFunds();
+  const watchlist = useWatchlist();
   const navigate = useNavigate();
   const heldFunds = portfolio.data?.holdings.filter((h) => h.row.kind !== "stock").map(fundLineOf) ?? [];
   const funds: FundLine[] = [...heldFunds, ...(watchFunds.data ?? []).filter((f) => !heldFunds.some((h) => h.id === f.id))];
@@ -456,12 +459,20 @@ export function ComparisonPage() {
         ) : (
           <EmptyState
             icon={ShoppingCart}
-            title="El experto te dice cosas"
+            title="Comparo tu cositas"
             description="Cuando registres tus operaciones podrás elegir hasta tres posiciones de tu cartera y la app te dirá cuál comprar hoy, cuánto y por qué."
           >
             <Button asChild><Link to="/portfolio">Ir a Mi Portfolio</Link></Button>
           </EmptyState>
         )
+      )}
+      {tab === "heatmap" && (
+        <>
+          <HeatMapPanel portfolio={portfolio.data ?? null} watchlist={watchlist.data ?? []} />
+          <p className="mt-3 text-[11.5px] text-muted">
+            Variación de precio en la divisa en que cotiza cada valor (sin el efecto del cambio a euros), con la última cotización y el cierre de la semana de hace 6 meses guardados en tu Mac. Pasa el ratón por un cuadro para ver las cifras y pulsa para abrir su ficha. {DISCLAIMER}
+          </p>
+        </>
       )}
       {tab === "portfolio" && (
         portfolio.data && portfolio.data.holdings.length > 0 ? (
