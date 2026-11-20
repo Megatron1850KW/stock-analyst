@@ -3,7 +3,8 @@ import { useNavigate } from "react-router";
 import { Tooltip } from "@/components/ui/tooltip";
 import { sectorFromSic } from "@/domain/portfolio/sector";
 import {
-  heatIntensity,
+  heatBand,
+  type HeatBand,
   squarifyGroups,
   type Group,
   type PlacedGroup,
@@ -114,33 +115,43 @@ function groupBy(
 
 /* ---------- Colores ---------- */
 
-// Fijos en claro y oscuro, como los mapas de bolsa; texto blanco con contraste AA
-const NEUTRAL = "#5e5a54";
-const UP = "#2c7a3a";
-const DOWN = "#a63a27";
+// Fijos en claro y oscuro, como los mapas de bolsa: verde y rojo semáforo para
+// los movimientos fuertes, tonos oscuros para los moderados y gris casi negro para lo neutro
+export const BAND_COLORS: Record<HeatBand, string> = {
+  strongUp: "#1f9d45",
+  up: "#2a5e34",
+  flat: "#3a3835",
+  down: "#7c2a21",
+  strongDown: "#d62a1f",
+};
+const NO_DATA = "#77736c";
 
 export function tileColor(change: number | null): string {
-  const t = heatIntensity(change);
-  if (t === null) return "#8a867e";
-  const pct = Math.round(Math.abs(t) * 100);
-  return `color-mix(in oklab, ${t >= 0 ? UP : DOWN} ${pct}%, ${NEUTRAL})`;
+  const band = heatBand(change);
+  return band ? BAND_COLORS[band] : NO_DATA;
 }
 
-const LEGEND = [-0.3, -0.2, -0.1, 0, 0.1, 0.2, 0.3];
+const LEGEND: { band: HeatBand; label: string }[] = [
+  { band: "strongDown", label: "< −20 %" },
+  { band: "down", label: "−20 a −5 %" },
+  { band: "flat", label: "−5 a +5 %" },
+  { band: "up", label: "+5 a +20 %" },
+  { band: "strongUp", label: "> +20 %" },
+];
 
 function Legend() {
   return (
     <div
-      className="flex items-center gap-1"
-      aria-label="Escala de colores: de −30 % o menos (rojo) a +30 % o más (verde)"
+      className="flex flex-wrap items-center gap-1"
+      aria-label="Colores: rojo intenso, cae más de un 20 %; rojo oscuro, cae entre un 5 y un 20 %; gris oscuro, se mueve menos de un 5 %; verde oscuro, sube entre un 5 y un 20 %; verde intenso, sube más de un 20 %"
     >
-      {LEGEND.map((v) => (
+      {LEGEND.map((l) => (
         <span
-          key={v}
+          key={l.band}
           className="rounded px-2 py-0.5 text-[11px] font-medium text-white tabular"
-          style={{ background: tileColor(v) }}
+          style={{ background: BAND_COLORS[l.band] }}
         >
-          {v === 0 ? "0 %" : `${v > 0 ? "+" : "−"}${Math.abs(v * 100)} %`}
+          {l.label}
         </span>
       ))}
     </div>

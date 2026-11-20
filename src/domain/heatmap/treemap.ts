@@ -93,10 +93,20 @@ export function squarifyGroups<T>(groups: Group<T>[], bounds: Rect, { header = 0
 }
 
 /**
- * Escala de color de la variación: −1 (rojo intenso) … 0 (neutro) … +1 (verde
- * intenso), saturando en ±`limit` (por defecto ±30 % en 6 meses).
+ * Tramos de color que pidió Pablo para la variación de 6 meses:
+ * subida fuerte (más de +20 %), subida moderada (+5 % a +20 %), neutra
+ * (entre −5 % y +5 %), caída moderada (−5 % a −20 %) y caída fuerte (más de −20 %).
  */
-export function heatIntensity(change: number | null, limit = 0.3): number | null {
+export type HeatBand = "strongUp" | "up" | "flat" | "down" | "strongDown";
+
+export const HEAT_STRONG = 0.2;
+export const HEAT_FLAT = 0.05;
+
+export function heatBand(change: number | null): HeatBand | null {
   if (change === null || !Number.isFinite(change)) return null;
-  return Math.max(-1, Math.min(1, change / limit));
+  if (change > HEAT_STRONG) return "strongUp";
+  if (change >= HEAT_FLAT) return "up";
+  if (change > -HEAT_FLAT) return "flat";
+  if (change >= -HEAT_STRONG) return "down";
+  return "strongDown";
 }

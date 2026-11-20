@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { heatIntensity, squarify, squarifyGroups } from "./treemap";
+import { heatBand, squarify, squarifyGroups } from "./treemap";
 
 // DATOS FICTICIOS para tests.
 const area = (r: { w: number; h: number }) => r.w * r.h;
@@ -56,9 +56,16 @@ describe("treemap", () => {
     }
   });
 
-  it("satura el color en ±30 % y sin dato no colorea", () => {
-    expect(heatIntensity(0.15)).toBeCloseTo(0.5);
-    expect(heatIntensity(-0.6)).toBe(-1);
-    expect(heatIntensity(null)).toBeNull();
+  it("clasifica la variación en los 5 tramos de color", () => {
+    expect(heatBand(0.35)).toBe("strongUp");
+    expect(heatBand(0.2)).toBe("up");
+    expect(heatBand(0.05)).toBe("up");
+    expect(heatBand(0.049)).toBe("flat");
+    expect(heatBand(0)).toBe("flat");
+    expect(heatBand(-0.049)).toBe("flat");
+    expect(heatBand(-0.05)).toBe("down");
+    expect(heatBand(-0.2)).toBe("down");
+    expect(heatBand(-0.21)).toBe("strongDown");
+    expect(heatBand(null)).toBeNull();
   });
 });
